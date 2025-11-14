@@ -1,0 +1,213 @@
+{
+  "info": {
+    "name": "D365 Dashboard API",
+    "description": "Microsoft Dynamics 365 CRM Dashboard API Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health & Testing",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check if the application is running"
+          }
+        },
+        {
+          "name": "Test D365 Connection",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health/d365-connection",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health", "d365-connection"]
+            },
+            "description": "Test connection to Dynamics 365"
+          }
+        },
+        {
+          "name": "Get Configuration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health/config",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health", "config"]
+            },
+            "description": "Get configuration information"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "Get All Accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/accounts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "accounts"]
+            },
+            "description": "Get all accounts (default: 50)"
+          }
+        },
+        {
+          "name": "Get Accounts (Top 10)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/accounts?top=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "accounts"],
+              "query": [
+                {
+                  "key": "top",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get top 10 accounts"
+          }
+        },
+        {
+          "name": "Get Accounts (Selected Fields)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/accounts?select=name,emailaddress1,telephone1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "accounts"],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "name,emailaddress1,telephone1"
+                }
+              ]
+            },
+            "description": "Get accounts with specific fields"
+          }
+        },
+        {
+          "name": "Get Account by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/accounts/:accountId",
+              "host": ["{{base_url}}"],
+              "path": ["api", "accounts", ":accountId"],
+              "variable": [
+                {
+                  "key": "accountId",
+                  "value": "your-account-id-here"
+                }
+              ]
+            },
+            "description": "Get specific account by ID (GUID)"
+          }
+        },
+        {
+          "name": "Get Account Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/accounts/count",
+              "host": ["{{base_url}}"],
+              "path": ["api", "accounts", "count"]
+            },
+            "description": "Get total count of accounts"
+          }
+        },
+        {
+          "name": "Search Accounts by City",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/accounts/search?city=Seattle",
+              "host": ["{{base_url}}"],
+              "path": ["api", "accounts", "search"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "Seattle"
+                }
+              ]
+            },
+            "description": "Search accounts by city"
+          }
+        },
+        {
+          "name": "Search Accounts by Country",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/accounts/search?country=USA",
+              "host": ["{{base_url}}"],
+              "path": ["api", "accounts", "search"],
+              "query": [
+                {
+                  "key": "country",
+                  "value": "USA"
+                }
+              ]
+            },
+            "description": "Search accounts by country"
+          }
+        },
+        {
+          "name": "Search Accounts (Multiple Filters)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/accounts/search?city=Seattle&country=USA&top=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "accounts", "search"],
+              "query": [
+                {
+                  "key": "city",
+                  "value": "Seattle"
+                },
+                {
+                  "key": "country",
+                  "value": "USA"
+                },
+                {
+                  "key": "top",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Search accounts with multiple filters"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}
