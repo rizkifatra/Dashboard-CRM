@@ -7,6 +7,8 @@ A Spring Boot application that integrates with Microsoft Dynamics 365 CRM using 
 - ✅ Azure AD OAuth 2.0 Authentication
 - ✅ Dynamics 365 Web API Integration
 - ✅ Account Entity CRUD Operations
+- ✅ **Staff Performance Tracking & Rankings** 🆕
+- ✅ Email Response Analytics
 - ✅ RESTful API Endpoints
 - ✅ Health Check & Connection Testing
 - ✅ Error Handling & Logging
@@ -248,6 +250,65 @@ GET /api/accounts/search?country=USA
 - `country` (optional): Filter by country
 - `top` (optional): Maximum records (default: 50)
 
+### Staff Performance Endpoints 🆕
+
+#### Get Staff Rankings
+
+```bash
+GET /api/staff-performance/rankings
+GET /api/staff-performance/rankings?top=10&daysBack=30
+```
+
+**Parameters:**
+
+- `top` (optional): Maximum number of staff to return
+- `daysBack` (optional): Number of days to analyze (default: 30)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Successfully retrieved 10 staff rankings for the last 30 days",
+  "data": [
+    {
+      "staffId": "abc123-...",
+      "staffName": "John Doe",
+      "email": "john.doe@company.com",
+      "totalEmailsSent": 150,
+      "totalEmailsReceived": 120,
+      "responseRate": 125.0,
+      "rank": 1,
+      "periodStart": "2025-10-15T00:00:00",
+      "periodEnd": "2025-11-14T00:00:00"
+    }
+  ]
+}
+```
+
+#### Get Top Performers
+
+```bash
+GET /api/staff-performance/top-performers?limit=5
+```
+
+**Parameters:**
+
+- `limit` (optional): Number of top performers (default: 10)
+
+#### Get Staff Performance by ID
+
+```bash
+GET /api/staff-performance/{staffId}?daysBack=30
+```
+
+**Parameters:**
+
+- `staffId` (required): Staff member's system user ID
+- `daysBack` (optional): Number of days to analyze (default: 30)
+
+📖 **For complete staff performance API documentation, see [STAFF_PERFORMANCE_API.md](STAFF_PERFORMANCE_API.md)**
+
 ## Testing the API
 
 ### Using cURL
@@ -270,6 +331,25 @@ curl http://localhost:8080/api/accounts/count
 
 # Search accounts
 curl "http://localhost:8080/api/accounts/search?city=Seattle"
+
+# Get staff rankings
+curl "http://localhost:8080/api/staff-performance/rankings?top=10"
+
+# Get top performers
+curl http://localhost:8080/api/staff-performance/top-performers
+
+# Get staff performance by ID
+curl "http://localhost:8080/api/staff-performance/{staff-id}?daysBack=7"
+```
+
+### Using Test Scripts
+
+```bash
+# Test account endpoints
+./test-api.sh
+
+# Test staff performance endpoints
+./test-staff-performance.sh
 ```
 
 ### Using Postman
@@ -293,23 +373,32 @@ backend/
 │   │   │   │   └── WebConfig.java
 │   │   │   ├── controller/
 │   │   │   │   ├── AccountController.java
-│   │   │   │   └── HealthController.java
+│   │   │   │   ├── HealthController.java
+│   │   │   │   └── StaffPerformanceController.java 🆕
 │   │   │   ├── model/
 │   │   │   │   ├── Account.java
 │   │   │   │   ├── ApiResponse.java
-│   │   │   │   └── D365Response.java
+│   │   │   │   ├── D365Response.java
+│   │   │   │   └── StaffPerformance.java 🆕
 │   │   │   ├── service/
 │   │   │   │   ├── D365AccountService.java
-│   │   │   │   └── D365AuthService.java
+│   │   │   │   ├── D365AuthService.java
+│   │   │   │   └── D365StaffPerformanceService.java 🆕
 │   │   │   └── BackendApplication.java
 │   │   └── resources/
-│   │       └── application.properties
+│   │       ├── application.properties
+│   │       ├── application-dev.properties 🆕
+│   │       └── application-prod.properties 🆕
 │   └── test/
 ├── json/
 │   └── CRM.json (D365 metadata reference)
 ├── pom.xml
+├── CONFIGURATION.md 🆕
 ├── PROJECT_BRIEFING.md
-└── README.md
+├── README.md
+├── STAFF_PERFORMANCE_API.md 🆕
+├── test-api.sh
+└── test-staff-performance.sh 🆕
 ```
 
 ## Troubleshooting

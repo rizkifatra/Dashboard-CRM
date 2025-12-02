@@ -70,6 +70,16 @@ public class Account {
     @JsonProperty("statuscode")
     private Integer statusCode;
 
+    // Owner/Staff information
+    @JsonProperty("_ownerid_value")
+    private String ownerId;
+
+    @JsonProperty("_createdby_value")
+    private String createdById;
+
+    @JsonProperty("_modifiedby_value")
+    private String modifiedById;
+
     // OData metadata
     @JsonProperty("@odata.etag")
     private String etag;

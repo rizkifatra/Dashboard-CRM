@@ -26,20 +26,30 @@ public class AccountController {
     }
 
     /**
-     * Get all accounts
+     * Get all accounts with pagination
      * 
-     * @param top    Maximum number of records to return (default: 50)
+     * @param top    Maximum number of records to return (default: 50, max: 1000)
+     * @param skip   Number of records to skip for pagination (default: 0)
      * @param select Comma-separated list of fields to return
      * @return List of accounts
      */
     @GetMapping
     public ApiResponse<List<Account>> getAllAccounts(
             @RequestParam(required = false, defaultValue = "50") Integer top,
+            @RequestParam(required = false, defaultValue = "0") Integer skip,
             @RequestParam(required = false) String select) {
 
-        log.info("GET /api/accounts - Fetching accounts. Top: {}, Select: {}", top, select);
+        log.info("GET /api/accounts - Top: {}, Skip: {}, Select: {}", top, skip, select);
 
         try {
+            // Validate input
+            if (top != null && top > 1000) {
+                return ApiResponse.error("Top parameter cannot exceed 1000");
+            }
+            if (skip != null && skip < 0) {
+                return ApiResponse.error("Skip parameter cannot be negative");
+            }
+
             List<Account> accounts = accountService.getAllAccounts(top, select);
 
             String message = String.format("Successfully retrieved %d accounts", accounts.size());
@@ -54,7 +64,7 @@ public class AccountController {
     /**
      * Get account by ID
      * 
-     * @param id Account ID (GUID)
+     * @param id Account ID (GUID format required)
      * @return Account details
      */
     @GetMapping("/{id}")
@@ -62,6 +72,14 @@ public class AccountController {
         log.info("GET /api/accounts/{} - Fetching account by ID", id);
 
         try {
+            // Validate GUID format (basic check)
+            if (id == null || id.isBlank()) {
+                return ApiResponse.error("Account ID is required");
+            }
+            if (!id.matches("^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$")) {
+                return ApiResponse.error("Invalid account ID format. Expected GUID format.");
+            }
+
             Optional<Account> account = accountService.getAccountById(id);
 
             if (account.isPresent()) {
@@ -71,7 +89,7 @@ public class AccountController {
             }
 
         } catch (Exception e) {
-            log.error("Error fetching account by ID", e);
+            log.error("Error fetching account by ID: {}", id, e);
             return ApiResponse.error("Failed to fetch account", e.getMessage());
         }
     }
@@ -100,38 +118,40 @@ public class AccountController {
     }
 
     /**
-     * Get accounts with custom filtering
+     * Get accounts with custom filtering using OData
      * Example: /api/accounts/search?city=Seattle&top=10
+     * Example: /api/accounts/search?name=Contoso&country=Malaysia
      * 
+     * @param name    Filter by account name (contains)
      * @param city    Filter by city
      * @param country Filter by country
-     * @param top     Maximum records to return
+     * @param top     Maximum records to return (max 1000)
      * @return Filtered accounts
      */
     @GetMapping("/search")
     public ApiResponse<List<Account>> searchAccounts(
+            @RequestParam(required = false) String name,
             @RequestParam(required = false) String city,
             @RequestParam(required = false) String country,
             @RequestParam(required = false, defaultValue = "50") Integer top) {
 
-        log.info("GET /api/accounts/search - City: {}, Country: {}, Top: {}", city, country, top);
+        log.info("GET /api/accounts/search - Name: {}, City: {}, Country: {}, Top: {}", name, city, country, top);
 
         try {
-            // For now, get all and filter in memory (can be optimized with OData filters)
-            List<Account> accounts = accountService.getAllAccounts(top, null);
-
-            // Simple filtering
-            if (city != null && !city.isEmpty()) {
-                accounts = accounts.stream()
-                        .filter(a -> a.getCity() != null && a.getCity().equalsIgnoreCase(city))
-                        .toList();
+            // Validate input
+            if (top != null && top > 1000) {
+                return ApiResponse.error("Top parameter cannot exceed 1000");
             }
 
-            if (country != null && !country.isEmpty()) {
-                accounts = accounts.stream()
-                        .filter(a -> a.getCountry() != null && a.getCountry().equalsIgnoreCase(country))
-                        .toList();
+            // Validate at least one search parameter is provided
+            if ((name == null || name.isBlank()) &&
+                    (city == null || city.isBlank()) &&
+                    (country == null || country.isBlank())) {
+                return ApiResponse.error("At least one search parameter (name, city, or country) is required");
             }
+
+            // Build OData filter
+            List<Account> accounts = accountService.searchAccounts(name, city, country, top);
 
             String message = String.format("Found %d accounts matching criteria", accounts.size());
             return ApiResponse.success(message, accounts);

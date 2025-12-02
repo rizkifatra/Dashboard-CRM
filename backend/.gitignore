@@ -35,3 +35,6 @@ build/
 ### Local Configuration ###
 **/application-local.properties
 .env
+
+
+*.md

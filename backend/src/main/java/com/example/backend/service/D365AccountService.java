@@ -63,10 +63,11 @@ public class D365AccountService {
             if (select != null && !select.isEmpty()) {
                 queryParams.append("$select=").append(select).append("&");
             } else {
-                // Default fields to select
+                // Default fields to select including owner and creator fields
                 queryParams.append("$select=accountid,name,accountnumber,emailaddress1,telephone1,")
                         .append("websiteurl,address1_city,address1_country,revenue,")
-                        .append("numberofemployees,createdon,modifiedon&");
+                        .append("numberofemployees,createdon,modifiedon,")
+                        .append("_ownerid_value,_createdby_value,_modifiedby_value&");
             }
 
             // Add count
@@ -113,7 +114,10 @@ public class D365AccountService {
             String token = authService.getAccessToken();
 
             String response = webClient.get()
-                    .uri("/accounts(" + accountId + ")")
+                    .uri("/accounts(" + accountId + ")?$select=accountid,name,accountnumber,emailaddress1,telephone1," +
+                            "websiteurl,address1_city,address1_country,revenue,numberofemployees,createdon,modifiedon,"
+                            +
+                            "_ownerid_value,_createdby_value,_modifiedby_value")
                     .header("Authorization", "Bearer " + token)
                     .retrieve()
                     .bodyToMono(String.class)
@@ -152,13 +156,95 @@ public class D365AccountService {
                     .timeout(Duration.ofMillis(d365Config.getTimeout()))
                     .block();
 
-            int count = Integer.parseInt(response);
+            // Remove any quotes, whitespace and parse
+            String cleanResponse = response.trim().replace("\"", "");
+            int count = Integer.parseInt(cleanResponse);
             log.info("Total account count: {}", count);
             return count;
 
         } catch (Exception e) {
-            log.error("Error fetching account count", e);
+            log.error("Error fetching account count. Response was: {}", e);
             throw new RuntimeException("Failed to fetch account count: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Search accounts with OData filtering (efficient server-side filtering)
+     * 
+     * @param name    Account name to search (contains)
+     * @param city    City to filter
+     * @param country Country to filter
+     * @param top     Maximum records to return
+     * @return List of matching accounts
+     */
+    public List<Account> searchAccounts(String name, String city, String country, Integer top) {
+        try {
+            log.info("Searching accounts - Name: {}, City: {}, Country: {}, Top: {}", name, city, country, top);
+
+            String token = authService.getAccessToken();
+
+            // Build OData filter
+            StringBuilder filterBuilder = new StringBuilder();
+
+            if (name != null && !name.isBlank()) {
+                filterBuilder.append("contains(name,'").append(name.trim()).append("')");
+            }
+
+            if (city != null && !city.isBlank()) {
+                if (filterBuilder.length() > 0) {
+                    filterBuilder.append(" and ");
+                }
+                filterBuilder.append("address1_city eq '").append(city.trim()).append("'");
+            }
+
+            if (country != null && !country.isBlank()) {
+                if (filterBuilder.length() > 0) {
+                    filterBuilder.append(" and ");
+                }
+                filterBuilder.append("address1_country eq '").append(country.trim()).append("'");
+            }
+
+            // Build URI with OData query
+            StringBuilder uriBuilder = new StringBuilder("/accounts?");
+
+            if (filterBuilder.length() > 0) {
+                uriBuilder.append("$filter=").append(filterBuilder.toString()).append("&");
+            }
+
+            uriBuilder.append("$select=accountid,name,accountnumber,emailaddress1,telephone1,")
+                    .append("websiteurl,address1_city,address1_country,revenue,")
+                    .append("numberofemployees,createdon,modifiedon,")
+                    .append("_ownerid_value,_createdby_value,_modifiedby_value&");
+
+            if (top != null && top > 0) {
+                uriBuilder.append("$top=").append(top).append("&");
+            }
+
+            uriBuilder.append("$count=true");
+
+            String response = webClient.get()
+                    .uri(uriBuilder.toString())
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            D365Response<Account> d365Response = objectMapper.readValue(
+                    response,
+                    new TypeReference<D365Response<Account>>() {
+                    });
+
+            log.info("Search found {} accounts", d365Response.getValue().size());
+            return d365Response.getValue();
+
+        } catch (WebClientResponseException e) {
+            log.error("Error searching accounts. Status: {}, Response: {}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RuntimeException("Failed to search accounts: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error searching accounts", e);
+            throw new RuntimeException("Failed to search accounts: " + e.getMessage(), e);
         }
     }
 
