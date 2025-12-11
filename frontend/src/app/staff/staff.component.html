@@ -1,0 +1,85 @@
+<div class="page-container">
+    <div class="page-header">
+        <h2 class="page-title">Staff Management</h2>
+        <div class="page-stats">
+            <span class="stat-badge">Total: {{ totalCount }} staff</span>
+            <span class="stat-badge">Showing: {{ staffList.length }}</span>
+        </div>
+    </div>
+
+    <!-- Search and Filter Section -->
+    <div class="search-section">
+        <div class="search-bar">
+            <input type="text" [(ngModel)]="searchTerm" (keyup.enter)="searchStaff()"
+                placeholder="Search by name or email..." class="search-input" />
+            <button (click)="searchStaff()" class="search-button" [disabled]="loading">
+                🔍 Search
+            </button>
+            <button *ngIf="isSearching" (click)="clearSearch()" class="clear-button">
+                ✕ Clear
+            </button>
+        </div>
+        <div class="filter-controls">
+            <div class="filter-group">
+                <label>
+                    <input type="checkbox" [(ngModel)]="includeStats" (change)="onStatsToggle()" />
+                    Include Email Stats
+                </label>
+            </div>
+            <div class="filter-group">
+                <label>Date Range:</label>
+                <select [(ngModel)]="dateRange" (change)="onDateRangeChange()" class="filter-select">
+                    <option value="current-month">Current Month</option>
+                    <option value="last-7-days">Last 7 Days</option>
+                    <option value="last-30-days">Last 30 Days</option>
+                    <option value="last-90-days">Last 90 Days</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading staff...</p>
+    </div>
+
+    <div *ngIf="error" class="error-state">
+        <p>{{ error }}</p>
+        <button (click)="loadStaff()" class="retry-button">Retry</button>
+    </div>
+
+    <div *ngIf="!loading && !error" class="staff-grid">
+        <div *ngFor="let staff of staffList" class="staff-card">
+            <div class="staff-avatar">
+                {{ getInitials(staff.fullName) }}
+            </div>
+            <div class="staff-info">
+                <h3 class="staff-name">{{ staff.fullName }}</h3>
+                <p class="staff-title">{{ staff.title }}</p>
+                <p class="staff-email">{{ staff.email }}</p>
+            </div>
+            <div class="staff-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Total Emails</span>
+                    <span class="stat-value">{{ staff.totalEmailCount }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Incoming</span>
+                    <span class="stat-value incoming">{{ staff.incomingEmailCount }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Outgoing</span>
+                    <span class="stat-value outgoing">{{ staff.outgoingEmailCount }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Responded</span>
+                    <span class="stat-value">{{ staff.respondedEmailCount }}</span>
+                </div>
+                <div class="stat-item" *ngIf="staff.averageResponseTimeMinutes">
+                    <span class="stat-label">Avg Response Time</span>
+                    <span class="stat-value">{{ staff.averageResponseTimeMinutes }} min</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

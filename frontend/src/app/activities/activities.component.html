@@ -1,0 +1,81 @@
+<div class="page-container">
+    <div class="page-header">
+        <div class="header-content">
+            <h2 class="page-title">Activities</h2>
+            <p class="page-subtitle">Total: {{ activityCount }} activities</p>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section">
+        <div class="filter-group">
+            <label>Filter Type:</label>
+            <select [(ngModel)]="filterType" (change)="onFilterChange()" class="filter-select">
+                <option value="all">All Activities</option>
+                <option value="recent">Recent (Last 30 Days)</option>
+                <option value="emails">Email Activities Only</option>
+                <option value="staff">By Staff Member</option>
+                <option value="account">By Account</option>
+            </select>
+        </div>
+
+        <div class="filter-group" *ngIf="filterType === 'staff'">
+            <label>Staff Email:</label>
+            <input type="email" [(ngModel)]="staffEmail" (keyup.enter)="loadActivities()"
+                placeholder="Enter staff email" class="filter-input" />
+            <button (click)="loadActivities()" class="filter-button">Apply</button>
+        </div>
+
+        <div class="filter-group" *ngIf="filterType === 'account'">
+            <label>Account ID:</label>
+            <input type="text" [(ngModel)]="accountId" (keyup.enter)="loadActivities()" placeholder="Enter account ID"
+                class="filter-input" />
+            <button (click)="loadActivities()" class="filter-button">Apply</button>
+        </div>
+
+        <div class="filter-group">
+            <label>Show Top:</label>
+            <select [(ngModel)]="topLimit" (change)="loadActivities()" class="filter-select-small">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+    </div>
+
+    <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading activities...</p>
+    </div>
+
+    <div *ngIf="error" class="error-state">
+        <p>{{ error }}</p>
+        <button (click)="loadActivities()" class="retry-button">Retry</button>
+    </div>
+
+    <div *ngIf="!loading && !error" class="activities-container">
+        <div *ngFor="let activity of activities" class="activity-card">
+            <div class="activity-header">
+                <div class="activity-avatar">
+                    {{ getInitials(activity.staffName) }}
+                </div>
+                <div class="activity-meta">
+                    <h3 class="activity-staff">{{ activity.staffName }}</h3>
+                    <p class="activity-title">{{ activity.staffTitle }}</p>
+                    <span class="activity-time">{{ getRelativeTime(activity.createdOn) }}</span>
+                </div>
+                <span class="activity-badge" [class]="activity.direction">
+                    {{ activity.direction === 'outgoing' ? '📤 Sent' : '📥 Received' }}
+                </span>
+            </div>
+            <div class="activity-body">
+                <h4 class="activity-subject">{{ activity.subject }}</h4>
+                <p class="activity-description" *ngIf="activity.description">{{ activity.description }}</p>
+                <div class="activity-type">
+                    <span class="type-badge">{{ activity.activityType }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

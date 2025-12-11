@@ -1,0 +1,96 @@
+<div class="page-container">
+    <div class="page-header">
+        <h2 class="page-title">Accounts Management</h2>
+        <div class="page-stats">
+            <span class="stat-badge">Total: {{ totalCount }} accounts</span>
+            <span class="stat-badge">Showing: {{ accounts.length }}</span>
+        </div>
+    </div>
+
+    <!-- Search and Filter Section -->
+    <div class="search-section">
+        <div class="search-bar">
+            <input type="text" [(ngModel)]="searchTerm" (keyup.enter)="searchAccounts()"
+                placeholder="Search by name or account number..." class="search-input" />
+            <button (click)="searchAccounts()" class="search-button" [disabled]="loading">
+                🔍 Search
+            </button>
+            <button *ngIf="isSearching" (click)="clearSearch()" class="clear-button">
+                ✕ Clear
+            </button>
+        </div>
+        <div class="filter-group">
+            <label>Show Top:</label>
+            <select [(ngModel)]="topLimit" (change)="onTopLimitChange()" class="filter-select">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+    </div>
+
+    <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading accounts...</p>
+    </div>
+
+    <div *ngIf="error" class="error-state">
+        <p>{{ error }}</p>
+        <button (click)="loadAccounts()" class="retry-button">Retry</button>
+    </div>
+
+    <div *ngIf="!loading && !error" class="accounts-grid">
+        <div *ngFor="let account of accounts" class="account-card">
+            <div class="account-header">
+                <div class="account-avatar">
+                    {{ getInitials(account.name) }}
+                </div>
+                <div class="account-title-section">
+                    <h3 class="account-name">{{ account.name }}</h3>
+                    <p class="account-number" *ngIf="account.accountNumber">
+                        #{{ account.accountNumber }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="account-details">
+                <div class="detail-row" *ngIf="account.emailAddress">
+                    <span class="detail-icon">📧</span>
+                    <span class="detail-text">{{ account.emailAddress }}</span>
+                </div>
+                <div class="detail-row" *ngIf="account.telephone">
+                    <span class="detail-icon">📞</span>
+                    <span class="detail-text">{{ account.telephone }}</span>
+                </div>
+                <div class="detail-row" *ngIf="account.websiteUrl">
+                    <span class="detail-icon">🌐</span>
+                    <a [href]="account.websiteUrl" target="_blank" class="detail-link">
+                        {{ account.websiteUrl }}
+                    </a>
+                </div>
+                <div class="detail-row" *ngIf="account.city || account.country">
+                    <span class="detail-icon">📍</span>
+                    <span class="detail-text">
+                        {{ account.city }}{{ account.city && account.country ? ', ' : '' }}{{ account.country }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="account-stats">
+                <div class="stat-box" *ngIf="account.revenue">
+                    <span class="stat-label">Revenue</span>
+                    <span class="stat-value">{{ formatRevenue(account.revenue) }}</span>
+                </div>
+                <div class="stat-box" *ngIf="account.numberOfEmployees">
+                    <span class="stat-label">Employees</span>
+                    <span class="stat-value">{{ account.numberOfEmployees }}</span>
+                </div>
+            </div>
+
+            <div class="account-footer" *ngIf="account.createdOn">
+                <span class="footer-text">Created: {{ formatDate(account.createdOn) }}</span>
+            </div>
+        </div>
+    </div>
+</div>

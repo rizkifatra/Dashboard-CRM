@@ -1,0 +1,157 @@
+/**
+ * Common API Response interface used across all services
+ */
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  error?: string;
+}
+
+/**
+ * Account entity from Dynamics 365 CRM
+ */
+export interface Account {
+  accountId: string;
+  name: string;
+  accountNumber: string;
+  emailAddress: string;
+  telephone: string;
+  websiteUrl: string;
+  city: string;
+  state: string;
+  country: string;
+  revenue: number;
+  numberOfEmployees: number;
+  industryCode: number;
+  description: string;
+  createdOn: string;
+  modifiedOn: string;
+  ownerId: string;
+}
+
+/**
+ * Activity entity from Dynamics 365 CRM
+ */
+export interface Activity {
+  activityId: string;
+  subject: string;
+  description: string;
+  activityType: string;
+  direction: string;
+  createdOn: string;
+  modifiedOn: string;
+  staffName: string;
+  staffEmail: string;
+  staffTitle: string;
+}
+
+/**
+ * Staff (System User) entity from Dynamics 365 CRM
+ */
+export interface Staff {
+  systemUserId: string;
+  fullName: string;
+  email: string;
+  title: string;
+  totalEmailCount: number;
+  incomingEmailCount: number;
+  outgoingEmailCount: number;
+  respondedEmailCount: number;
+  averageResponseTimeMinutes: number;
+}
+
+/**
+ * Dashboard metrics summary
+ */
+export interface DashboardMetrics {
+  totalActivities: number;
+  activeOpportunities: number;
+  totalEmailsSent: number;
+  averageResponseRate: number;
+  totalStaff: number;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+}
+
+/**
+ * Top performer statistics
+ */
+export interface TopPerformer {
+  staffId: string;
+  fullname: string;
+  title: string;
+  email: string;
+  totalEmails: number;
+  incomingEmails: number;
+  outgoingEmails: number;
+  responseRate: number;
+  averageResponseTimeMinutes: number | null;
+  performanceScore: number;
+}
+
+/**
+ * Email performance statistics
+ */
+export interface EmailPerformance {
+  staffName: string;
+  incomingEmails: number;
+  outgoingEmails: number;
+  totalEmails: number;
+}
+
+/**
+ * Date range filter
+ */
+export interface DateRange {
+  from: string;
+  to: string;
+}
+
+/**
+ * Email statistics for a staff member
+ */
+export interface EmailStats {
+  staffEmail: string;
+  incomingEmails: number;
+  outgoingEmails: number;
+  totalEmails: number;
+}
+
+/**
+ * Health status response
+ */
+export interface HealthStatus {
+  status: string;
+  application: string;
+  timestamp: number;
+  configured: boolean;
+  warning?: string;
+}
+
+/**
+ * D365 connection status
+ */
+export interface D365ConnectionStatus {
+  baseUrl: string;
+  timestamp: number;
+  status: string;
+  authenticationStatus?: string;
+  connectionStatus?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * System configuration information
+ */
+export interface SystemConfig {
+  d365BaseUrl: string;
+  d365Scope: string;
+  azureTenantId: string;
+  azureClientIdConfigured: boolean;
+  azureClientSecretConfigured: boolean;
+  fullyConfigured: boolean;
+}

@@ -1,0 +1,291 @@
+<div class="dashboard-container">
+    <!-- Top Header -->
+    <div class="top-header">
+        <div class="header-left">
+            <h1 class="header-title">CRM DASHBOARD</h1>
+            <p class="header-subtitle">Real-time Performance Analytics</p>
+        </div>
+        <div class="header-right">
+            <div class="date-range-info">
+                <span class="date-label">📅 {{ getDateRangeLabel() }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Bar -->
+    <div class="control-bar">
+        <div class="control-group">
+            <label class="control-label">Date Range:</label>
+            <select [(ngModel)]="dateRange" (change)="onDateRangeChange()" class="control-select">
+                <option value="current-month">Current Month</option>
+                <option value="last-7-days">Last 7 Days</option>
+                <option value="last-30-days">Last 30 Days</option>
+                <option value="last-90-days">Last 90 Days</option>
+            </select>
+        </div>
+        <div class="control-actions">
+            <button (click)="refreshDashboard()" class="refresh-button" [disabled]="loading">
+                <span class="refresh-icon">↻</span>
+                Refresh
+            </button>
+            <span class="last-updated" *ngIf="lastUpdated">
+                Updated: {{ lastUpdated | date:'short' }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading dashboard data...</p>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error" class="error-state">
+        <p>{{ error }}</p>
+        <button (click)="loadDashboardData()" class="retry-button">Retry</button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div *ngIf="!loading && !error" class="dashboard-content">
+
+        <!-- Metric Cards Row -->
+        <div class="metrics-row">
+            <div class="metric-card purple">
+                <div class="metric-label">TOTAL EMAIL ACTIVITIES</div>
+                <div class="metric-content">
+                    <div class="metric-value">{{ metrics?.totalActivities || 0 }}</div>
+                    <div class="metric-circle">
+                        <svg viewBox="0 0 36 36" class="circular-chart">
+                            <path class="circle-bg"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="circle"
+                                [attr.stroke-dasharray]="getMetricPercentage(metrics?.totalActivities || 0, 2000) + ', 100'"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card orange">
+                <div class="metric-label">ACTIVE OPPORTUNITIES</div>
+                <div class="metric-content">
+                    <div class="metric-value">{{ metrics?.activeOpportunities || 0 }}</div>
+                    <div class="metric-circle">
+                        <svg viewBox="0 0 36 36" class="circular-chart">
+                            <path class="circle-bg"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="circle"
+                                [attr.stroke-dasharray]="getMetricPercentage(metrics?.activeOpportunities || 0, 150) + ', 100'"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card green">
+                <div class="metric-label">EMAILS SENT</div>
+                <div class="metric-content">
+                    <div class="metric-value">{{ metrics?.totalEmailsSent || 0 }}</div>
+                    <div class="metric-circle">
+                        <svg viewBox="0 0 36 36" class="circular-chart">
+                            <path class="circle-bg"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="circle"
+                                [attr.stroke-dasharray]="getMetricPercentage(metrics?.totalEmailsSent || 0, 10000) + ', 100'"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card red">
+                <div class="metric-label">AVG RESPONSE RATE</div>
+                <div class="metric-content">
+                    <div class="metric-value">{{ metrics?.averageResponseRate || 0 }}%</div>
+                    <div class="metric-circle">
+                        <svg viewBox="0 0 36 36" class="circular-chart">
+                            <path class="circle-bg"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="circle" [attr.stroke-dasharray]="(metrics?.averageResponseRate || 0) + ', 100'"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Stats Row -->
+        <div class="quick-stats-row">
+            <!-- Quick Actions -->
+            <div class="quick-actions-card">
+                <h3 class="section-title">Quick Actions</h3>
+                <div class="action-buttons">
+                    <button class="action-btn" routerLink="/activities">
+                        <span class="action-icon">📋</span>
+                        <div class="action-info">
+                            <div class="action-label">View All Activities</div>
+                            <div class="action-sublabel">Browse and filter</div>
+                        </div>
+                    </button>
+                    <button class="action-btn" routerLink="/accounts">
+                        <span class="action-icon">🏢</span>
+                        <div class="action-info">
+                            <div class="action-label">Manage Accounts</div>
+                            <div class="action-sublabel">Search accounts</div>
+                        </div>
+                    </button>
+                    <button class="action-btn" routerLink="/staff">
+                        <span class="action-icon">👥</span>
+                        <div class="action-info">
+                            <div class="action-label">Staff Directory</div>
+                            <div class="action-sublabel">View team members</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Activity Breakdown -->
+            <div class="stats-breakdown-card">
+                <h3 class="section-title">Activity Breakdown</h3>
+                <div class="breakdown-list">
+                    <div class="breakdown-item">
+                        <div class="breakdown-label">
+                            <span class="breakdown-icon" style="background: #8B5CF6;">📧</span>
+                            <span>Email Activities</span>
+                        </div>
+                        <div class="breakdown-value">{{ formatNumber(emailActivityCount) }}</div>
+                    </div>
+                    <div class="breakdown-item">
+                        <div class="breakdown-label">
+                            <span class="breakdown-icon" style="background: #10B981;">👥</span>
+                            <span>Active Staff</span>
+                        </div>
+                        <div class="breakdown-value">{{ metrics?.totalStaff || 0 }}</div>
+                    </div>
+                    <div class="breakdown-item">
+                        <div class="breakdown-label">
+                            <span class="breakdown-icon" style="background: #F59E0B;">📈</span>
+                            <span>Avg Emails/Staff</span>
+                        </div>
+                        <div class="breakdown-value">{{ getAverageEmailsPerStaff() }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="main-grid">
+
+            <!-- Email Performance Chart -->
+            <div class="chart-section">
+                <div class="section-header">
+                    <div>
+                        <h3 class="section-title">Email Performance by Staff</h3>
+                        <p class="section-subtitle">Incoming vs Outgoing emails comparison</p>
+                    </div>
+                    <div class="chart-legend">
+                        <div class="legend-item">
+                            <span class="legend-color incoming"></span>
+                            <span class="legend-label">Incoming</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color outgoing"></span>
+                            <span class="legend-label">Outgoing</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div *ngIf="emailPerformance.length === 0" class="empty-state">
+                        <p>No email performance data available for this period</p>
+                    </div>
+                    <div *ngIf="emailPerformance.length > 0" class="bar-chart">
+                        <div *ngFor="let staff of emailPerformance.slice(0, 12)" class="bar-group">
+                            <div class="bars">
+                                <div class="bar incoming"
+                                    [style.height.%]="getMetricPercentage(staff.incomingEmails, getMaxEmailCount())"
+                                    [title]="'Incoming: ' + staff.incomingEmails">
+                                </div>
+                                <div class="bar outgoing"
+                                    [style.height.%]="getMetricPercentage(staff.outgoingEmails, getMaxEmailCount())"
+                                    [title]="'Outgoing: ' + staff.outgoingEmails">
+                                </div>
+                            </div>
+                            <div class="bar-label" [title]="staff.staffName">
+                                {{ staff.staffName.split(' ')[0] }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activities -->
+            <div class="recent-activities">
+                <h3 class="section-title">Recent Activities</h3>
+                <div class="activities-list">
+                    <div *ngIf="recentActivities.length === 0" class="empty-state">
+                        <p>No recent activities</p>
+                    </div>
+                    <div *ngFor="let activity of recentActivities" class="activity-item">
+                        <div class="activity-avatar">
+                            {{ getInitials(activity.staffName) }}
+                        </div>
+                        <div class="activity-details">
+                            <div class="activity-name">{{ activity.staffName }}</div>
+                            <div class="activity-action">{{ activity.subject }}</div>
+                            <div class="activity-time">
+                                <span class="activity-type-badge" [class]="activity.activityType">
+                                    {{ activity.activityType }}
+                                </span>
+                                <span class="activity-timestamp">{{ getRelativeTime(activity.createdOn) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Staff Performance -->
+        <div class="top-performers-section">
+            <div class="section-header-inline">
+                <div>
+                    <h3 class="section-title">Top Performing Staff</h3>
+                    <p class="section-subtitle">Based on CRM activities and email performance</p>
+                </div>
+            </div>
+
+            <div *ngIf="topPerformers.length === 0" class="empty-state">
+                <p>No performance data available for this period</p>
+            </div>
+
+            <div *ngIf="topPerformers.length > 0" class="performers-grid">
+                <div *ngFor="let performer of topPerformers; let i = index" class="performer-item">
+                    <div class="performer-rank" [class.top-three]="i < 3">
+                        <span *ngIf="i === 0">🥇</span>
+                        <span *ngIf="i === 1">🥈</span>
+                        <span *ngIf="i === 2">🥉</span>
+                        <span *ngIf="i >= 3">{{ i + 1 }}</span>
+                    </div>
+                    <div class="performer-avatar">
+                        {{ getInitials(performer.fullname) }}
+                    </div>
+                    <div class="performer-info">
+                        <div class="performer-name">{{ performer.fullname }}</div>
+                        <div class="performer-title">{{ performer.title }}</div>
+                        <div class="performer-stats">
+                            <span class="stat-item">{{ performer.totalEmails }} emails</span>
+                            <span class="stat-separator">•</span>
+                            <span class="stat-item">{{ performer.responseRate }}% rate</span>
+                        </div>
+                    </div>
+                    <div class="performer-score">
+                        <div class="score-value" [style.color]="getPerformanceColor(performer.performanceScore)">
+                            {{ performer.performanceScore }}
+                        </div>
+                        <div class="score-label">Score</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
