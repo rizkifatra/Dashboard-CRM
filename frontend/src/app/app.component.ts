@@ -8,5 +8,5 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  title = 'frontend';
+  title = 'Bintara Solutions Dashboard ';
 }

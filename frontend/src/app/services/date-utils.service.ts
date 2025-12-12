@@ -87,4 +87,43 @@ export class DateUtilsService {
     const today = new Date();
     return `${this.getMonthName(today.getMonth())} ${today.getFullYear()}`;
   }
+
+  /**
+   * Get date range for last 7 days
+   */
+  getLast7Days(): { from: string; to: string } {
+    const today = new Date();
+    const from = new Date();
+    from.setDate(today.getDate() - 7);
+    return {
+      from: this.formatDateToISO(from),
+      to: this.formatDateToISO(today),
+    };
+  }
+
+  /**
+   * Get date range for last 30 days
+   */
+  getLast30Days(): { from: string; to: string } {
+    const today = new Date();
+    const from = new Date();
+    from.setDate(today.getDate() - 30);
+    return {
+      from: this.formatDateToISO(from),
+      to: this.formatDateToISO(today),
+    };
+  }
+
+  /**
+   * Get date range for last 90 days
+   */
+  getLast90Days(): { from: string; to: string } {
+    const today = new Date();
+    const from = new Date();
+    from.setDate(today.getDate() - 90);
+    return {
+      from: this.formatDateToISO(from),
+      to: this.formatDateToISO(today),
+    };
+  }
 }

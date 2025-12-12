@@ -5,11 +5,7 @@
             <h1 class="header-title">CRM DASHBOARD</h1>
             <p class="header-subtitle">Real-time Performance Analytics</p>
         </div>
-        <div class="header-right">
-            <div class="date-range-info">
-                <span class="date-label">📅 {{ getDateRangeLabel() }}</span>
-            </div>
-        </div>
+
     </div>
 
     <!-- Control Bar -->
@@ -115,64 +111,6 @@
             </div>
         </div>
 
-        <!-- Quick Actions & Stats Row -->
-        <div class="quick-stats-row">
-            <!-- Quick Actions -->
-            <div class="quick-actions-card">
-                <h3 class="section-title">Quick Actions</h3>
-                <div class="action-buttons">
-                    <button class="action-btn" routerLink="/activities">
-                        <span class="action-icon">📋</span>
-                        <div class="action-info">
-                            <div class="action-label">View All Activities</div>
-                            <div class="action-sublabel">Browse and filter</div>
-                        </div>
-                    </button>
-                    <button class="action-btn" routerLink="/accounts">
-                        <span class="action-icon">🏢</span>
-                        <div class="action-info">
-                            <div class="action-label">Manage Accounts</div>
-                            <div class="action-sublabel">Search accounts</div>
-                        </div>
-                    </button>
-                    <button class="action-btn" routerLink="/staff">
-                        <span class="action-icon">👥</span>
-                        <div class="action-info">
-                            <div class="action-label">Staff Directory</div>
-                            <div class="action-sublabel">View team members</div>
-                        </div>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Activity Breakdown -->
-            <div class="stats-breakdown-card">
-                <h3 class="section-title">Activity Breakdown</h3>
-                <div class="breakdown-list">
-                    <div class="breakdown-item">
-                        <div class="breakdown-label">
-                            <span class="breakdown-icon" style="background: #8B5CF6;">📧</span>
-                            <span>Email Activities</span>
-                        </div>
-                        <div class="breakdown-value">{{ formatNumber(emailActivityCount) }}</div>
-                    </div>
-                    <div class="breakdown-item">
-                        <div class="breakdown-label">
-                            <span class="breakdown-icon" style="background: #10B981;">👥</span>
-                            <span>Active Staff</span>
-                        </div>
-                        <div class="breakdown-value">{{ metrics?.totalStaff || 0 }}</div>
-                    </div>
-                    <div class="breakdown-item">
-                        <div class="breakdown-label">
-                            <span class="breakdown-icon" style="background: #F59E0B;">📈</span>
-                            <span>Avg Emails/Staff</span>
-                        </div>
-                        <div class="breakdown-value">{{ getAverageEmailsPerStaff() }}</div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Main Content Grid -->
         <div class="main-grid">

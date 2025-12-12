@@ -2,6 +2,7 @@ package com.example.backend.service;
 
 import com.example.backend.model.Staff;
 import com.example.backend.config.D365Config;
+import com.example.backend.config.StaffFilterConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Service for interacting with Dynamics 365 System Users (Staff)
@@ -104,6 +106,13 @@ public class D365StaffService {
             if (valueArray != null && valueArray.isArray()) {
                 for (JsonNode node : valueArray) {
                     Staff staff = objectMapper.treeToValue(node, Staff.class);
+
+                    // Filter: Only include tracked staff members by job title
+                    if (!StaffFilterConfig.shouldTrackStaff(staff.getTitle())) {
+                        log.debug("Skipping non-tracked staff (title: {}): {}", staff.getTitle(), staff.getFullName());
+                        continue;
+                    }
+
                     // Conditionally enrich with email statistics
                     if (includeEmailStats != null && includeEmailStats) {
                         enrichStaffWithEmailStats(staff, fromDate, toDate);
@@ -112,7 +121,7 @@ public class D365StaffService {
                 }
             }
 
-            log.info("Successfully fetched {} staff members", staffList.size());
+            log.info("Successfully fetched {} tracked staff members (filtered from all users)", staffList.size());
             return staffList;
 
         } catch (WebClientResponseException e) {
@@ -222,11 +231,17 @@ public class D365StaffService {
             if (valueArray != null && valueArray.isArray()) {
                 for (JsonNode node : valueArray) {
                     Staff staff = objectMapper.treeToValue(node, Staff.class);
+
+                    // Filter: Only include tracked staff members by job title
+                    if (!StaffFilterConfig.shouldTrackStaff(staff.getTitle())) {
+                        continue;
+                    }
+
                     staffList.add(staff);
                 }
             }
 
-            log.info("Found {} staff members matching search criteria", staffList.size());
+            log.info("Found {} tracked staff members matching search criteria", staffList.size());
             return staffList;
 
         } catch (Exception e) {
