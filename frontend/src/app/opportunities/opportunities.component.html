@@ -1,0 +1,145 @@
+<div class="page-container">
+    <div class="page-header">
+        <h2 class="page-title">Opportunities Dashboard</h2>
+        <div class="filter-controls">
+            <div class="filter-group">
+                <label>Month:</label>
+                <input type="month" [(ngModel)]="selectedMonth" (change)="onMonthChange()" class="month-input">
+            </div>
+            <div class="filter-group">
+                <label>From:</label>
+                <input type="date" [(ngModel)]="fromDate" (change)="onDateChange()" class="date-input">
+            </div>
+            <div class="filter-group">
+                <label>To:</label>
+                <input type="date" [(ngModel)]="toDate" (change)="onDateChange()" class="date-input">
+            </div>
+        </div>
+    </div>
+
+    <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading opportunities...</p>
+    </div>
+
+    <div *ngIf="error" class="error-state">
+        <p>{{ error }}</p>
+        <button (click)="loadData()" class="retry-button">Retry</button>
+    </div>
+
+    <div *ngIf="!loading && !error && stats" class="dashboard-content">
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card total">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <h3>Total Opportunities</h3>
+                    <p class="stat-value">{{ stats.totalOpportunities }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card open">
+                <div class="stat-icon">🔓</div>
+                <div class="stat-content">
+                    <h3>Open Opportunities</h3>
+                    <p class="stat-value">{{ stats.openOpportunities }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card won">
+                <div class="stat-icon">🏆</div>
+                <div class="stat-content">
+                    <h3>Won Opportunities</h3>
+                    <p class="stat-value">{{ stats.wonOpportunities }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card lost">
+                <div class="stat-icon">❌</div>
+                <div class="stat-content">
+                    <h3>Lost Opportunities</h3>
+                    <p class="stat-value">{{ stats.lostOpportunities }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card value">
+                <div class="stat-icon">💰</div>
+                <div class="stat-content">
+                    <h3>Total Estimated Value</h3>
+                    <p class="stat-value">{{ formatCurrency(stats.totalEstimatedValue) }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card won-value">
+                <div class="stat-icon">💸</div>
+                <div class="stat-content">
+                    <h3>Won Value</h3>
+                    <p class="stat-value">{{ formatCurrency(stats.wonValue) }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card win-rate">
+                <div class="stat-icon">📈</div>
+                <div class="stat-content">
+                    <h3>Win Rate</h3>
+                    <p class="stat-value">{{ formatPercentage(stats.winRate) }}</p>
+                </div>
+            </div>
+
+            <div class="stat-card avg-deal">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-content">
+                    <h3>Average Deal Size</h3>
+                    <p class="stat-value">{{ formatCurrency(stats.averageDealSize) }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Opportunities Table -->
+        <div class="top-opportunities-section">
+            <h3 class="section-title">Top Open Opportunities by Value</h3>
+
+            <div *ngIf="topOpportunities.length === 0" class="empty-state">
+                <p>No open opportunities found</p>
+            </div>
+
+            <div *ngIf="topOpportunities.length > 0" class="opportunities-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Estimated Value</th>
+                            <th>Close Date</th>
+                            <th>Days Until Close</th>
+                            <th>Probability</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let opp of topOpportunities">
+                            <td class="opp-name">
+                                <strong>{{ opp.name }}</strong>
+                                <span class="opp-description" *ngIf="opp.description">{{
+                                    opp.description
+                                    }}</span>
+                            </td>
+                            <td class="opp-value">
+                                {{ formatCurrency(opp.estimatedValue) }}
+                            </td>
+                            <td>{{ formatDate(opp.estimatedCloseDate || '') }}</td>
+                            <td class="opp-days" [class.urgent]="getDaysUntilClose(opp.estimatedCloseDate || '') <= 7">
+                                {{ getDaysUntilClose(opp.estimatedCloseDate || '') }} days
+                            </td>
+                            <td>{{ opp.closeProbability || 0 }}%</td>
+                            <td>
+                                <span class="status-badge" [ngClass]="getStatusColorClass(opp.stateCode)">
+                                    {{ getStatusLabel(opp.stateCode) }}
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

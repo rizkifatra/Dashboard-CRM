@@ -103,9 +103,12 @@ public class D365ActivityService {
             // Filter to include only activities from tracked staff
             List<Activity> filteredActivities = filterTrackedStaffActivities(activities);
 
+            // Enrich activities with staff information and friendly names
+            List<Activity> enrichedActivities = enrichActivitiesWithStaffInfo(filteredActivities);
+
             log.info("Successfully fetched {} activities ({} from tracked staff)",
-                    activities.size(), filteredActivities.size());
-            return filteredActivities;
+                    activities.size(), enrichedActivities.size());
+            return enrichedActivities;
 
         } catch (WebClientResponseException e) {
             log.error("Error fetching activities: Status={}, Body={}", e.getStatusCode(),
@@ -949,6 +952,8 @@ public class D365ActivityService {
                     + "&$select=activityid,createdon,subject,regardingobjectid"
                     + "&$top=100";
 
+            log.debug("Fetching incoming emails with URI: {}", incomingUri);
+
             String incomingResponse = webClient.get()
                     .uri(incomingUri)
                     .header("Authorization", "Bearer " + token)
@@ -1024,7 +1029,7 @@ public class D365ActivityService {
                     }
 
                     if (isMatch) {
-                        // Calculate response time in minutes
+                        // Calculate response time in working hours (Mon-Thu 09:00-17:00)
                         try {
                             java.time.LocalDateTime incomingDateTime = java.time.LocalDateTime.parse(incomingTime,
                                     java.time.format.DateTimeFormatter.ISO_DATE_TIME);
@@ -1033,10 +1038,10 @@ public class D365ActivityService {
 
                             // Only count if outgoing is after incoming (response, not proactive email)
                             if (outgoingDateTime.isAfter(incomingDateTime)) {
-                                long minutes = java.time.Duration.between(incomingDateTime, outgoingDateTime)
-                                        .toMinutes();
-                                if (minutes > 0) {
-                                    responseTimes.add((double) minutes);
+                                // Calculate working hours (Mon-Thu 09:00-17:00)
+                                long workingMinutes = calculateWorkingMinutes(incomingTime, outgoingTime);
+                                if (workingMinutes > 0) {
+                                    responseTimes.add((double) workingMinutes);
                                     break; // Found a match, move to next incoming email
                                 }
                             }
@@ -1049,6 +1054,10 @@ public class D365ActivityService {
 
             return calculateResponseTimeStats(responseTimes, 1);
 
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            log.error("Error calculating response time for user: {} - Status: {}, Response: {}",
+                    userId, e.getStatusCode(), e.getResponseBodyAsString());
+            return createEmptyResponseTimeStats();
         } catch (Exception e) {
             log.error("Error calculating response time for user: {}", userId, e);
             return createEmptyResponseTimeStats();
@@ -1180,5 +1189,330 @@ public class D365ActivityService {
         // titles.
         log.debug("Activity filtering by staff title is handled at the staff service level");
         return activities;
+    }
+
+    /**
+     * Calculate conversation thread statistics for a user
+     * Groups emails by subject to identify unique conversation threads
+     * 
+     * @param userId   System user ID
+     * @param fromDate Optional start date (YYYY-MM-DD)
+     * @param toDate   Optional end date (YYYY-MM-DD)
+     * @return Map with totalConversations and averageEmailsPerConversation
+     */
+    public java.util.Map<String, Object> calculateConversationStats(String userId, String fromDate, String toDate) {
+        try {
+            log.info("Calculating conversation statistics for user: {}", userId);
+            String token = authService.getAccessToken();
+
+            // Build date filter component
+            String dateFilter = buildDateFilter(fromDate, toDate);
+
+            // Fetch all emails (both incoming and outgoing) owned by this user
+            String emailsUri = "/emails?$filter=_owninguser_value eq " + userId
+                    + dateFilter
+                    + "&$select=activityid,subject"
+                    + "&$top=500";
+
+            String emailsResponse = webClient.get()
+                    .uri(emailsUri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            JsonNode emailsRoot = objectMapper.readTree(emailsResponse);
+            JsonNode emails = emailsRoot.get("value");
+
+            if (emails == null || !emails.isArray() || emails.size() == 0) {
+                log.info("No emails found for user: {}", userId);
+                return createEmptyConversationStats();
+            }
+
+            // Group emails by normalized subject to identify unique conversations
+            java.util.Set<String> uniqueConversations = new java.util.HashSet<>();
+            int totalEmails = 0;
+
+            for (JsonNode email : emails) {
+                totalEmails++;
+                String subject = email.has("subject") ? email.get("subject").asText() : "";
+
+                // Normalize subject (remove Re:, Fw:, extra spaces)
+                String normalizedSubject = normalizeSubject(subject);
+
+                if (!normalizedSubject.isBlank()) {
+                    uniqueConversations.add(normalizedSubject);
+                }
+            }
+
+            int conversationCount = uniqueConversations.size();
+            double averageEmailsPerConversation = conversationCount > 0
+                    ? (double) totalEmails / conversationCount
+                    : 0.0;
+
+            log.info(
+                    "Conversation stats for user {}: {} conversations, {} total emails, avg {:.2f} emails/conversation",
+                    userId, conversationCount, totalEmails, averageEmailsPerConversation);
+
+            java.util.Map<String, Object> stats = new java.util.HashMap<>();
+            stats.put("totalConversations", conversationCount);
+            stats.put("averageEmailsPerConversation", averageEmailsPerConversation);
+            return stats;
+
+        } catch (Exception e) {
+            log.error("Error calculating conversation stats for user: {}", userId, e);
+            return createEmptyConversationStats();
+        }
+    }
+
+    /**
+     * Normalize email subject to identify conversation threads
+     * Removes Re:, Fw:, FW:, RE: prefixes and extra whitespace
+     */
+    private String normalizeSubject(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return "";
+        }
+
+        // Remove Re:, Fw:, FW:, RE: (case insensitive) and trim
+        String normalized = subject.replaceAll("(?i)^(re:|fw:|fwd:)\\s*", "").trim();
+
+        // Remove extra whitespace
+        normalized = normalized.replaceAll("\\s+", " ");
+
+        return normalized.toLowerCase();
+    }
+
+    /**
+     * Create empty conversation statistics
+     */
+    private java.util.Map<String, Object> createEmptyConversationStats() {
+        java.util.Map<String, Object> stats = new java.util.HashMap<>();
+        stats.put("totalConversations", 0);
+        stats.put("averageEmailsPerConversation", 0.0);
+        return stats;
+    }
+
+    /**
+     * Calculate working hours between two timestamps
+     * Working hours: Monday-Thursday, 09:00-17:00
+     * Excludes: Friday, Saturday, Sunday, and hours outside 09:00-17:00
+     * 
+     * @param startTime Start timestamp (ISO format)
+     * @param endTime   End timestamp (ISO format)
+     * @return Working minutes between the two timestamps
+     */
+    private long calculateWorkingMinutes(String startTime, String endTime) {
+        try {
+            java.time.LocalDateTime start = java.time.LocalDateTime.parse(startTime,
+                    java.time.format.DateTimeFormatter.ISO_DATE_TIME);
+            java.time.LocalDateTime end = java.time.LocalDateTime.parse(endTime,
+                    java.time.format.DateTimeFormatter.ISO_DATE_TIME);
+
+            // If end is before start, return 0
+            if (end.isBefore(start)) {
+                return 0;
+            }
+
+            long totalWorkingMinutes = 0;
+            java.time.LocalDateTime current = start;
+
+            // Working hours: 09:00-17:00 (8 hours)
+            java.time.LocalTime workStart = java.time.LocalTime.of(9, 0);
+            java.time.LocalTime workEnd = java.time.LocalTime.of(17, 0);
+
+            // Process each day from start to end
+            while (current.toLocalDate().isBefore(end.toLocalDate()) ||
+                    current.toLocalDate().equals(end.toLocalDate())) {
+
+                java.time.DayOfWeek dayOfWeek = current.getDayOfWeek();
+
+                // Only count Monday (1) to Thursday (4)
+                if (dayOfWeek.getValue() >= 1 && dayOfWeek.getValue() <= 4) {
+                    // Determine working period for this day
+                    java.time.LocalDateTime dayStart = java.time.LocalDateTime.of(current.toLocalDate(), workStart);
+                    java.time.LocalDateTime dayEnd = java.time.LocalDateTime.of(current.toLocalDate(), workEnd);
+
+                    // Adjust start time if it's the first day
+                    if (current.toLocalDate().equals(start.toLocalDate())) {
+                        if (start.toLocalTime().isAfter(workEnd)) {
+                            // Start is after work hours, skip this day
+                            current = current.plusDays(1).with(java.time.LocalTime.MIN);
+                            continue;
+                        } else if (start.toLocalTime().isAfter(workStart)) {
+                            dayStart = start;
+                        }
+                    }
+
+                    // Adjust end time if it's the last day
+                    if (current.toLocalDate().equals(end.toLocalDate())) {
+                        if (end.toLocalTime().isBefore(workStart)) {
+                            // End is before work hours, skip this day
+                            break;
+                        } else if (end.toLocalTime().isBefore(workEnd)) {
+                            dayEnd = end;
+                        }
+                    }
+
+                    // Calculate minutes for this working day
+                    if (dayEnd.isAfter(dayStart)) {
+                        long minutesThisDay = java.time.Duration.between(dayStart, dayEnd).toMinutes();
+                        totalWorkingMinutes += minutesThisDay;
+                    }
+                }
+
+                // Move to next day
+                current = current.plusDays(1).with(java.time.LocalTime.MIN);
+
+                // Safety check to prevent infinite loop
+                if (current.toLocalDate().isAfter(end.toLocalDate().plusDays(365))) {
+                    log.warn("Working hours calculation exceeded 365 days, breaking loop");
+                    break;
+                }
+            }
+
+            return totalWorkingMinutes;
+
+        } catch (Exception e) {
+            log.error("Error calculating working minutes between {} and {}", startTime, endTime, e);
+            return 0;
+        }
+    }
+
+    /**
+     * Enrich activities with staff information and friendly field names
+     * 
+     * @param activities List of activities to enrich
+     * @return List of enriched activities
+     */
+    private List<Activity> enrichActivitiesWithStaffInfo(List<Activity> activities) {
+        try {
+            String token = authService.getAccessToken();
+
+            // Get unique owner IDs
+            java.util.Set<String> ownerIds = activities.stream()
+                    .map(Activity::getOwningUserId)
+                    .filter(id -> id != null && !id.isEmpty())
+                    .collect(Collectors.toSet());
+
+            if (ownerIds.isEmpty()) {
+                log.debug("No owner IDs found in activities");
+                return activities.stream()
+                        .map(this::setFriendlyNames)
+                        .collect(Collectors.toList());
+            }
+
+            // Build filter to fetch all staff info in one query
+            String filter = ownerIds.stream()
+                    .map(id -> "systemuserid eq " + id)
+                    .collect(Collectors.joining(" or "));
+
+            String uri = "/systemusers?$filter=" + filter
+                    + "&$select=systemuserid,fullname,internalemailaddress,title";
+
+            String response = webClient.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            JsonNode root = objectMapper.readTree(response);
+            JsonNode valueArray = root.get("value");
+
+            // Create a map of userId -> staff info
+            java.util.Map<String, java.util.Map<String, String>> staffMap = new java.util.HashMap<>();
+            if (valueArray != null && valueArray.isArray()) {
+                for (JsonNode node : valueArray) {
+                    String userId = node.has("systemuserid") ? node.get("systemuserid").asText() : null;
+                    if (userId != null) {
+                        java.util.Map<String, String> staffInfo = new java.util.HashMap<>();
+                        staffInfo.put("name", node.has("fullname") ? node.get("fullname").asText() : "Unknown");
+                        staffInfo.put("email",
+                                node.has("internalemailaddress") ? node.get("internalemailaddress").asText() : "");
+                        staffInfo.put("title", node.has("title") ? node.get("title").asText() : "");
+                        staffMap.put(userId, staffInfo);
+                    }
+                }
+            }
+
+            // Enrich activities with staff info
+            return activities.stream()
+                    .map(activity -> {
+                        // Set friendly names for activity type and direction
+                        setFriendlyNames(activity);
+
+                        // Add staff information
+                        String ownerId = activity.getOwningUserId();
+                        if (ownerId != null && staffMap.containsKey(ownerId)) {
+                            java.util.Map<String, String> staffInfo = staffMap.get(ownerId);
+                            activity.setStaffName(staffInfo.get("name"));
+                            activity.setStaffEmail(staffInfo.get("email"));
+                            activity.setStaffTitle(staffInfo.get("title"));
+                        } else if (activity.getOwningUserName() != null) {
+                            // Fallback to formatted value from D365
+                            activity.setStaffName(activity.getOwningUserName());
+                        } else {
+                            activity.setStaffName("Unknown");
+                        }
+
+                        return activity;
+                    })
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("Error enriching activities with staff info", e);
+            // Return activities with at least friendly names
+            return activities.stream()
+                    .map(this::setFriendlyNames)
+                    .collect(Collectors.toList());
+        }
+    }
+
+    /**
+     * Set friendly names for activity type and direction
+     * 
+     * @param activity Activity to set friendly names for
+     * @return Activity with friendly names set
+     */
+    private Activity setFriendlyNames(Activity activity) {
+        // Set friendly activity type
+        String typeCode = activity.getActivityTypeCode();
+        if (typeCode != null) {
+            switch (typeCode.toLowerCase()) {
+                case "email":
+                    activity.setActivityType("Email");
+                    break;
+                case "phonecall":
+                    activity.setActivityType("Phone Call");
+                    break;
+                case "appointment":
+                    activity.setActivityType("Meeting");
+                    break;
+                case "task":
+                    activity.setActivityType("Task");
+                    break;
+                case "letter":
+                    activity.setActivityType("Letter");
+                    break;
+                case "fax":
+                    activity.setActivityType("Fax");
+                    break;
+                default:
+                    activity.setActivityType(typeCode);
+            }
+        }
+
+        // Set direction (incoming/outgoing)
+        if (activity.getDirectionCode() != null) {
+            activity.setDirection(activity.getDirectionCode() ? "outgoing" : "incoming");
+        } else {
+            // For non-email activities, assume outgoing
+            activity.setDirection("outgoing");
+        }
+
+        return activity;
     }
 }

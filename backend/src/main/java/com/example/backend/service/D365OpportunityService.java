@@ -126,7 +126,7 @@ public class D365OpportunityService {
                         .append("actualvalue,actualclosedate,closeprobability,salesstage,stepname,")
                         .append("createdon,modifiedon,statecode,statuscode,")
                         .append("_ownerid_value,_createdby_value,_modifiedby_value,")
-                        .append("_customerid_value,_accountid_value&");
+                        .append("_customerid_value&");
             }
 
             // Add filters
@@ -162,16 +162,22 @@ public class D365OpportunityService {
                     new TypeReference<D365Response<Opportunity>>() {
                     });
 
-            log.info("Successfully fetched {} opportunities", d365Response.getValue().size());
-            return d365Response.getValue();
+            List<Opportunity> opportunities = d365Response.getValue();
+            if (opportunities == null) {
+                log.warn("D365 returned null opportunities list, returning empty list");
+                return new java.util.ArrayList<>();
+            }
+
+            log.info("Successfully fetched {} opportunities", opportunities.size());
+            return opportunities;
 
         } catch (WebClientResponseException e) {
             log.error("Error fetching opportunities. Status: {}, Response: {}",
                     e.getStatusCode(), e.getResponseBodyAsString());
-            throw new RuntimeException("Failed to fetch opportunities: " + e.getMessage(), e);
+            return new java.util.ArrayList<>();
         } catch (Exception e) {
             log.error("Error fetching opportunities", e);
-            throw new RuntimeException("Failed to fetch opportunities: " + e.getMessage(), e);
+            return new java.util.ArrayList<>();
         }
     }
 
@@ -208,6 +214,206 @@ public class D365OpportunityService {
         } catch (Exception e) {
             log.error("Error fetching opportunity", e);
             throw new RuntimeException("Failed to fetch opportunity: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Get opportunity statistics
+     * 
+     * @param fromDate Optional start date filter
+     * @param toDate   Optional end date filter
+     * @return Map with statistics (total, open, won, lost, total value, etc.)
+     */
+    public java.util.Map<String, Object> getOpportunityStatistics(String fromDate, String toDate) {
+        try {
+            log.info("Calculating opportunity statistics. FromDate: {}, ToDate: {}", fromDate, toDate);
+
+            List<Opportunity> allOpportunities = getAllOpportunities(null, null, fromDate, toDate);
+
+            int totalOpportunities = allOpportunities.size();
+            int openOpportunities = 0;
+            int wonOpportunities = 0;
+            int lostOpportunities = 0;
+            double totalEstimatedValue = 0.0;
+            double totalActualValue = 0.0;
+            double wonValue = 0.0;
+
+            for (Opportunity opp : allOpportunities) {
+                // Count by state: 0=Open, 1=Won, 2=Lost
+                if (opp.getStateCode() != null) {
+                    switch (opp.getStateCode()) {
+                        case 0:
+                            openOpportunities++;
+                            break;
+                        case 1:
+                            wonOpportunities++;
+                            if (opp.getActualValue() != null) {
+                                wonValue += opp.getActualValue().doubleValue();
+                            }
+                            break;
+                        case 2:
+                            lostOpportunities++;
+                            break;
+                    }
+                }
+
+                // Sum values
+                if (opp.getEstimatedValue() != null) {
+                    totalEstimatedValue += opp.getEstimatedValue().doubleValue();
+                }
+                if (opp.getActualValue() != null) {
+                    totalActualValue += opp.getActualValue().doubleValue();
+                }
+            }
+
+            // Calculate win rate
+            double winRate = (wonOpportunities + lostOpportunities) > 0
+                    ? (double) wonOpportunities / (wonOpportunities + lostOpportunities) * 100
+                    : 0.0;
+
+            // Calculate average deal size
+            double avgDealSize = wonOpportunities > 0 ? wonValue / wonOpportunities : 0.0;
+
+            java.util.Map<String, Object> stats = new java.util.HashMap<>();
+            stats.put("totalOpportunities", totalOpportunities);
+            stats.put("openOpportunities", openOpportunities);
+            stats.put("wonOpportunities", wonOpportunities);
+            stats.put("lostOpportunities", lostOpportunities);
+            stats.put("totalEstimatedValue", totalEstimatedValue);
+            stats.put("totalActualValue", totalActualValue);
+            stats.put("wonValue", wonValue);
+            stats.put("winRate", winRate);
+            stats.put("averageDealSize", avgDealSize);
+
+            log.info("Opportunity statistics: Total={}, Open={}, Won={}, Lost={}, WinRate={:.2f}%, AvgDealSize={:.2f}",
+                    totalOpportunities, openOpportunities, wonOpportunities, lostOpportunities, winRate, avgDealSize);
+
+            return stats;
+
+        } catch (Exception e) {
+            log.error("Error calculating opportunity statistics", e);
+            return new java.util.HashMap<>();
+        }
+    }
+
+    /**
+     * Get opportunities grouped by staff member
+     * 
+     * @param fromDate Optional start date filter
+     * @param toDate   Optional end date filter
+     * @return Map with staff ID as key and their opportunity stats as value
+     */
+    public java.util.Map<String, java.util.Map<String, Object>> getOpportunitiesByStaff(String fromDate,
+            String toDate) {
+        try {
+            log.info("Fetching opportunities by staff. FromDate: {}, ToDate: {}", fromDate, toDate);
+
+            List<Opportunity> allOpportunities = getAllOpportunities(null, null, fromDate, toDate);
+
+            java.util.Map<String, java.util.Map<String, Object>> staffStats = new java.util.HashMap<>();
+
+            for (Opportunity opp : allOpportunities) {
+                if (opp.getOwnerId() == null)
+                    continue;
+
+                String ownerId = opp.getOwnerId();
+
+                // Initialize stats for this staff member if not exists
+                if (!staffStats.containsKey(ownerId)) {
+                    java.util.Map<String, Object> stats = new java.util.HashMap<>();
+                    stats.put("ownerId", ownerId);
+                    stats.put("totalOpportunities", 0);
+                    stats.put("openOpportunities", 0);
+                    stats.put("wonOpportunities", 0);
+                    stats.put("lostOpportunities", 0);
+                    stats.put("totalEstimatedValue", 0.0);
+                    stats.put("wonValue", 0.0);
+                    stats.put("winRate", 0.0);
+                    stats.put("averageDealSize", 0.0);
+                    staffStats.put(ownerId, stats);
+                }
+
+                java.util.Map<String, Object> stats = staffStats.get(ownerId);
+
+                // Update counts
+                stats.put("totalOpportunities", (Integer) stats.get("totalOpportunities") + 1);
+
+                if (opp.getStateCode() != null) {
+                    switch (opp.getStateCode()) {
+                        case 0:
+                            stats.put("openOpportunities", (Integer) stats.get("openOpportunities") + 1);
+                            break;
+                        case 1:
+                            stats.put("wonOpportunities", (Integer) stats.get("wonOpportunities") + 1);
+                            if (opp.getActualValue() != null) {
+                                stats.put("wonValue",
+                                        (Double) stats.get("wonValue") + opp.getActualValue().doubleValue());
+                            }
+                            break;
+                        case 2:
+                            stats.put("lostOpportunities", (Integer) stats.get("lostOpportunities") + 1);
+                            break;
+                    }
+                }
+
+                if (opp.getEstimatedValue() != null) {
+                    stats.put("totalEstimatedValue",
+                            (Double) stats.get("totalEstimatedValue") + opp.getEstimatedValue().doubleValue());
+                }
+            }
+
+            // Calculate derived metrics for each staff
+            for (java.util.Map<String, Object> stats : staffStats.values()) {
+                int won = (Integer) stats.get("wonOpportunities");
+                int lost = (Integer) stats.get("lostOpportunities");
+                double wonValue = (Double) stats.get("wonValue");
+
+                // Win rate
+                double winRate = (won + lost) > 0 ? (double) won / (won + lost) * 100 : 0.0;
+                stats.put("winRate", winRate);
+
+                // Average deal size
+                double avgDealSize = won > 0 ? wonValue / won : 0.0;
+                stats.put("averageDealSize", avgDealSize);
+            }
+
+            log.info("Fetched opportunity stats for {} staff members", staffStats.size());
+            return staffStats;
+
+        } catch (Exception e) {
+            log.error("Error fetching opportunities by staff", e);
+            return new java.util.HashMap<>();
+        }
+    }
+
+    /**
+     * Get top opportunities by estimated value
+     * 
+     * @param top      Number of top opportunities to return
+     * @param fromDate Optional start date filter
+     * @param toDate   Optional end date filter
+     * @return List of top opportunities
+     */
+    public List<Opportunity> getTopOpportunities(Integer top, String fromDate, String toDate) {
+        try {
+            log.info("Fetching top {} opportunities. FromDate: {}, ToDate: {}", top, fromDate, toDate);
+
+            List<Opportunity> opportunities = getAllOpportunities(null, null, fromDate, toDate);
+
+            // Sort by estimated value (descending) and filter open opportunities
+            return opportunities.stream()
+                    .filter(opp -> opp.getStateCode() != null && opp.getStateCode() == 0) // Only open
+                    .sorted((a, b) -> {
+                        double valA = a.getEstimatedValue() != null ? a.getEstimatedValue().doubleValue() : 0.0;
+                        double valB = b.getEstimatedValue() != null ? b.getEstimatedValue().doubleValue() : 0.0;
+                        return Double.compare(valB, valA); // Descending
+                    })
+                    .limit(top != null ? top : 10)
+                    .collect(java.util.stream.Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("Error fetching top opportunities", e);
+            return new java.util.ArrayList<>();
         }
     }
 }

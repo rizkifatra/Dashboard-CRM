@@ -12,6 +12,8 @@ export interface Staff {
   outgoingEmailCount: number;
   respondedEmailCount: number;
   averageResponseTimeMinutes: number;
+  totalConversations: number;
+  averageEmailsPerConversation: number;
 }
 
 export interface ApiResponse<T> {
@@ -30,7 +32,32 @@ export class StaffService {
   constructor(private http: HttpClient) {}
 
   /**
-   * Get all staff with optional email statistics
+   * Get all staff (UNFILTERED - shows all staff regardless of job title)
+   * Use this for Staff Management page
+   * @param includeEmailStats Whether to include email statistics
+   * @param fromDate Optional start date filter
+   * @param toDate Optional end date filter
+   */
+  getAllStaff(
+    includeEmailStats: boolean = true,
+    fromDate?: string,
+    toDate?: string
+  ): Observable<ApiResponse<Staff[]>> {
+    let params = new HttpParams().set(
+      'includeEmailStats',
+      includeEmailStats.toString()
+    );
+    if (fromDate) params = params.set('fromDate', fromDate);
+    if (toDate) params = params.set('toDate', toDate);
+
+    return this.http.get<ApiResponse<Staff[]>>(`${this.apiUrl}/all`, {
+      params,
+    });
+  }
+
+  /**
+   * Get tracked staff only (FILTERED by configured job titles)
+   * Use this for Dashboard/Ranking page
    * @param includeEmailStats Whether to include email statistics
    * @param fromDate Optional start date filter
    * @param toDate Optional end date filter
@@ -76,7 +103,8 @@ export class StaffService {
   }
 
   /**
-   * Search staff by name or email
+   * Search all staff by name or email (UNFILTERED)
+   * Use this for Staff Management page
    * @param searchTerm The search term
    * @param top Maximum number of results
    */

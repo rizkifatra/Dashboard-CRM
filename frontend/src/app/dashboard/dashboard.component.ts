@@ -10,6 +10,10 @@ import {
   EmailPerformance,
 } from '../services/dashboard.service';
 import { ActivityService, Activity } from '../services/activity.service';
+import {
+  OpportunityService,
+  OpportunityStats,
+} from '../services/opportunity.service';
 import { DateUtilsService } from '../services/date-utils.service';
 
 @Component({
@@ -18,13 +22,19 @@ import { DateUtilsService } from '../services/date-utils.service';
   imports: [CommonModule, HttpClientModule, FormsModule, RouterModule],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css'],
-  providers: [DashboardService, ActivityService, DateUtilsService],
+  providers: [
+    DashboardService,
+    ActivityService,
+    OpportunityService,
+    DateUtilsService,
+  ],
 })
 export class DashboardComponent implements OnInit {
   metrics: DashboardMetrics | null = null;
   topPerformers: TopPerformer[] = [];
   emailPerformance: EmailPerformance[] = [];
   recentActivities: Activity[] = [];
+  opportunityStats: OpportunityStats | null = null;
   loading = true;
   error: string | null = null;
   lastUpdated: Date | null = null;
@@ -45,6 +55,7 @@ export class DashboardComponent implements OnInit {
   constructor(
     private dashboardService: DashboardService,
     private activityService: ActivityService,
+    private opportunityService: OpportunityService,
     private dateUtils: DateUtilsService
   ) {}
 
@@ -98,6 +109,7 @@ export class DashboardComponent implements OnInit {
       this.loadEmailPerformance(),
       this.loadRecentActivities(),
       this.loadEmailActivityCount(),
+      this.loadOpportunityStats(),
     ])
       .then(() => {
         this.loading = false;
@@ -184,8 +196,39 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  private loadOpportunityStats(): Promise<void> {
+    return new Promise((resolve) => {
+      this.opportunityService
+        .getOpportunityStatistics(this.fromDate, this.toDate)
+        .subscribe({
+          next: (response) => {
+            if (response.success) {
+              this.opportunityStats = response.data;
+            } else {
+              console.warn('Failed to load opportunity stats:', response.error);
+              this.opportunityStats = null;
+            }
+            resolve();
+          },
+          error: (err) => {
+            console.error('Error loading opportunity stats:', err);
+            this.opportunityStats = null;
+            resolve(); // Resolve anyway to not block other data
+          },
+        });
+    });
+  }
+
   getRelativeTime(timestamp: string): string {
     return this.activityService.getRelativeTime(timestamp);
+  }
+
+  formatCurrency(value: number): string {
+    return this.opportunityService.formatCurrency(value);
+  }
+
+  formatPercentage(value: number): string {
+    return this.opportunityService.formatPercentage(value);
   }
 
   getInitials(name: string): string {

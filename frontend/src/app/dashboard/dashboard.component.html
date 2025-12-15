@@ -183,6 +183,67 @@
             </div>
         </div>
 
+        <!-- Opportunity Summary -->
+        <div class="opportunity-summary-section" *ngIf="opportunityStats">
+            <div class="section-header-inline">
+                <div>
+                    <h3 class="section-title">Opportunity Pipeline</h3>
+                    <p class="section-subtitle">Sales opportunities overview</p>
+                </div>
+                <a routerLink="/opportunities" class="view-all-link">View All →</a>
+            </div>
+
+            <div class="opportunity-stats-grid">
+                <div class="opp-stat-card">
+                    <div class="opp-stat-icon">📊</div>
+                    <div class="opp-stat-content">
+                        <div class="opp-stat-label">Total Opportunities</div>
+                        <div class="opp-stat-value">{{ opportunityStats.totalOpportunities }}</div>
+                    </div>
+                </div>
+
+                <div class="opp-stat-card open">
+                    <div class="opp-stat-icon">🔓</div>
+                    <div class="opp-stat-content">
+                        <div class="opp-stat-label">Open</div>
+                        <div class="opp-stat-value">{{ opportunityStats.openOpportunities }}</div>
+                    </div>
+                </div>
+
+                <div class="opp-stat-card won">
+                    <div class="opp-stat-icon">🏆</div>
+                    <div class="opp-stat-content">
+                        <div class="opp-stat-label">Won</div>
+                        <div class="opp-stat-value">{{ opportunityStats.wonOpportunities }}</div>
+                    </div>
+                </div>
+
+                <div class="opp-stat-card value">
+                    <div class="opp-stat-icon">💰</div>
+                    <div class="opp-stat-content">
+                        <div class="opp-stat-label">Pipeline Value</div>
+                        <div class="opp-stat-value">{{ formatCurrency(opportunityStats.totalEstimatedValue) }}</div>
+                    </div>
+                </div>
+
+                <div class="opp-stat-card won-value">
+                    <div class="opp-stat-icon">💸</div>
+                    <div class="opp-stat-content">
+                        <div class="opp-stat-label">Won Value</div>
+                        <div class="opp-stat-value">{{ formatCurrency(opportunityStats.wonValue) }}</div>
+                    </div>
+                </div>
+
+                <div class="opp-stat-card win-rate">
+                    <div class="opp-stat-icon">📈</div>
+                    <div class="opp-stat-content">
+                        <div class="opp-stat-label">Win Rate</div>
+                        <div class="opp-stat-value">{{ formatPercentage(opportunityStats.winRate) }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Top Staff Performance -->
         <div class="top-performers-section">
             <div class="section-header-inline">

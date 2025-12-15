@@ -47,7 +47,9 @@ public class D365StaffService {
     }
 
     /**
-     * Get all staff members from Dynamics 365
+     * Get all staff members from Dynamics 365 (UNFILTERED - shows all staff
+     * regardless of job title)
+     * Use this for Staff Management page
      * 
      * @param top               Optional limit for number of results
      * @param select            Optional comma-separated list of fields to select
@@ -56,10 +58,45 @@ public class D365StaffService {
      *                          format: YYYY-MM-DD)
      * @param toDate            Optional end date for email statistics filter (ISO
      *                          format: YYYY-MM-DD)
-     * @return List of staff members
+     * @return List of all staff members (unfiltered)
+     */
+    public List<Staff> getAllStaffUnfiltered(Integer top, String select, Boolean includeEmailStats, String fromDate,
+            String toDate) {
+        return fetchStaffFromD365(top, select, includeEmailStats, fromDate, toDate, false);
+    }
+
+    /**
+     * Get tracked staff members from Dynamics 365 (FILTERED by configured job
+     * titles)
+     * Use this for Dashboard/Ranking page
+     * 
+     * @param top               Optional limit for number of results
+     * @param select            Optional comma-separated list of fields to select
+     * @param includeEmailStats Whether to include email statistics (default: false)
+     * @param fromDate          Optional start date for email statistics filter (ISO
+     *                          format: YYYY-MM-DD)
+     * @param toDate            Optional end date for email statistics filter (ISO
+     *                          format: YYYY-MM-DD)
+     * @return List of tracked staff members only
      */
     public List<Staff> getAllStaff(Integer top, String select, Boolean includeEmailStats, String fromDate,
             String toDate) {
+        return fetchStaffFromD365(top, select, includeEmailStats, fromDate, toDate, true);
+    }
+
+    /**
+     * Internal method to fetch staff from Dynamics 365 with optional filtering
+     * 
+     * @param top               Optional limit for number of results
+     * @param select            Optional comma-separated list of fields to select
+     * @param includeEmailStats Whether to include email statistics
+     * @param fromDate          Optional start date for email statistics filter
+     * @param toDate            Optional end date for email statistics filter
+     * @param applyFilter       Whether to apply job title filtering
+     * @return List of staff members
+     */
+    private List<Staff> fetchStaffFromD365(Integer top, String select, Boolean includeEmailStats, String fromDate,
+            String toDate, boolean applyFilter) {
         try {
             log.info(
                     "Fetching staff from Dynamics 365. Top: {}, Select: {}, IncludeEmailStats: {}, FromDate: {}, ToDate: {}",
@@ -107,8 +144,8 @@ public class D365StaffService {
                 for (JsonNode node : valueArray) {
                     Staff staff = objectMapper.treeToValue(node, Staff.class);
 
-                    // Filter: Only include tracked staff members by job title
-                    if (!StaffFilterConfig.shouldTrackStaff(staff.getTitle())) {
+                    // Apply filter only if requested
+                    if (applyFilter && !StaffFilterConfig.shouldTrackStaff(staff.getTitle())) {
                         log.debug("Skipping non-tracked staff (title: {}): {}", staff.getTitle(), staff.getFullName());
                         continue;
                     }
@@ -121,7 +158,8 @@ public class D365StaffService {
                 }
             }
 
-            log.info("Successfully fetched {} tracked staff members (filtered from all users)", staffList.size());
+            String filterMsg = applyFilter ? " tracked staff members (filtered)" : " staff members (unfiltered)";
+            log.info("Successfully fetched {}{}", staffList.size(), filterMsg);
             return staffList;
 
         } catch (WebClientResponseException e) {
@@ -179,14 +217,39 @@ public class D365StaffService {
     }
 
     /**
-     * Search for staff by name or email
+     * Search for staff by name or email (UNFILTERED - shows all staff)
      * 
      * @param name  Optional name to search for
      * @param email Optional email to search for
      * @param top   Optional limit for number of results
-     * @return List of matching staff members
+     * @return List of all matching staff members
+     */
+    public List<Staff> searchStaffUnfiltered(String name, String email, Integer top) {
+        return performStaffSearch(name, email, top, false);
+    }
+
+    /**
+     * Search for tracked staff by name or email (FILTERED by configured job titles)
+     * 
+     * @param name  Optional name to search for
+     * @param email Optional email to search for
+     * @param top   Optional limit for number of results
+     * @return List of matching tracked staff members
      */
     public List<Staff> searchStaff(String name, String email, Integer top) {
+        return performStaffSearch(name, email, top, true);
+    }
+
+    /**
+     * Internal method to search for staff with optional filtering
+     * 
+     * @param name        Optional name to search for
+     * @param email       Optional email to search for
+     * @param top         Optional limit for number of results
+     * @param applyFilter Whether to apply job title filtering
+     * @return List of matching staff members
+     */
+    private List<Staff> performStaffSearch(String name, String email, Integer top, boolean applyFilter) {
         try {
             log.info("Searching staff - Name: {}, Email: {}, Top: {}", name, email, top);
 
@@ -232,8 +295,8 @@ public class D365StaffService {
                 for (JsonNode node : valueArray) {
                     Staff staff = objectMapper.treeToValue(node, Staff.class);
 
-                    // Filter: Only include tracked staff members by job title
-                    if (!StaffFilterConfig.shouldTrackStaff(staff.getTitle())) {
+                    // Apply filter only if requested
+                    if (applyFilter && !StaffFilterConfig.shouldTrackStaff(staff.getTitle())) {
                         continue;
                     }
 
@@ -241,7 +304,8 @@ public class D365StaffService {
                 }
             }
 
-            log.info("Found {} tracked staff members matching search criteria", staffList.size());
+            String filterMsg = applyFilter ? " tracked staff members" : " staff members (unfiltered)";
+            log.info("Found {}{} matching search criteria", staffList.size(), filterMsg);
             return staffList;
 
         } catch (Exception e) {
@@ -341,8 +405,25 @@ public class D365StaffService {
                                 ? (Integer) responseTimeStats.get("respondedEmailCount")
                                 : 0);
 
-                log.info("Staff {} email stats: Incoming={}, Outgoing={}, Total={}, Avg Response Time={} min",
+                // Calculate conversation thread statistics
+                log.info("Calculating conversation statistics for staff: {}", staff.getEmail());
+                java.util.Map<String, Object> conversationStats = activityService
+                        .calculateConversationStats(userId, fromDate, toDate);
+
+                staff.setTotalConversations(
+                        conversationStats.get("totalConversations") != null
+                                ? (Integer) conversationStats.get("totalConversations")
+                                : 0);
+                staff.setAverageEmailsPerConversation(
+                        conversationStats.get("averageEmailsPerConversation") != null
+                                ? (Double) conversationStats.get("averageEmailsPerConversation")
+                                : 0.0);
+
+                log.info(
+                        "Staff {} email stats: Incoming={}, Outgoing={}, Total={}, Conversations={}, Avg Emails/Conv={:.2f}, Avg Response Time={} min",
                         staff.getEmail(), incomingCount, outgoingCount, incomingCount + outgoingCount,
+                        staff.getTotalConversations(),
+                        staff.getAverageEmailsPerConversation(),
                         staff.getAverageResponseTimeMinutes() != null
                                 ? String.format("%.2f", staff.getAverageResponseTimeMinutes())
                                 : "N/A");
@@ -359,6 +440,8 @@ public class D365StaffService {
             staff.setAverageResponseTimeMinutes(null);
             staff.setFastestResponseTimeMinutes(null);
             staff.setSlowestResponseTimeMinutes(null);
+            staff.setTotalConversations(0);
+            staff.setAverageEmailsPerConversation(0.0);
             staff.setRespondedEmailCount(0);
         }
     }

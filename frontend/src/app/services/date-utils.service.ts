@@ -126,4 +126,84 @@ export class DateUtilsService {
       to: this.formatDateToISO(today),
     };
   }
+
+  /**
+   * Get date range for last 6 months
+   */
+  getLast6Months(): { from: string; to: string } {
+    const today = new Date();
+    const from = new Date();
+    from.setMonth(today.getMonth() - 6);
+    return {
+      from: this.formatDateToISO(from),
+      to: this.formatDateToISO(today),
+    };
+  }
+
+  /**
+   * Get date range for last year
+   */
+  getLastYear(): { from: string; to: string } {
+    const today = new Date();
+    const from = new Date();
+    from.setFullYear(today.getFullYear() - 1);
+    return {
+      from: this.formatDateToISO(from),
+      to: this.formatDateToISO(today),
+    };
+  }
+
+  /**
+   * Get date range for this year
+   */
+  getThisYear(): { from: string; to: string } {
+    const today = new Date();
+    const from = new Date(today.getFullYear(), 0, 1);
+    return {
+      from: this.formatDateToISO(from),
+      to: this.formatDateToISO(today),
+    };
+  }
+
+  /**
+   * Get date range for this quarter
+   */
+  getThisQuarter(): { from: string; to: string } {
+    const today = new Date();
+    const quarter = Math.floor(today.getMonth() / 3);
+    const from = new Date(today.getFullYear(), quarter * 3, 1);
+    return {
+      from: this.formatDateToISO(from),
+      to: this.formatDateToISO(today),
+    };
+  }
+
+  /**
+   * Get date range for last quarter
+   */
+  getLastQuarter(): { from: string; to: string } {
+    const today = new Date();
+    const currentQuarter = Math.floor(today.getMonth() / 3);
+    const lastQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
+    const year =
+      currentQuarter === 0 ? today.getFullYear() - 1 : today.getFullYear();
+
+    const from = new Date(year, lastQuarter * 3, 1);
+    const to = new Date(year, lastQuarter * 3 + 3, 0);
+
+    return {
+      from: this.formatDateToISO(from),
+      to: this.formatDateToISO(to),
+    };
+  }
+
+  /**
+   * Get all time (no date filter - returns empty strings)
+   */
+  getAllTime(): { from: string; to: string } {
+    return {
+      from: '',
+      to: '',
+    };
+  }
 }

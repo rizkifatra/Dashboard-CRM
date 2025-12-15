@@ -115,9 +115,10 @@
 /* ===== Main Content ===== */
 .main-content {
     flex: 1;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     background: #F5F5F7;
-    padding: 24px 32px;
+    padding: 0;
 }
 
 /* ===== Scrollbar Styling ===== */

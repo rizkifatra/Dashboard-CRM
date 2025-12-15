@@ -40,7 +40,8 @@ export class StaffComponent implements OnInit {
 
     const { from, to } = this.getDateRange();
 
-    this.staffService.getStaff(this.includeStats, from, to).subscribe({
+    // Use getAllStaff (unfiltered) to show ALL staff members
+    this.staffService.getAllStaff(this.includeStats, from, to).subscribe({
       next: (response) => {
         if (response.success) {
           this.staffList = response.data;

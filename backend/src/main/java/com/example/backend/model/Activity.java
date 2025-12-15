@@ -1,5 +1,6 @@
 package com.example.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,89 +16,96 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class Activity {
 
-    @JsonProperty("activityid")
+    @JsonAlias("activityid")
     private String activityId;
 
-    @JsonProperty("subject")
+    @JsonAlias("subject")
     private String subject;
 
-    @JsonProperty("description")
+    @JsonAlias("description")
     private String description;
 
-    @JsonProperty("activitytypecode")
+    @JsonAlias("activitytypecode")
     private String activityTypeCode;
 
-    @JsonProperty("directioncode")
+    @JsonAlias("directioncode")
     private Boolean directionCode; // true = outgoing/sent, false = incoming/received
 
-    @JsonProperty("statecode")
+    @JsonAlias("statecode")
     private Integer stateCode; // 0 = Open, 1 = Completed, 2 = Cancelled
 
-    @JsonProperty("statuscode")
+    @JsonAlias("statuscode")
     private Integer statusCode;
 
     // Owner (Staff member who owns this activity)
-    @JsonProperty("_owninguser_value")
+    @JsonAlias("_owninguser_value")
     private String owningUserId;
 
-    @JsonProperty("_owninguser_value@OData.Community.Display.V1.FormattedValue")
+    @JsonAlias("_owninguser_value@OData.Community.Display.V1.FormattedValue")
     private String owningUserName;
 
     // Regarding (Account/Client this activity is related to)
-    @JsonProperty("_regardingobjectid_value")
+    @JsonAlias("_regardingobjectid_value")
     private String regardingObjectId;
 
-    @JsonProperty("_regardingobjectid_value@OData.Community.Display.V1.FormattedValue")
+    @JsonAlias("_regardingobjectid_value@OData.Community.Display.V1.FormattedValue")
     private String regardingObjectName;
 
-    @JsonProperty("regardingobjecttypecode")
+    @JsonAlias("regardingobjecttypecode")
     private String regardingObjectTypeCode;
 
     // Sender (for emails)
-    @JsonProperty("sender")
+    @JsonAlias("sender")
     private String sender;
 
-    @JsonProperty("from")
+    @JsonAlias("from")
     private String fromEmail;
 
-    @JsonProperty("to")
+    @JsonAlias("to")
     private String toEmail;
 
-    @JsonProperty("cc")
+    @JsonAlias("cc")
     private String ccEmail;
 
     // Timestamps
-    @JsonProperty("createdon")
+    @JsonAlias("createdon")
     private String createdOn;
 
-    @JsonProperty("modifiedon")
+    @JsonAlias("modifiedon")
     private String modifiedOn;
 
-    @JsonProperty("actualstart")
+    @JsonAlias("actualstart")
     private String actualStart;
 
-    @JsonProperty("actualend")
+    @JsonAlias("actualend")
     private String actualEnd;
 
-    @JsonProperty("scheduledstart")
+    @JsonAlias("scheduledstart")
     private String scheduledStart;
 
-    @JsonProperty("scheduledend")
+    @JsonAlias("scheduledend")
     private String scheduledEnd;
 
     // Duration in minutes
-    @JsonProperty("actualdurationminutes")
+    @JsonAlias("actualdurationminutes")
     private Integer actualDurationMinutes;
 
-    @JsonProperty("scheduleddurationminutes")
+    @JsonAlias("scheduleddurationminutes")
     private Integer scheduledDurationMinutes;
 
     // Priority
-    @JsonProperty("prioritycode")
+    @JsonAlias("prioritycode")
     private Integer priorityCode;
 
-    @JsonProperty("prioritycode@OData.Community.Display.V1.FormattedValue")
+    @JsonAlias("prioritycode@OData.Community.Display.V1.FormattedValue")
     private String priorityCodeFormatted;
+
+    // Additional fields for frontend (not from D365, enriched by backend)
+    private String activityType; // Friendly name: "Email", "Phone Call", "Meeting", "Task"
+    private String direction; // "incoming" or "outgoing"
+    private String staffName; // Owner's full name
+    private String staffEmail; // Owner's email
+    private String staffTitle; // Owner's job title
 
     // OData metadata
     @JsonProperty("@odata.context")

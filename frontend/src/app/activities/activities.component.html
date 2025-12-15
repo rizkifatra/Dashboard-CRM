@@ -1,8 +1,51 @@
 <div class="page-container">
     <div class="page-header">
         <div class="header-content">
-            <h2 class="page-title">Activities</h2>
-            <p class="page-subtitle">Total: {{ activityCount }} activities</p>
+            <h2 class="page-title">Activity Management</h2>
+            <p class="page-subtitle">Track and monitor all CRM activities</p>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #6D5DFF 0%, #5B4DE8 100%);">
+                📊
+            </div>
+            <div class="stat-content">
+                <p class="stat-label">Total Activities</p>
+                <h3 class="stat-value">{{ activityCount }}</h3>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #FF9F43 0%, #FF8C2E 100%);">
+                📧
+            </div>
+            <div class="stat-content">
+                <p class="stat-label">Email Activities</p>
+                <h3 class="stat-value">{{ getEmailCount() }}</h3>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #28C76F 0%, #1FAF5A 100%);">
+                📤
+            </div>
+            <div class="stat-content">
+                <p class="stat-label">Sent</p>
+                <h3 class="stat-value">{{ getOutgoingCount() }}</h3>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #00CFE8 0%, #00B8D4 100%);">
+                📥
+            </div>
+            <div class="stat-content">
+                <p class="stat-label">Received</p>
+                <h3 class="stat-value">{{ getIncomingCount() }}</h3>
+            </div>
         </div>
     </div>
 

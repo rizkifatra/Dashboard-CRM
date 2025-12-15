@@ -26,7 +26,9 @@ public class StaffController {
     }
 
     /**
-     * Get all staff members
+     * Get all staff members (unfiltered - includes all staff regardless of job
+     * title)
+     * Use this endpoint for Staff Management page to show all staff
      * 
      * @param top               Optional limit for number of results (default: 100)
      * @param select            Optional comma-separated list of fields to select
@@ -36,7 +38,55 @@ public class StaffController {
      *                          format: YYYY-MM-DD)
      * @param toDate            Optional end date for email statistics filter (ISO
      *                          format: YYYY-MM-DD)
-     * @return List of staff members
+     * @return List of all staff members
+     */
+    @GetMapping("/all")
+    public ResponseEntity<ApiResponse<List<Staff>>> getAllStaffUnfiltered(
+            @RequestParam(required = false, defaultValue = "100") Integer top,
+            @RequestParam(required = false) String select,
+            @RequestParam(required = false, defaultValue = "false") Boolean includeEmailStats,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate) {
+
+        log.info(
+                "GET /api/staff/all (unfiltered) - Top: {}, Select: {}, IncludeEmailStats: {}, FromDate: {}, ToDate: {}",
+                top, select, includeEmailStats, fromDate, toDate);
+
+        try {
+            List<Staff> staff = staffService.getAllStaffUnfiltered(top, select, includeEmailStats, fromDate, toDate);
+
+            ApiResponse<List<Staff>> response = ApiResponse.<List<Staff>>builder()
+                    .success(true)
+                    .message("Successfully retrieved " + staff.size() + " staff members (unfiltered)")
+                    .data(staff)
+                    .build();
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error retrieving all staff (unfiltered)", e);
+
+            ApiResponse<List<Staff>> response = ApiResponse.<List<Staff>>builder()
+                    .success(false)
+                    .message("Failed to retrieve staff: " + e.getMessage())
+                    .build();
+
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * Get tracked staff members (filtered by configured job titles)
+     * Use this endpoint for Dashboard/Ranking page to show only tracked roles
+     * 
+     * @param top               Optional limit for number of results (default: 100)
+     * @param select            Optional comma-separated list of fields to select
+     * @param includeEmailStats Optional flag to include email statistics (default:
+     *                          false)
+     * @param fromDate          Optional start date for email statistics filter (ISO
+     *                          format: YYYY-MM-DD)
+     * @param toDate            Optional end date for email statistics filter (ISO
+     *                          format: YYYY-MM-DD)
+     * @return List of tracked staff members only
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<Staff>>> getAllStaff(
@@ -46,7 +96,7 @@ public class StaffController {
             @RequestParam(required = false) String fromDate,
             @RequestParam(required = false) String toDate) {
 
-        log.info("GET /api/staff - Top: {}, Select: {}, IncludeEmailStats: {}, FromDate: {}, ToDate: {}",
+        log.info("GET /api/staff (filtered) - Top: {}, Select: {}, IncludeEmailStats: {}, FromDate: {}, ToDate: {}",
                 top, select, includeEmailStats, fromDate, toDate);
 
         try {
@@ -54,13 +104,13 @@ public class StaffController {
 
             ApiResponse<List<Staff>> response = ApiResponse.<List<Staff>>builder()
                     .success(true)
-                    .message("Successfully retrieved " + staff.size() + " staff members")
+                    .message("Successfully retrieved " + staff.size() + " tracked staff members")
                     .data(staff)
                     .build();
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error retrieving staff", e);
+            log.error("Error retrieving tracked staff", e);
 
             ApiResponse<List<Staff>> response = ApiResponse.<List<Staff>>builder()
                     .success(false)
@@ -125,33 +175,42 @@ public class StaffController {
     }
 
     /**
-     * Search for staff by name or email
+     * Search for staff by name or email (accepts searchTerm parameter for unified
+     * search)
+     * This is the UNFILTERED search - shows all staff regardless of job title
      * 
-     * @param name  Optional name to search for (partial match)
-     * @param email Optional email to search for (partial match)
-     * @param top   Optional limit for number of results (default: 50)
+     * @param searchTerm Combined search term for name or email (partial match)
+     * @param name       Optional name to search for (partial match)
+     * @param email      Optional email to search for (partial match)
+     * @param top        Optional limit for number of results (default: 50)
      * @return List of matching staff members
      */
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<Staff>>> searchStaff(
+            @RequestParam(required = false) String searchTerm,
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String email,
             @RequestParam(required = false, defaultValue = "50") Integer top) {
 
-        log.info("GET /api/staff/search - Name: {}, Email: {}, Top: {}", name, email, top);
+        log.info("GET /api/staff/search (unfiltered) - SearchTerm: {}, Name: {}, Email: {}, Top: {}",
+                searchTerm, name, email, top);
 
         try {
-            List<Staff> staff = staffService.searchStaff(name, email, top);
+            // If searchTerm is provided, use it for both name and email search
+            String searchName = (searchTerm != null && !searchTerm.isBlank()) ? searchTerm : name;
+            String searchEmail = (searchTerm != null && !searchTerm.isBlank()) ? searchTerm : email;
+
+            List<Staff> staff = staffService.searchStaffUnfiltered(searchName, searchEmail, top);
 
             ApiResponse<List<Staff>> response = ApiResponse.<List<Staff>>builder()
                     .success(true)
-                    .message("Found " + staff.size() + " staff members")
+                    .message("Found " + staff.size() + " staff members (unfiltered)")
                     .data(staff)
                     .build();
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error searching staff", e);
+            log.error("Error searching staff (unfiltered)", e);
 
             ApiResponse<List<Staff>> response = ApiResponse.<List<Staff>>builder()
                     .success(false)

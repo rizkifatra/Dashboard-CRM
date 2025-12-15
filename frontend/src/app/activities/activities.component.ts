@@ -175,4 +175,22 @@ export class ActivitiesComponent implements OnInit {
   getRelativeTime(timestamp: string): string {
     return this.activityService.getRelativeTime(timestamp);
   }
+
+  getEmailCount(): number {
+    return this.activities.filter((activity) =>
+      activity.activityType?.toLowerCase().includes('email')
+    ).length;
+  }
+
+  getOutgoingCount(): number {
+    return this.activities.filter(
+      (activity) => activity.direction === 'outgoing'
+    ).length;
+  }
+
+  getIncomingCount(): number {
+    return this.activities.filter(
+      (activity) => activity.direction === 'incoming'
+    ).length;
+  }
 }

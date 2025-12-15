@@ -75,9 +75,17 @@
                     <span class="stat-label">Responded</span>
                     <span class="stat-value">{{ staff.respondedEmailCount }}</span>
                 </div>
+                <div class="stat-item">
+                    <span class="stat-label">Conversations</span>
+                    <span class="stat-value">{{ staff.totalConversations }}</span>
+                </div>
+                <div class="stat-item" *ngIf="staff.averageEmailsPerConversation > 0">
+                    <span class="stat-label">Avg Emails/Conv</span>
+                    <span class="stat-value">{{ staff.averageEmailsPerConversation | number:'1.1-1' }}</span>
+                </div>
                 <div class="stat-item" *ngIf="staff.averageResponseTimeMinutes">
-                    <span class="stat-label">Avg Response Time</span>
-                    <span class="stat-value">{{ staff.averageResponseTimeMinutes }} min</span>
+                    <span class="stat-label">Avg Response (Work Hrs)</span>
+                    <span class="stat-value">{{ formatResponseTime(staff.averageResponseTimeMinutes) }}</span>
                 </div>
             </div>
         </div>
