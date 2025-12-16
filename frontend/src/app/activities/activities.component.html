@@ -8,43 +8,66 @@
 
     <!-- Statistics Overview -->
     <div class="stats-row">
-        <div class="stat-card">
-            <div class="stat-icon" style="background: linear-gradient(135deg, #6D5DFF 0%, #5B4DE8 100%);">
-                📊
-            </div>
+        <div class="stat-card purple">
             <div class="stat-content">
                 <p class="stat-label">Total Activities</p>
                 <h3 class="stat-value">{{ activityCount }}</h3>
             </div>
+            <div class="stat-circle">
+                <svg viewBox="0 0 36 36" class="circular-chart">
+                    <path class="circle-bg"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="circle" [attr.stroke-dasharray]="'100, 100'"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+            </div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: linear-gradient(135deg, #FF9F43 0%, #FF8C2E 100%);">
-                📧
-            </div>
+        <div class="stat-card orange">
             <div class="stat-content">
                 <p class="stat-label">Email Activities</p>
                 <h3 class="stat-value">{{ getEmailCount() }}</h3>
             </div>
+            <div class="stat-circle">
+                <svg viewBox="0 0 36 36" class="circular-chart">
+                    <path class="circle-bg"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="circle"
+                        [attr.stroke-dasharray]="getPercentage(getEmailCount(), activityCount) + ', 100'"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+            </div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: linear-gradient(135deg, #28C76F 0%, #1FAF5A 100%);">
-                📤
-            </div>
+        <div class="stat-card green">
             <div class="stat-content">
                 <p class="stat-label">Sent</p>
                 <h3 class="stat-value">{{ getOutgoingCount() }}</h3>
             </div>
+            <div class="stat-circle">
+                <svg viewBox="0 0 36 36" class="circular-chart">
+                    <path class="circle-bg"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="circle"
+                        [attr.stroke-dasharray]="getPercentage(getOutgoingCount(), activityCount) + ', 100'"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+            </div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: linear-gradient(135deg, #00CFE8 0%, #00B8D4 100%);">
-                📥
-            </div>
+        <div class="stat-card red">
             <div class="stat-content">
                 <p class="stat-label">Received</p>
                 <h3 class="stat-value">{{ getIncomingCount() }}</h3>
+            </div>
+            <div class="stat-circle">
+                <svg viewBox="0 0 36 36" class="circular-chart">
+                    <path class="circle-bg"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path class="circle"
+                        [attr.stroke-dasharray]="getPercentage(getIncomingCount(), activityCount) + ', 100'"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
             </div>
         </div>
     </div>
@@ -97,26 +120,108 @@
         <button (click)="loadActivities()" class="retry-button">Retry</button>
     </div>
 
-    <div *ngIf="!loading && !error" class="activities-container">
-        <div *ngFor="let activity of activities" class="activity-card">
-            <div class="activity-header">
-                <div class="activity-avatar">
+    <div *ngIf="!loading && !error" class="activities-list">
+        <div class="list-header">
+            <div class="col-icon"></div>
+            <div class="col-subject">Subject</div>
+            <div class="col-type">Activity Type</div>
+            <div class="col-direction">Direction</div>
+            <div class="col-staff">Staff</div>
+            <div class="col-date">Date</div>
+        </div>
+
+        <div *ngFor="let activity of activities" class="activity-row" (click)="openActivityDetails(activity)">
+            <div class="col-icon">
+                <div class="activity-avatar-small">
                     {{ getInitials(activity.staffName) }}
                 </div>
-                <div class="activity-meta">
-                    <h3 class="activity-staff">{{ activity.staffName }}</h3>
-                    <p class="activity-title">{{ activity.staffTitle }}</p>
-                    <span class="activity-time">{{ getRelativeTime(activity.createdOn) }}</span>
-                </div>
-                <span class="activity-badge" [class]="activity.direction">
+            </div>
+            <div class="col-subject">
+                <div class="subject-text">{{ activity.subject }}</div>
+            </div>
+            <div class="col-type">
+                <span class="type-badge-small">{{ activity.activityType }}</span>
+            </div>
+            <div class="col-direction">
+                <span class="direction-badge" [class]="activity.direction">
                     {{ activity.direction === 'outgoing' ? '📤 Sent' : '📥 Received' }}
                 </span>
             </div>
-            <div class="activity-body">
-                <h4 class="activity-subject">{{ activity.subject }}</h4>
-                <p class="activity-description" *ngIf="activity.description">{{ activity.description }}</p>
-                <div class="activity-type">
-                    <span class="type-badge">{{ activity.activityType }}</span>
+            <div class="col-staff">
+                <div class="staff-info">
+                    <div class="staff-name">{{ activity.staffName }}</div>
+                    <div class="staff-title">{{ activity.staffTitle }}</div>
+                </div>
+            </div>
+            <div class="col-date">
+                {{ getRelativeTime(activity.createdOn) }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Activity Details -->
+    <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()" *ngIf="selectedActivity">
+            <div class="modal-header">
+                <div class="modal-title-section">
+                    <h2 class="modal-title">{{ selectedActivity.subject }}</h2>
+                    <div class="modal-badges">
+                        <span class="type-badge">{{ selectedActivity.activityType }}</span>
+                        <span class="direction-badge" [class]="selectedActivity.direction">
+                            {{ selectedActivity.direction === 'outgoing' ? '📤 Sent' : '📥 Received' }}
+                        </span>
+                    </div>
+                </div>
+                <button class="close-button" (click)="closeModal()">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="modal-info-grid">
+                    <div class="info-item">
+                        <label>Staff Member</label>
+                        <div class="info-with-avatar">
+                            <div class="activity-avatar-modal">
+                                {{ getInitials(selectedActivity.staffName) }}
+                            </div>
+                            <div>
+                                <div class="info-value">{{ selectedActivity.staffName }}</div>
+                                <div class="info-subtitle">{{ selectedActivity.staffTitle }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Email</label>
+                        <div class="info-value">{{ selectedActivity.staffEmail }}</div>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Activity ID</label>
+                        <div class="info-value">{{ selectedActivity.activityId }}</div>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Created On</label>
+                        <div class="info-value">{{ formatDate(selectedActivity.createdOn) }}</div>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Modified On</label>
+                        <div class="info-value">{{ formatDate(selectedActivity.modifiedOn) }}</div>
+                    </div>
+
+                    <div class="info-item">
+                        <label>Direction</label>
+                        <div class="info-value">
+                            <span class="status-badge">{{ selectedActivity.direction === 'outgoing' ? 'Sent' :
+                                'Received' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="description-section" *ngIf="selectedActivity.description">
+                    <label>Message Content</label>
+                    <div class="description-content" [innerHTML]="selectedActivity.description"></div>
                 </div>
             </div>
         </div>

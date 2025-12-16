@@ -15,6 +15,8 @@ export class ActivitiesComponent implements OnInit {
   activities: Activity[] = [];
   loading = true;
   error: string | null = null;
+  selectedActivity: Activity | null = null;
+  showModal = false;
 
   // Filter options
   filterType: 'all' | 'recent' | 'emails' | 'staff' | 'account' = 'all';
@@ -192,5 +194,34 @@ export class ActivitiesComponent implements OnInit {
     return this.activities.filter(
       (activity) => activity.direction === 'incoming'
     ).length;
+  }
+
+  openActivityDetails(activity: Activity) {
+    this.selectedActivity = activity;
+    this.showModal = true;
+  }
+
+  closeModal() {
+    this.showModal = false;
+    setTimeout(() => {
+      this.selectedActivity = null;
+    }, 300);
+  }
+
+  formatDate(dateString: string): string {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  getPercentage(value: number, total: number): number {
+    if (total === 0) return 0;
+    return Math.round((value / total) * 100);
   }
 }

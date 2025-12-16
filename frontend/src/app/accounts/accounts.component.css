@@ -1,69 +1,77 @@
 .page-container {
-    padding: 20px;
-    max-width: 1400px;
-    margin: 0 auto;
+    background: #F5F5F7;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    padding: 28px 36px 36px 36px;
+    min-height: 100vh;
 }
 
 .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    padding: 0 0 16px 0;
+    border-bottom: 1px solid #E5E7EB;
+    margin-bottom: 24px;
 }
 
 .page-title {
-    font-size: 24px;
-    font-weight: 600;
-    color: #1f2937;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1F2937;
     margin: 0;
+    letter-spacing: 0.3px;
 }
 
 .page-stats {
     display: flex;
-    gap: 10px;
+    gap: 12px;
 }
 
 .stat-badge {
     background: #8B5CF6;
     color: white;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
     font-weight: 500;
 }
 
 .search-section {
     background: white;
-    padding: 20px;
+    padding: 16px 20px;
     border-radius: 12px;
     margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    gap: 15px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
 .search-bar {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     flex: 1;
     min-width: 300px;
 }
 
 .search-input {
     flex: 1;
-    padding: 10px 15px;
-    border: 1px solid #d1d5db;
+    padding: 8px 16px;
+    border: 1px solid #D1D5DB;
     border-radius: 8px;
     font-size: 14px;
+    background: white;
+    color: #1F2937;
+    transition: all 0.2s;
 }
 
 .search-input:focus {
     outline: none;
     border-color: #8B5CF6;
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
 }
 
 .search-button {
@@ -164,13 +172,16 @@
     color: white;
     border: none;
     padding: 10px 20px;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
 }
 
 .retry-button:hover {
     background: #7C3AED;
+    transform: translateY(-1px);
 }
 
 .accounts-grid {
@@ -181,15 +192,15 @@
 
 .account-card {
     background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
 }
 
 .account-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
 .account-header {

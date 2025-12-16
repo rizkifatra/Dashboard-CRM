@@ -30,51 +30,97 @@
     <div *ngIf="!loading && !error && stats" class="dashboard-content">
         <!-- Statistics Cards -->
         <div class="stats-grid">
-            <div class="stat-card total">
-                <div class="stat-icon">📊</div>
+            <div class="stat-card purple">
                 <div class="stat-content">
                     <h3>Total Opportunities</h3>
                     <p class="stat-value">{{ stats.totalOpportunities }}</p>
                 </div>
+                <div class="stat-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle" [attr.stroke-dasharray]="'100, 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
             </div>
 
-            <div class="stat-card open">
-                <div class="stat-icon">🔓</div>
+            <div class="stat-card orange">
                 <div class="stat-content">
                     <h3>Open Opportunities</h3>
                     <p class="stat-value">{{ stats.openOpportunities }}</p>
                 </div>
+                <div class="stat-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(stats.openOpportunities, stats.totalOpportunities) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
             </div>
 
-            <div class="stat-card won">
-                <div class="stat-icon">🏆</div>
+            <div class="stat-card green">
                 <div class="stat-content">
                     <h3>Won Opportunities</h3>
                     <p class="stat-value">{{ stats.wonOpportunities }}</p>
                 </div>
+                <div class="stat-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(stats.wonOpportunities, stats.totalOpportunities) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
             </div>
 
-            <div class="stat-card lost">
-                <div class="stat-icon">❌</div>
+            <div class="stat-card red">
                 <div class="stat-content">
                     <h3>Lost Opportunities</h3>
                     <p class="stat-value">{{ stats.lostOpportunities }}</p>
                 </div>
+                <div class="stat-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(stats.lostOpportunities, stats.totalOpportunities) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
             </div>
 
-            <div class="stat-card value">
-                <div class="stat-icon">💰</div>
+            <div class="stat-card blue">
                 <div class="stat-content">
                     <h3>Total Estimated Value</h3>
                     <p class="stat-value">{{ formatCurrency(stats.totalEstimatedValue) }}</p>
                 </div>
+                <div class="stat-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle" [attr.stroke-dasharray]="'100, 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
             </div>
 
-            <div class="stat-card won-value">
-                <div class="stat-icon">💸</div>
+            <div class="stat-card yellow">
                 <div class="stat-content">
                     <h3>Won Value</h3>
                     <p class="stat-value">{{ formatCurrency(stats.wonValue) }}</p>
+                </div>
+                <div class="stat-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(stats.wonValue, stats.totalEstimatedValue) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
                 </div>
             </div>
 
