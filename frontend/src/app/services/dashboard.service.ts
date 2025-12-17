@@ -34,6 +34,32 @@ export interface EmailPerformance {
   totalEmails: number;
 }
 
+export interface RevenueMetrics {
+  estimatedRevenue: number;
+  wonRevenue: number;
+  inProgressRevenue: number;
+  wonCount: number;
+  lostCount: number;
+  openCount: number;
+  averageDealSize: number;
+  winRate: number;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+}
+
+export interface MonthlyRevenue {
+  month: string;
+  year: number;
+  monthLabel: string;
+  estimatedRevenue: number;
+  wonRevenue: number;
+  wonCount: number;
+  openCount: number;
+  lostCount: number;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -98,6 +124,32 @@ export class DashboardService {
     return this.http.get<ApiResponse<EmailPerformance[]>>(
       `${this.apiUrl}/dashboard/email-performance`,
       { params }
+    );
+  }
+
+  /**
+   * Get revenue metrics
+   */
+  getRevenueMetrics(
+    fromDate?: string,
+    toDate?: string
+  ): Observable<ApiResponse<RevenueMetrics>> {
+    let params = new HttpParams();
+    if (fromDate) params = params.set('fromDate', fromDate);
+    if (toDate) params = params.set('toDate', toDate);
+
+    return this.http.get<ApiResponse<RevenueMetrics>>(
+      `${this.apiUrl}/dashboard/revenue-metrics`,
+      { params }
+    );
+  }
+
+  /**
+   * Get revenue data grouped by month for the past 12 months
+   */
+  getRevenueByMonth(): Observable<ApiResponse<MonthlyRevenue[]>> {
+    return this.http.get<ApiResponse<MonthlyRevenue[]>>(
+      `${this.apiUrl}/dashboard/revenue-by-month`
     );
   }
 }

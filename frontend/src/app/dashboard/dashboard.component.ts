@@ -14,6 +14,8 @@ import {
   DashboardMetrics,
   TopPerformer,
   EmailPerformance,
+  RevenueMetrics,
+  MonthlyRevenue,
 } from '../services/dashboard.service';
 import { ActivityService, Activity } from '../services/activity.service';
 import {
@@ -47,6 +49,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   loading = true;
   error: string | null = null;
   lastUpdated: Date | null = null;
+
+  // Revenue data
+  revenueMetrics: RevenueMetrics | null = null;
+  monthlyRevenue: MonthlyRevenue[] = [];
+  selectedMonth: string = 'current'; // 'current' or month index
+  selectedMonthLabel: string = 'This Month';
 
   // Date filter
   fromDate: string | undefined;
@@ -130,6 +138,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.loadRecentActivities(),
       this.loadEmailActivityCount(),
       this.loadOpportunityStats(),
+      this.loadRevenueMetrics(),
+      this.loadMonthlyRevenue(),
     ])
       .then(() => {
         this.loading = false;
@@ -239,6 +249,105 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
+  private loadRevenueMetrics(): Promise<void> {
+    return new Promise((resolve) => {
+      // Determine date range based on selected month
+      let fromDate = this.fromDate;
+      let toDate = this.toDate;
+
+      if (this.selectedMonth !== 'current' && this.monthlyRevenue.length > 0) {
+        const monthIndex = parseInt(this.selectedMonth);
+        if (monthIndex >= 0 && monthIndex < this.monthlyRevenue.length) {
+          const selectedMonthData = this.monthlyRevenue[monthIndex];
+          const monthDate = new Date(
+            selectedMonthData.year,
+            this.getMonthNumber(selectedMonthData.month),
+            1
+          );
+          const monthEnd = new Date(
+            monthDate.getFullYear(),
+            monthDate.getMonth() + 1,
+            0
+          );
+
+          fromDate = monthDate.toISOString().split('T')[0];
+          toDate = monthEnd.toISOString().split('T')[0];
+        }
+      }
+
+      this.dashboardService.getRevenueMetrics(fromDate, toDate).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.revenueMetrics = response.data;
+          } else {
+            console.warn('Failed to load revenue metrics:', response.error);
+            this.revenueMetrics = null;
+          }
+          resolve();
+        },
+        error: (err) => {
+          console.error('Error loading revenue metrics:', err);
+          this.revenueMetrics = null;
+          resolve();
+        },
+      });
+    });
+  }
+
+  private loadMonthlyRevenue(): Promise<void> {
+    return new Promise((resolve) => {
+      this.dashboardService.getRevenueByMonth().subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.monthlyRevenue = response.data;
+          } else {
+            console.warn('Failed to load monthly revenue:', response.error);
+            this.monthlyRevenue = [];
+          }
+          resolve();
+        },
+        error: (err) => {
+          console.error('Error loading monthly revenue:', err);
+          this.monthlyRevenue = [];
+          resolve();
+        },
+      });
+    });
+  }
+
+  onMonthChange(monthValue: string): void {
+    this.selectedMonth = monthValue;
+
+    if (monthValue === 'current') {
+      this.selectedMonthLabel = 'This Month';
+    } else {
+      const monthIndex = parseInt(monthValue);
+      if (monthIndex >= 0 && monthIndex < this.monthlyRevenue.length) {
+        this.selectedMonthLabel = this.monthlyRevenue[monthIndex].monthLabel;
+      }
+    }
+
+    this.loadRevenueMetrics();
+  }
+
+  private getMonthNumber(monthName: string): number {
+    const months = [
+      'JANUARY',
+      'FEBRUARY',
+      'MARCH',
+      'APRIL',
+      'MAY',
+      'JUNE',
+      'JULY',
+      'AUGUST',
+      'SEPTEMBER',
+      'OCTOBER',
+      'NOVEMBER',
+      'DECEMBER',
+    ];
+    return months.indexOf(monthName.toUpperCase());
+  }
+
   getRelativeTime(timestamp: string): string {
     return this.activityService.getRelativeTime(timestamp);
   }
@@ -276,6 +385,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return num.toString();
   }
 
+  formatNumberPlain(num: number): string {
+    return Math.round(num).toLocaleString('en-US', {
+      maximumFractionDigits: 0,
+    });
+  }
+
   getMaxEmailCount(): number {
     if (!this.emailPerformance || this.emailPerformance.length === 0)
       return 500;
@@ -287,6 +402,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   getMetricPercentage(value: number, max: number): number {
+    if (!max) return 0;
+    return Math.min((value / max) * 100, 100);
+  }
+
+  getRevenuePercentage(value: number, max: number): number {
     if (!max) return 0;
     return Math.min((value / max) * 100, 100);
   }

@@ -155,3 +155,35 @@ export interface SystemConfig {
   azureClientSecretConfigured: boolean;
   fullyConfigured: boolean;
 }
+
+/**
+ * Revenue metrics for dashboard
+ */
+export interface RevenueMetrics {
+  estimatedRevenue: number;
+  wonRevenue: number;
+  inProgressRevenue: number;
+  wonCount: number;
+  lostCount: number;
+  openCount: number;
+  averageDealSize: number;
+  winRate: number;
+  dateRange: {
+    from: string;
+    to: string;
+  };
+}
+
+/**
+ * Monthly revenue data
+ */
+export interface MonthlyRevenue {
+  month: string;
+  year: number;
+  monthLabel: string;
+  estimatedRevenue: number;
+  wonRevenue: number;
+  wonCount: number;
+  openCount: number;
+  lostCount: number;
+}

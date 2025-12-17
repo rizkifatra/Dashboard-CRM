@@ -36,6 +36,47 @@
     <!-- Dashboard Content -->
     <div *ngIf="!loading && !error" class="dashboard-content">
 
+        <!-- Revenue Section with Month Filter -->
+        <div class="revenue-section">
+            <div class="revenue-header">
+                <div>
+                    <h2 class="section-title" style="padding: 0px 24px 0px 24px;">Revenue Metric</h2>
+                </div>
+                <div class="month-filter">
+                    <select id="monthSelect" [(ngModel)]="selectedMonth"
+                        (change)="onMonthChange($any($event.target).value)" class="month-select">
+                        <option value="current">This Month</option>
+                        <option *ngFor="let month of monthlyRevenue; let i = index" [value]="i">
+                            {{ month.monthLabel }}
+                        </option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Revenue Cards Row -->
+            <div class="revenue-cards-row">
+                <div class="revenue-card purple">
+                    <div class="revenue-label">ESTIMATED REVENUE</div>
+                    <div class="revenue-value">{{ formatNumberPlain(revenueMetrics?.estimatedRevenue || 0) }}</div>
+                </div>
+
+                <div class="revenue-card orange">
+                    <div class="revenue-label">WON REVENUE</div>
+                    <div class="revenue-value">{{ formatNumberPlain(revenueMetrics?.wonRevenue || 0) }}</div>
+                </div>
+
+                <div class="revenue-card green">
+                    <div class="revenue-label">IN-PROGRESS REVENUE</div>
+                    <div class="revenue-value">{{ formatNumberPlain(revenueMetrics?.inProgressRevenue || 0) }}</div>
+                </div>
+
+                <div class="revenue-card red">
+                    <div class="revenue-label">AVG DEAL SIZE</div>
+                    <div class="revenue-value">{{ formatNumberPlain(revenueMetrics?.averageDealSize || 0) }}</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Metric Cards Row -->
         <div class="metrics-row">
             <div class="metric-card purple">
@@ -102,7 +143,6 @@
             </div>
         </div>
 
-
         <!-- Monthly Trends Chart -->
         <div class="trends-chart-section">
             <div class="chart-header">
@@ -166,6 +206,73 @@
                 <div>
                     <h3 class="section-title">Top Performing Staff</h3>
                     <p class="section-subtitle">Based on CRM activities and email performance</p>
+                </div>
+            </div>
+
+            <!-- Metric Cards Row -->
+            <div class="metrics-row">
+                <div class="metric-card purple">
+                    <div class="metric-label">TOTAL EMAIL ACTIVITIES</div>
+                    <div class="metric-content">
+                        <div class="metric-value">{{ metrics?.totalActivities || 0 }}</div>
+                        <div class="metric-circle">
+                            <svg viewBox="0 0 36 36" class="circular-chart">
+                                <path class="circle-bg"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path class="circle"
+                                    [attr.stroke-dasharray]="getMetricPercentage(metrics?.totalActivities || 0, 2000) + ', 100'"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card orange">
+                    <div class="metric-label">ACTIVE OPPORTUNITIES</div>
+                    <div class="metric-content">
+                        <div class="metric-value">{{ metrics?.activeOpportunities || 0 }}</div>
+                        <div class="metric-circle">
+                            <svg viewBox="0 0 36 36" class="circular-chart">
+                                <path class="circle-bg"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path class="circle"
+                                    [attr.stroke-dasharray]="getMetricPercentage(metrics?.activeOpportunities || 0, 150) + ', 100'"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card green">
+                    <div class="metric-label">EMAILS SENT</div>
+                    <div class="metric-content">
+                        <div class="metric-value">{{ metrics?.totalEmailsSent || 0 }}</div>
+                        <div class="metric-circle">
+                            <svg viewBox="0 0 36 36" class="circular-chart">
+                                <path class="circle-bg"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path class="circle"
+                                    [attr.stroke-dasharray]="getMetricPercentage(metrics?.totalEmailsSent || 0, 10000) + ', 100'"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card red">
+                    <div class="metric-label">AVG RESPONSE RATE</div>
+                    <div class="metric-content">
+                        <div class="metric-value">{{ metrics?.averageResponseRate || 0 }}%</div>
+                        <div class="metric-circle">
+                            <svg viewBox="0 0 36 36" class="circular-chart">
+                                <path class="circle-bg"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path class="circle"
+                                    [attr.stroke-dasharray]="(metrics?.averageResponseRate || 0) + ', 100'"
+                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
 

@@ -192,6 +192,112 @@
     width: 100%;
 }
 
+/* Revenue Section */
+.revenue-section {
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+}
+
+.revenue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 400;
+    color: #1F2937;
+    margin: 0;
+}
+
+.month-filter {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.month-select {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    background: #F3F4F6;
+    color: #6B7280;
+    cursor: pointer;
+    min-width: 140px;
+    transition: all 0.2s;
+    font-weight: 400;
+}
+
+.month-select:focus {
+    outline: none;
+    background: #E5E7EB;
+}
+
+.month-select:hover {
+    background: #E5E7EB;
+}
+
+/* Revenue Cards */
+.revenue-cards-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    flex-shrink: 0;
+    margin-bottom: 8px;
+}
+
+.revenue-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s;
+}
+
+.revenue-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.revenue-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #9CA3AF;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.revenue-value {
+    font-size: 36px;
+    font-weight: 600;
+    color: #1F2937;
+    letter-spacing: -0.5px;
+    line-height: 1;
+}
+
+.revenue-card.purple .revenue-value {
+    color: #6D5DFF;
+}
+
+.revenue-card.orange .revenue-value {
+    color: #FF9F43;
+}
+
+.revenue-card.green .revenue-value {
+    color: #28C76F;
+}
+
+.revenue-card.red .revenue-value {
+    color: #FF6B6B;
+}
+
 /* Metric Cards */
 .metrics-row {
     display: grid;

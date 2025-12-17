@@ -4,70 +4,70 @@
             <h2 class="page-title">Activity Management</h2>
             <p class="page-subtitle">Track and monitor all CRM activities</p>
         </div>
-    </div>
 
-    <!-- Statistics Overview -->
-    <div class="stats-row">
-        <div class="stat-card purple">
-            <div class="stat-content">
-                <p class="stat-label">Total Activities</p>
-                <h3 class="stat-value">{{ activityCount }}</h3>
+        <!-- Metric Cards Row -->
+        <div class="metrics-row">
+            <div class="metric-card purple">
+                <div class="metric-left">
+                    <div class="metric-label">Total Activities</div>
+                    <div class="metric-value">{{ activityCount }}</div>
+                </div>
+                <div class="metric-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle" [attr.stroke-dasharray]="'100, 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
             </div>
-            <div class="stat-circle">
-                <svg viewBox="0 0 36 36" class="circular-chart">
-                    <path class="circle-bg"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path class="circle" [attr.stroke-dasharray]="'100, 100'"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-            </div>
-        </div>
 
-        <div class="stat-card orange">
-            <div class="stat-content">
-                <p class="stat-label">Email Activities</p>
-                <h3 class="stat-value">{{ getEmailCount() }}</h3>
+            <div class="metric-card orange">
+                <div class="metric-left">
+                    <div class="metric-label">Email Activities</div>
+                    <div class="metric-value">{{ getEmailCount() }}</div>
+                </div>
+                <div class="metric-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(getEmailCount(), activityCount) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
             </div>
-            <div class="stat-circle">
-                <svg viewBox="0 0 36 36" class="circular-chart">
-                    <path class="circle-bg"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path class="circle"
-                        [attr.stroke-dasharray]="getPercentage(getEmailCount(), activityCount) + ', 100'"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-            </div>
-        </div>
 
-        <div class="stat-card green">
-            <div class="stat-content">
-                <p class="stat-label">Sent</p>
-                <h3 class="stat-value">{{ getOutgoingCount() }}</h3>
+            <div class="metric-card green">
+                <div class="metric-left">
+                    <div class="metric-label">Sent</div>
+                    <div class="metric-value">{{ getOutgoingCount() }}</div>
+                </div>
+                <div class="metric-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(getOutgoingCount(), activityCount) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
             </div>
-            <div class="stat-circle">
-                <svg viewBox="0 0 36 36" class="circular-chart">
-                    <path class="circle-bg"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path class="circle"
-                        [attr.stroke-dasharray]="getPercentage(getOutgoingCount(), activityCount) + ', 100'"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-            </div>
-        </div>
 
-        <div class="stat-card red">
-            <div class="stat-content">
-                <p class="stat-label">Received</p>
-                <h3 class="stat-value">{{ getIncomingCount() }}</h3>
-            </div>
-            <div class="stat-circle">
-                <svg viewBox="0 0 36 36" class="circular-chart">
-                    <path class="circle-bg"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path class="circle"
-                        [attr.stroke-dasharray]="getPercentage(getIncomingCount(), activityCount) + ', 100'"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
+            <div class="metric-card red">
+                <div class="metric-left">
+                    <div class="metric-label">Received</div>
+                    <div class="metric-value">{{ getIncomingCount() }}</div>
+                </div>
+                <div class="metric-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(getIncomingCount(), activityCount) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
             </div>
         </div>
     </div>
