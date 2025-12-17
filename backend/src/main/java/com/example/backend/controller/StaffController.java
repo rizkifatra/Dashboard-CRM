@@ -96,15 +96,15 @@ public class StaffController {
             @RequestParam(required = false) String fromDate,
             @RequestParam(required = false) String toDate) {
 
-        log.info("GET /api/staff (filtered) - Top: {}, Select: {}, IncludeEmailStats: {}, FromDate: {}, ToDate: {}",
+        log.info("GET /api/staff - Top: {}, Select: {}, IncludeEmailStats: {}, FromDate: {}, ToDate: {}",
                 top, select, includeEmailStats, fromDate, toDate);
 
         try {
-            List<Staff> staff = staffService.getAllStaff(top, select, includeEmailStats, fromDate, toDate);
+            List<Staff> staff = staffService.getAllStaffUnfiltered(top, select, includeEmailStats, fromDate, toDate);
 
             ApiResponse<List<Staff>> response = ApiResponse.<List<Staff>>builder()
                     .success(true)
-                    .message("Successfully retrieved " + staff.size() + " tracked staff members")
+                    .message("Successfully retrieved " + staff.size() + " staff members")
                     .data(staff)
                     .build();
             return ResponseEntity.ok(response);

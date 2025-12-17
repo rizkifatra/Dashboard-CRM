@@ -202,4 +202,14 @@ export class OpportunityService {
         return '';
     }
   }
+
+  /**
+   * Get monthly trends
+   */
+  getMonthlyTrends(months: number = 6): Observable<ApiResponse<any[]>> {
+    let params = new HttpParams().set('months', months.toString());
+    return this.http.get<ApiResponse<any[]>>(`${this.apiUrl}/monthly-trends`, {
+      params,
+    });
+  }
 }

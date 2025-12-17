@@ -406,6 +406,42 @@
     color: #1F2937;
 }
 
+/* Trends Chart Section */
+.trends-chart-section {
+    background: white;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    margin-bottom: 24px;
+}
+
+.chart-header {
+    margin-bottom: 20px;
+}
+
+.chart-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1F2937;
+    margin: 0 0 4px 0;
+}
+
+.chart-subtitle {
+    font-size: 14px;
+    color: #6B7280;
+    margin: 0;
+}
+
+.trends-chart-container {
+    position: relative;
+    height: 350px;
+    width: 100%;
+}
+
+.trends-chart-container canvas {
+    max-height: 350px;
+}
+
 /* Main Grid */
 .main-grid {
     display: grid;
@@ -1068,95 +1104,6 @@
     }
 }
 
-/* Opportunity Summary Section */
-.opportunity-summary-section {
-    background: white;
-    padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    margin-bottom: 20px;
-}
-
-.view-all-link {
-    color: #0066cc;
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 600;
-    transition: color 0.2s;
-}
-
-.view-all-link:hover {
-    color: #0052a3;
-}
-
-.opportunity-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin-top: 20px;
-}
-
-.opp-stat-card {
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border: 2px solid transparent;
-    transition: all 0.2s;
-}
-
-.opp-stat-card:hover {
-    border-color: #e9ecef;
-    transform: translateY(-2px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.opp-stat-card.open {
-    border-left: 4px solid #00a8e8;
-}
-
-.opp-stat-card.won {
-    border-left: 4px solid #28a745;
-}
-
-.opp-stat-card.value {
-    border-left: 4px solid #ffc107;
-}
-
-.opp-stat-card.won-value {
-    border-left: 4px solid #28a745;
-}
-
-.opp-stat-card.win-rate {
-    border-left: 4px solid #17a2b8;
-}
-
-.opp-stat-icon {
-    font-size: 2rem;
-    flex-shrink: 0;
-}
-
-.opp-stat-content {
-    flex: 1;
-}
-
-.opp-stat-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-}
-
-.opp-stat-value {
-    font-size: 20px;
-    font-weight: 700;
-    color: #1a1a1a;
-}
-
 /* Print Styles */
 @media print {
 
@@ -1173,8 +1120,7 @@
     .metric-card,
     .chart-section,
     .recent-activities,
-    .top-performers-section,
-    .opportunity-summary-section {
+    .top-performers-section {
         box-shadow: none;
         border: 1px solid #E5E7EB;
     }

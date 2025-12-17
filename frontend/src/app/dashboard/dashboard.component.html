@@ -10,15 +10,6 @@
 
     <!-- Control Bar -->
     <div class="control-bar">
-        <div class="control-group">
-            <label class="control-label">Date Range:</label>
-            <select [(ngModel)]="dateRange" (change)="onDateRangeChange()" class="control-select">
-                <option value="current-month">Current Month</option>
-                <option value="last-7-days">Last 7 Days</option>
-                <option value="last-30-days">Last 30 Days</option>
-                <option value="last-90-days">Last 90 Days</option>
-            </select>
-        </div>
         <div class="control-actions">
             <button (click)="refreshDashboard()" class="refresh-button" [disabled]="loading">
                 <span class="refresh-icon">↻</span>
@@ -112,6 +103,17 @@
         </div>
 
 
+        <!-- Monthly Trends Chart -->
+        <div class="trends-chart-section">
+            <div class="chart-header">
+                <h3>6-Month Opportunities Trends</h3>
+                <p class="chart-subtitle">Compare key indicators across months</p>
+            </div>
+            <div class="trends-chart-container">
+                <canvas #lineChart></canvas>
+            </div>
+        </div>
+
         <!-- Main Content Grid -->
         <div class="main-grid">
 
@@ -153,92 +155,6 @@
                                 {{ staff.staffName.split(' ')[0] }}
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Activities -->
-            <div class="recent-activities">
-                <h3 class="section-title">Recent Activities</h3>
-                <div class="activities-list">
-                    <div *ngIf="recentActivities.length === 0" class="empty-state">
-                        <p>No recent activities</p>
-                    </div>
-                    <div *ngFor="let activity of recentActivities" class="activity-item">
-                        <div class="activity-avatar">
-                            {{ getInitials(activity.staffName) }}
-                        </div>
-                        <div class="activity-details">
-                            <div class="activity-name">{{ activity.staffName }}</div>
-                            <div class="activity-action">{{ activity.subject }}</div>
-                            <div class="activity-time">
-                                <span class="activity-type-badge" [class]="activity.activityType">
-                                    {{ activity.activityType }}
-                                </span>
-                                <span class="activity-timestamp">{{ getRelativeTime(activity.createdOn) }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Opportunity Summary -->
-        <div class="opportunity-summary-section" *ngIf="opportunityStats">
-            <div class="section-header-inline">
-                <div>
-                    <h3 class="section-title">Opportunity Pipeline</h3>
-                    <p class="section-subtitle">Sales opportunities overview</p>
-                </div>
-                <a routerLink="/opportunities" class="view-all-link">View All →</a>
-            </div>
-
-            <div class="opportunity-stats-grid">
-                <div class="opp-stat-card">
-                    <div class="opp-stat-icon">📊</div>
-                    <div class="opp-stat-content">
-                        <div class="opp-stat-label">Total Opportunities</div>
-                        <div class="opp-stat-value">{{ opportunityStats.totalOpportunities }}</div>
-                    </div>
-                </div>
-
-                <div class="opp-stat-card open">
-                    <div class="opp-stat-icon">🔓</div>
-                    <div class="opp-stat-content">
-                        <div class="opp-stat-label">Open</div>
-                        <div class="opp-stat-value">{{ opportunityStats.openOpportunities }}</div>
-                    </div>
-                </div>
-
-                <div class="opp-stat-card won">
-                    <div class="opp-stat-icon">🏆</div>
-                    <div class="opp-stat-content">
-                        <div class="opp-stat-label">Won</div>
-                        <div class="opp-stat-value">{{ opportunityStats.wonOpportunities }}</div>
-                    </div>
-                </div>
-
-                <div class="opp-stat-card value">
-                    <div class="opp-stat-icon">💰</div>
-                    <div class="opp-stat-content">
-                        <div class="opp-stat-label">Pipeline Value</div>
-                        <div class="opp-stat-value">{{ formatCurrency(opportunityStats.totalEstimatedValue) }}</div>
-                    </div>
-                </div>
-
-                <div class="opp-stat-card won-value">
-                    <div class="opp-stat-icon">💸</div>
-                    <div class="opp-stat-content">
-                        <div class="opp-stat-label">Won Value</div>
-                        <div class="opp-stat-value">{{ formatCurrency(opportunityStats.wonValue) }}</div>
-                    </div>
-                </div>
-
-                <div class="opp-stat-card win-rate">
-                    <div class="opp-stat-icon">📈</div>
-                    <div class="opp-stat-content">
-                        <div class="opp-stat-label">Win Rate</div>
-                        <div class="opp-stat-value">{{ formatPercentage(opportunityStats.winRate) }}</div>
                     </div>
                 </div>
             </div>

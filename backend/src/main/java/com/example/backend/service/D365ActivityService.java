@@ -699,13 +699,10 @@ public class D365ActivityService {
             String userName = userArray.get(0).get("fullname").asText();
             log.info("Found staff: {} with ID: {}", userName, userId);
 
-            // Count incoming emails (directioncode = false) from emails table
-            String incomingFilter = "_owninguser_value eq " + userId + " and directioncode eq false";
-            int incomingCount = getEmailCount(incomingFilter);
-
-            // Count outgoing emails (directioncode = true) from emails table
-            String outgoingFilter = "_owninguser_value eq " + userId + " and directioncode eq true";
-            int outgoingCount = getEmailCount(outgoingFilter);
+            // Use new method that checks email participants and excludes CC'd emails
+            int[] emailCounts = countEmailsByParticipants(userId, staffEmail);
+            int incomingCount = emailCounts[0];
+            int outgoingCount = emailCounts[1];
 
             log.info("Email stats for {}: Incoming={}, Outgoing={}", userName, incomingCount, outgoingCount);
 
@@ -720,6 +717,120 @@ public class D365ActivityService {
         } catch (Exception e) {
             log.error("Error fetching email statistics", e);
             throw new RuntimeException("Failed to fetch email statistics: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Count emails by checking participants (To/From) and excluding CC'd emails
+     * This method fetches emails and checks the email_activity_parties to determine
+     * if the user is the sender (From) or recipient (To), excluding CC.
+     * 
+     * @param userId    User's system ID
+     * @param userEmail User's email address
+     * @return Array with [incomingCount, outgoingCount]
+     */
+    private int[] countEmailsByParticipants(String userId, String userEmail) {
+        try {
+            String token = authService.getAccessToken();
+            int incomingCount = 0;
+            int outgoingCount = 0;
+
+            // Fetch all emails for this user (both directions)
+            String uri = "/emails?$filter=_owninguser_value eq " + userId
+                    + "&$select=activityid,directioncode"
+                    + "&$expand=email_activity_parties($select=participationtypemask,addressused)"
+                    + "&$top=500";
+
+            log.debug("Fetching emails with participants: {}", uri);
+
+            String response = webClient.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            JsonNode root = objectMapper.readTree(response);
+            JsonNode emailsArray = root.get("value");
+
+            if (emailsArray != null && emailsArray.isArray()) {
+                for (JsonNode email : emailsArray) {
+                    JsonNode parties = email.get("email_activity_parties");
+                    if (parties == null || !parties.isArray()) {
+                        continue;
+                    }
+
+                    boolean isInTo = false;
+                    boolean isInFrom = false;
+
+                    for (JsonNode party : parties) {
+                        String address = party.has("addressused") ? party.get("addressused").asText().toLowerCase()
+                                : "";
+                        int participationType = party.has("participationtypemask")
+                                ? party.get("participationtypemask").asInt()
+                                : 0;
+
+                        // Check if this party is our user
+                        if (address.equals(userEmail.toLowerCase())) {
+                            // participationtypemask values:
+                            // 1 = Sender/From
+                            // 2 = To Recipient
+                            // 3 = CC Recipient
+                            // 4 = BCC Recipient
+                            // 5 = Required Attendee
+                            // 6 = Optional Attendee
+                            // 7 = Organizer
+                            // 8 = Regarding
+                            // 9 = Owner
+                            // 10 = Resource
+                            // 11 = Customer
+
+                            log.debug("Email {} - User {} has participationType: {}",
+                                    email.has("activityid") ? email.get("activityid").asText() : "unknown",
+                                    userEmail, participationType);
+
+                            if (participationType == 1) {
+                                isInFrom = true;
+                            } else if (participationType == 2) {
+                                isInTo = true;
+                            }
+                            // Ignore types 3 (CC) and 4 (BCC)
+                        }
+                    }
+
+                    // Count as outgoing if user is in From (and not just CC)
+                    if (isInFrom) {
+                        outgoingCount++;
+                    }
+                    // Count as incoming if user is in To (and not just CC)
+                    else if (isInTo) {
+                        incomingCount++;
+                    }
+                }
+            }
+
+            log.info(
+                    "Counted emails by participants for {}: Incoming={} (To only), Outgoing={} (From only), Total emails checked={}",
+                    userEmail, incomingCount, outgoingCount, emailsArray.size());
+            return new int[] { incomingCount, outgoingCount };
+
+        } catch (Exception e) {
+            log.error("Error counting emails by participants for {}, falling back to direction code method: {}",
+                    userEmail, e.getMessage(), e);
+            // Fallback to old method if participant checking fails
+            try {
+                String incomingFilter = "_owninguser_value eq " + userId + " and directioncode eq false";
+                int incomingCount = getEmailCount(incomingFilter);
+
+                String outgoingFilter = "_owninguser_value eq " + userId + " and directioncode eq true";
+                int outgoingCount = getEmailCount(outgoingFilter);
+
+                return new int[] { incomingCount, outgoingCount };
+            } catch (Exception fallbackError) {
+                log.error("Fallback method also failed", fallbackError);
+                return new int[] { 0, 0 };
+            }
         }
     }
 
@@ -798,7 +909,7 @@ public class D365ActivityService {
 
             // Fetch incoming emails with their timestamps and conversation IDs
             String incomingUri = "/emails?$filter=(" + accountFilter.toString() + ") and directioncode eq false"
-                    + "&$select=activityid,createdon,subject,regardingobjectid"
+                    + "&$select=activityid,createdon,subject,_regardingobjectid_value"
                     + "&$orderby=createdon desc"
                     + "&$top=100"; // Last 100 incoming emails
 
@@ -820,7 +931,7 @@ public class D365ActivityService {
 
             // Fetch outgoing emails with their timestamps
             String outgoingUri = "/emails?$filter=(" + accountFilter.toString() + ") and directioncode eq true"
-                    + "&$select=activityid,createdon,subject,regardingobjectid"
+                    + "&$select=activityid,createdon,subject,_regardingobjectid_value"
                     + "&$orderby=createdon desc"
                     + "&$top=100"; // Last 100 outgoing emails
 
@@ -846,15 +957,16 @@ public class D365ActivityService {
             for (JsonNode incoming : incomingEmails) {
                 String incomingSubject = incoming.has("subject") ? incoming.get("subject").asText() : "";
                 String incomingTime = incoming.get("createdon").asText();
-                String regardingId = incoming.has("regardingobjectid") ? incoming.get("regardingobjectid").asText()
+                String regardingId = incoming.has("_regardingobjectid_value")
+                        ? incoming.get("_regardingobjectid_value").asText()
                         : null;
 
                 // Find matching outgoing email (by subject similarity or regarding object)
                 for (JsonNode outgoing : outgoingEmails) {
                     String outgoingSubject = outgoing.has("subject") ? outgoing.get("subject").asText() : "";
                     String outgoingTime = outgoing.get("createdon").asText();
-                    String outgoingRegardingId = outgoing.has("regardingobjectid")
-                            ? outgoing.get("regardingobjectid").asText()
+                    String outgoingRegardingId = outgoing.has("_regardingobjectid_value")
+                            ? outgoing.get("_regardingobjectid_value").asText()
                             : null;
 
                     // Match by regarding object (related to same account/contact)
@@ -875,11 +987,13 @@ public class D365ActivityService {
                         java.time.Instant outgoingInstant = java.time.Instant.parse(outgoingTime);
 
                         if ((regardingMatch || subjectMatch) && outgoingInstant.isAfter(incomingInstant)) {
-                            // Calculate time difference in minutes
-                            long minutes = java.time.Duration.between(incomingInstant, outgoingInstant).toMinutes();
-                            if (minutes >= 0 && minutes < 10080) { // Exclude responses > 1 week (likely not related)
-                                responseTimes.add((double) minutes);
-                                log.debug("Found response: {} minutes for subject: {}", minutes, incomingSubject);
+                            // Calculate working hours excluding weekends
+                            long workingMinutes = calculateWorkingMinutes(incomingTime, outgoingTime);
+                            if (workingMinutes > 0 && workingMinutes < 10080) { // Exclude responses > 1 week working
+                                                                                // time (likely not related)
+                                responseTimes.add((double) workingMinutes);
+                                log.debug("Found response: {} working minutes for subject: {}", workingMinutes,
+                                        incomingSubject);
                                 break; // Found a match, move to next incoming email
                             }
                         }
@@ -949,7 +1063,7 @@ public class D365ActivityService {
             // External filtering is done in getEmailCount() which uses a different approach
             String incomingUri = "/emails?$filter=_owninguser_value eq " + userId + " and directioncode eq false"
                     + dateFilter
-                    + "&$select=activityid,createdon,subject,regardingobjectid"
+                    + "&$select=activityid,createdon,subject,_regardingobjectid_value"
                     + "&$top=100";
 
             log.debug("Fetching incoming emails with URI: {}", incomingUri);
@@ -976,7 +1090,7 @@ public class D365ActivityService {
             // Fetch last 100 outgoing emails owned by this user
             String outgoingUri = "/emails?$filter=_owninguser_value eq " + userId + " and directioncode eq true"
                     + dateFilter
-                    + "&$select=activityid,createdon,subject,regardingobjectid"
+                    + "&$select=activityid,createdon,subject,_regardingobjectid_value"
                     + "&$top=100";
 
             String outgoingResponse = webClient.get()
@@ -1011,8 +1125,8 @@ public class D365ActivityService {
                 for (JsonNode outgoing : outgoingEmails) {
                     String outgoingSubject = outgoing.has("subject") ? outgoing.get("subject").asText() : "";
                     String outgoingTime = outgoing.get("createdon").asText();
-                    String outgoingRegardingId = outgoing.has("regardingobjectid")
-                            ? outgoing.get("regardingobjectid").asText()
+                    String outgoingRegardingId = outgoing.has("_regardingobjectid_value")
+                            ? outgoing.get("_regardingobjectid_value").asText()
                             : null;
 
                     // Match by regarding object OR by similar subject
@@ -1328,8 +1442,14 @@ public class D365ActivityService {
 
                 java.time.DayOfWeek dayOfWeek = current.getDayOfWeek();
 
-                // Only count Monday (1) to Thursday (4)
-                if (dayOfWeek.getValue() >= 1 && dayOfWeek.getValue() <= 4) {
+                // Skip weekends (Saturday=6, Sunday=7) and count only weekdays (Monday=1 to
+                // Friday=5)
+                // Note: Currently counting Mon-Thu only as per business rules
+                boolean isWeekend = (dayOfWeek == java.time.DayOfWeek.SATURDAY
+                        || dayOfWeek == java.time.DayOfWeek.SUNDAY);
+                boolean isWorkingDay = (dayOfWeek.getValue() >= 1 && dayOfWeek.getValue() <= 4); // Mon-Thu
+
+                if (!isWeekend && isWorkingDay) {
                     // Determine working period for this day
                     java.time.LocalDateTime dayStart = java.time.LocalDateTime.of(current.toLocalDate(), workStart);
                     java.time.LocalDateTime dayEnd = java.time.LocalDateTime.of(current.toLocalDate(), workEnd);

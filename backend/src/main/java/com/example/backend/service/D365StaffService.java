@@ -362,26 +362,18 @@ public class D365StaffService {
 
                 String userId = staff.getSystemUserId();
 
-                // Count all emails owned by this staff member (by _owninguser_value)
-                log.info("Counting emails owned by staff: {}", staff.getEmail());
+                // Get email statistics using the new participant-based method
+                log.info("Getting email statistics for staff: {}", staff.getEmail());
 
-                // Build filters for incoming and outgoing emails owned by this user
-                String incomingFilter = buildFilterWithDateRange(
-                        String.format("_owninguser_value eq %s and directioncode eq false", userId),
-                        fromDate, toDate);
-                String outgoingFilter = buildFilterWithDateRange(
-                        String.format("_owninguser_value eq %s and directioncode eq true", userId),
-                        fromDate, toDate);
+                com.example.backend.model.EmailStats emailStats = activityService
+                        .getEmailStatsByStaff(staff.getEmail());
 
-                int incomingCount = activityService.getEmailCount(incomingFilter);
-                int outgoingCount = activityService.getEmailCount(outgoingFilter);
+                log.info("Email counts for {}: Incoming={}, Outgoing={}", staff.getEmail(),
+                        emailStats.getIncomingEmailCount(), emailStats.getOutgoingEmailCount());
 
-                log.info("Email counts for {}: Incoming={}, Outgoing={}", staff.getEmail(), incomingCount,
-                        outgoingCount);
-
-                staff.setIncomingEmailCount(incomingCount);
-                staff.setOutgoingEmailCount(outgoingCount);
-                staff.setTotalEmailCount(incomingCount + outgoingCount);
+                staff.setIncomingEmailCount(emailStats.getIncomingEmailCount());
+                staff.setOutgoingEmailCount(emailStats.getOutgoingEmailCount());
+                staff.setTotalEmailCount(emailStats.getTotalEmailCount());
 
                 // Calculate response time statistics for emails owned by this user
                 log.info("Calculating response time for staff: {}", staff.getEmail());
@@ -420,10 +412,13 @@ public class D365StaffService {
                                 : 0.0);
 
                 log.info(
-                        "Staff {} email stats: Incoming={}, Outgoing={}, Total={}, Conversations={}, Avg Emails/Conv={:.2f}, Avg Response Time={} min",
-                        staff.getEmail(), incomingCount, outgoingCount, incomingCount + outgoingCount,
+                        "Staff {} email stats: Incoming={}, Outgoing={}, Total={}, Conversations={}, Avg Emails/Conv={}, Avg Response Time={} min",
+                        staff.getEmail(),
+                        staff.getIncomingEmailCount(),
+                        staff.getOutgoingEmailCount(),
+                        staff.getTotalEmailCount(),
                         staff.getTotalConversations(),
-                        staff.getAverageEmailsPerConversation(),
+                        String.format("%.2f", staff.getAverageEmailsPerConversation()),
                         staff.getAverageResponseTimeMinutes() != null
                                 ? String.format("%.2f", staff.getAverageResponseTimeMinutes())
                                 : "N/A");

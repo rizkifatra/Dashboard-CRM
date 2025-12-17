@@ -42,7 +42,7 @@ public class D365DashboardService {
             log.info("Fetching dashboard metrics (FromDate: {}, ToDate: {})", fromDate, toDate);
 
             // Get all staff with email statistics
-            List<Staff> staffList = staffService.getAllStaff(null, null, true, fromDate, toDate);
+            List<Staff> staffList = staffService.getAllStaffUnfiltered(null, null, true, fromDate, toDate);
 
             if (staffList == null || staffList.isEmpty()) {
                 log.warn("No staff data available");
@@ -114,7 +114,7 @@ public class D365DashboardService {
             log.info("Fetching top {} performers (FromDate: {}, ToDate: {})", top, fromDate, toDate);
 
             // Get all staff with email statistics
-            List<Staff> staffList = staffService.getAllStaff(null, null, true, fromDate, toDate);
+            List<Staff> staffList = staffService.getAllStaffUnfiltered(null, null, true, fromDate, toDate);
 
             if (staffList == null || staffList.isEmpty()) {
                 return ApiResponse.success("No staff data available", new ArrayList<>());
@@ -190,7 +190,7 @@ public class D365DashboardService {
             log.info("Fetching email performance by staff (FromDate: {}, ToDate: {})", fromDate, toDate);
 
             // Get all staff with email statistics
-            List<Staff> staffList = staffService.getAllStaff(null, null, true, fromDate, toDate);
+            List<Staff> staffList = staffService.getAllStaffUnfiltered(null, null, true, fromDate, toDate);
 
             if (staffList == null || staffList.isEmpty()) {
                 return ApiResponse.success("No staff data available", new ArrayList<>());

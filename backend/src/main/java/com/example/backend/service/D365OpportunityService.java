@@ -416,4 +416,76 @@ public class D365OpportunityService {
             return new java.util.ArrayList<>();
         }
     }
+
+    /**
+     * Get monthly trends for opportunities
+     * 
+     * @param months Number of months to include in trends
+     * @return List of monthly statistics
+     */
+    public List<java.util.Map<String, Object>> getMonthlyTrends(int months) {
+        try {
+            log.info("Fetching monthly trends for {} months", months);
+
+            java.util.List<java.util.Map<String, Object>> trends = new java.util.ArrayList<>();
+            java.time.LocalDate endDate = java.time.LocalDate.now();
+
+            for (int i = months - 1; i >= 0; i--) {
+                java.time.LocalDate monthStart = endDate.minusMonths(i).withDayOfMonth(1);
+                java.time.LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
+
+                String fromDate = monthStart.toString();
+                String toDate = monthEnd.toString();
+
+                // Fetch opportunities for this month
+                List<Opportunity> opportunities = getAllOpportunities(null, null, fromDate, toDate);
+
+                // Calculate statistics
+                long totalCount = opportunities.size();
+                long openCount = opportunities.stream()
+                        .filter(opp -> opp.getStateCode() != null && opp.getStateCode() == 0)
+                        .count();
+                long wonCount = opportunities.stream()
+                        .filter(opp -> opp.getStateCode() != null && opp.getStateCode() == 1)
+                        .count();
+                long lostCount = opportunities.stream()
+                        .filter(opp -> opp.getStateCode() != null && opp.getStateCode() == 2)
+                        .count();
+
+                double totalValue = opportunities.stream()
+                        .filter(opp -> opp.getEstimatedValue() != null)
+                        .mapToDouble(opp -> opp.getEstimatedValue().doubleValue())
+                        .sum();
+
+                double wonValue = opportunities.stream()
+                        .filter(opp -> opp.getStateCode() != null && opp.getStateCode() == 1
+                                && opp.getActualValue() != null)
+                        .mapToDouble(opp -> opp.getActualValue().doubleValue())
+                        .sum();
+
+                double winRate = (totalCount > 0) ? ((double) wonCount / totalCount * 100) : 0.0;
+
+                // Build month data
+                java.util.Map<String, Object> monthData = new java.util.HashMap<>();
+                monthData.put("month", monthStart.getMonth().toString().substring(0, 3) + " " + monthStart.getYear());
+                monthData.put("monthKey", monthStart.toString().substring(0, 7)); // YYYY-MM
+                monthData.put("total", totalCount);
+                monthData.put("open", openCount);
+                monthData.put("won", wonCount);
+                monthData.put("lost", lostCount);
+                monthData.put("totalValue", Math.round(totalValue));
+                monthData.put("wonValue", Math.round(wonValue));
+                monthData.put("winRate", Math.round(winRate * 10) / 10.0);
+
+                trends.add(monthData);
+            }
+
+            log.info("Generated monthly trends for {} months", trends.size());
+            return trends;
+
+        } catch (Exception e) {
+            log.error("Error generating monthly trends", e);
+            return new java.util.ArrayList<>();
+        }
+    }
 }

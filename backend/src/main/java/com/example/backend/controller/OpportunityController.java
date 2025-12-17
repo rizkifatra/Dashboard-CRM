@@ -188,4 +188,29 @@ public class OpportunityController {
                     .body(ApiResponse.error("Failed to fetch count: " + e.getMessage()));
         }
     }
+
+    /**
+     * Get monthly trend data for opportunities
+     * 
+     * @param months Number of months to fetch (default: 6)
+     * @return Monthly aggregated statistics
+     */
+    @GetMapping("/monthly-trends")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getMonthlyTrends(
+            @RequestParam(defaultValue = "6") int months) {
+        try {
+            log.info("GET /api/opportunities/monthly-trends - Months: {}", months);
+
+            List<Map<String, Object>> trends = opportunityService.getMonthlyTrends(months);
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Monthly trends fetched successfully",
+                    trends));
+
+        } catch (Exception e) {
+            log.error("Error fetching monthly trends", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to fetch monthly trends: " + e.getMessage()));
+        }
+    }
 }
