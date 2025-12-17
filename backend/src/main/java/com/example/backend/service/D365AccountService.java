@@ -157,8 +157,7 @@ public class D365AccountService {
                     .block();
 
             // Remove any quotes, whitespace and parse
-            String cleanRespons
-            e = response.trim().replace("\"", "");
+            String cleanResponse = response.trim().replace("\"", "");
             int count = Integer.parseInt(cleanResponse);
             log.info("Total account count: {}", count);
             return count;

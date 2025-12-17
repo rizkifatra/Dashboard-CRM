@@ -219,4 +219,104 @@ public class D365DashboardService {
             return ApiResponse.error("Failed to fetch email performance data: " + e.getMessage());
         }
     }
+
+    /**
+     * Get revenue metrics from opportunities
+     * 
+     * @param fromDate Optional start date filter
+     * @param toDate   Optional end date filter
+     * @return Revenue metrics including estimated, won, lost, and in-progress
+     *         revenue
+     */
+    public ApiResponse<?> getRevenueMetrics(String fromDate, String toDate) {
+        try {
+            log.info("Fetching revenue metrics (FromDate: {}, ToDate: {})", fromDate, toDate);
+
+            Map<String, Object> stats = opportunityService.getOpportunityStatistics(fromDate, toDate);
+
+            // Extract revenue-related data
+            double totalEstimatedRevenue = (double) stats.getOrDefault("totalEstimatedValue", 0.0);
+            double wonRevenue = (double) stats.getOrDefault("wonValue", 0.0);
+            int wonCount = (int) stats.getOrDefault("wonOpportunities", 0);
+            int lostCount = (int) stats.getOrDefault("lostOpportunities", 0);
+            int openCount = (int) stats.getOrDefault("openOpportunities", 0);
+            double avgDealSize = (double) stats.getOrDefault("averageDealSize", 0.0);
+            double winRate = (double) stats.getOrDefault("winRate", 0.0);
+
+            // Calculate in-progress revenue (estimated value of open opportunities)
+            double inProgressRevenue = totalEstimatedRevenue - wonRevenue;
+
+            Map<String, Object> revenueMetrics = new HashMap<>();
+            revenueMetrics.put("estimatedRevenue", Math.round(totalEstimatedRevenue * 100.0) / 100.0);
+            revenueMetrics.put("wonRevenue", Math.round(wonRevenue * 100.0) / 100.0);
+            revenueMetrics.put("inProgressRevenue", Math.round(inProgressRevenue * 100.0) / 100.0);
+            revenueMetrics.put("wonCount", wonCount);
+            revenueMetrics.put("lostCount", lostCount);
+            revenueMetrics.put("openCount", openCount);
+            revenueMetrics.put("averageDealSize", Math.round(avgDealSize * 100.0) / 100.0);
+            revenueMetrics.put("winRate", Math.round(winRate * 10.0) / 10.0);
+            revenueMetrics.put("dateRange", Map.of(
+                    "from", fromDate != null ? fromDate : "all",
+                    "to", toDate != null ? toDate : "all"));
+
+            log.info("Revenue metrics calculated: Estimated=${}, Won=${}, InProgress=${}, WinRate={}%",
+                    totalEstimatedRevenue, wonRevenue, inProgressRevenue, winRate);
+
+            return ApiResponse.success("Revenue metrics retrieved successfully", revenueMetrics);
+
+        } catch (Exception e) {
+            log.error("Error fetching revenue metrics", e);
+            return ApiResponse.error("Failed to fetch revenue metrics: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Get revenue metrics grouped by month for the past 12 months
+     * 
+     * @return Monthly revenue breakdown
+     */
+    public ApiResponse<?> getRevenueByMonth() {
+        try {
+            log.info("Fetching revenue metrics by month for past 12 months");
+
+            List<Map<String, Object>> monthlyRevenue = new ArrayList<>();
+
+            // Calculate date ranges for past 12 months
+            java.time.LocalDate now = java.time.LocalDate.now();
+
+            for (int i = 11; i >= 0; i--) {
+                java.time.LocalDate monthStart = now.minusMonths(i).withDayOfMonth(1);
+                java.time.LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
+
+                String fromDate = monthStart.toString();
+                String toDate = monthEnd.toString();
+
+                // Get revenue stats for this month
+                Map<String, Object> stats = opportunityService.getOpportunityStatistics(fromDate, toDate);
+
+                Map<String, Object> monthData = new HashMap<>();
+                monthData.put("month", monthStart.getMonth().toString());
+                monthData.put("year", monthStart.getYear());
+                monthData.put("monthLabel", String.format("%s %d",
+                        monthStart.getMonth().toString().substring(0, 3),
+                        monthStart.getYear()));
+                monthData.put("estimatedRevenue",
+                        Math.round((double) stats.getOrDefault("totalEstimatedValue", 0.0) * 100.0) / 100.0);
+                monthData.put("wonRevenue", Math.round((double) stats.getOrDefault("wonValue", 0.0) * 100.0) / 100.0);
+                monthData.put("wonCount", stats.getOrDefault("wonOpportunities", 0));
+                monthData.put("openCount", stats.getOrDefault("openOpportunities", 0));
+                monthData.put("lostCount", stats.getOrDefault("lostOpportunities", 0));
+
+                monthlyRevenue.add(monthData);
+            }
+
+            log.info("Monthly revenue data retrieved for {} months", monthlyRevenue.size());
+
+            return ApiResponse.success("Monthly revenue data retrieved successfully", monthlyRevenue);
+
+        } catch (Exception e) {
+            log.error("Error fetching revenue by month", e);
+            return ApiResponse.error("Failed to fetch revenue by month: " + e.getMessage());
+        }
+    }
 }

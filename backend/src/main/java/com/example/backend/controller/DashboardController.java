@@ -62,4 +62,30 @@ public class DashboardController {
             @RequestParam(required = false) String toDate) {
         return dashboardService.getEmailPerformanceByStaff(fromDate, toDate);
     }
+
+    /**
+     * Get revenue metrics for dashboard cards
+     * Returns estimated revenue, won revenue, lost revenue, etc.
+     * 
+     * @param fromDate Optional start date (YYYY-MM-DD)
+     * @param toDate   Optional end date (YYYY-MM-DD)
+     * @return ApiResponse with revenue metrics
+     */
+    @GetMapping("/revenue-metrics")
+    public ApiResponse<?> getRevenueMetrics(
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate) {
+        return dashboardService.getRevenueMetrics(fromDate, toDate);
+    }
+
+    /**
+     * Get revenue metrics grouped by month
+     * Returns monthly breakdown of revenue data for the past 12 months
+     * 
+     * @return ApiResponse with monthly revenue data
+     */
+    @GetMapping("/revenue-by-month")
+    public ApiResponse<?> getRevenueByMonth() {
+        return dashboardService.getRevenueByMonth();
+    }
 }
