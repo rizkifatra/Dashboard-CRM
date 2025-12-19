@@ -6,8 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Controller for dashboard aggregation endpoints
- * Provides summary statistics and metrics for the CRM dashboard
+ * Controller for fiscal dashboard endpoints
+ * Provides fiscal year, quarterly, and monthly metrics for the CRM dashboard
  */
 @RestController
 @RequestMapping("/api/dashboard")
@@ -17,75 +17,90 @@ public class DashboardController {
     private D365DashboardService dashboardService;
 
     /**
-     * Get overall dashboard metrics
-     * Returns: total activities, active opportunities, total emails, response rate
+     * Get fiscal year revenue metrics
+     * Fiscal year runs from June (current year) to July (next year)
      * 
-     * @param fromDate Optional start date (YYYY-MM-DD)
-     * @param toDate   Optional end date (YYYY-MM-DD)
-     * @return ApiResponse with dashboard metrics
+     * @param fiscalYear Optional fiscal year (e.g., "2025" for FY2025-2026)
+     * @return ApiResponse with fiscal year metrics
      */
-    @GetMapping("/metrics")
-    public ApiResponse<?> getDashboardMetrics(
-            @RequestParam(required = false) String fromDate,
-            @RequestParam(required = false) String toDate) {
-        return dashboardService.getDashboardMetrics(fromDate, toDate);
+    @GetMapping("/fiscal-year-metrics")
+    public ApiResponse<?> getFiscalYearMetrics(
+            @RequestParam(required = false) String fiscalYear) {
+        return dashboardService.getFiscalYearMetrics(fiscalYear);
     }
 
     /**
-     * Get top performing staff members
-     * Returns ranked list based on email activity and response times
+     * Get quarterly revenue metrics
+     * Returns metrics for a specific quarter within the fiscal year
      * 
-     * @param top      Number of top performers to return (default: 10)
-     * @param fromDate Optional start date (YYYY-MM-DD)
-     * @param toDate   Optional end date (YYYY-MM-DD)
-     * @return ApiResponse with top performers
+     * @param quarter    Quarter number (1-4)
+     * @param fiscalYear Optional fiscal year
+     * @return ApiResponse with quarterly metrics
      */
-    @GetMapping("/top-performers")
-    public ApiResponse<?> getTopPerformers(
-            @RequestParam(defaultValue = "10") Integer top,
-            @RequestParam(required = false) String fromDate,
-            @RequestParam(required = false) String toDate) {
-        return dashboardService.getTopPerformers(top, fromDate, toDate);
+    @GetMapping("/quarterly-metrics")
+    public ApiResponse<?> getQuarterlyMetrics(
+            @RequestParam(required = false) Integer quarter,
+            @RequestParam(required = false) String fiscalYear) {
+        return dashboardService.getQuarterlyMetrics(quarter, fiscalYear);
     }
 
     /**
-     * Get email performance data for all staff
-     * Returns data suitable for bar chart visualization
+     * Get monthly opportunity statistics
      * 
-     * @param fromDate Optional start date (YYYY-MM-DD)
-     * @param toDate   Optional end date (YYYY-MM-DD)
-     * @return ApiResponse with email performance by staff
+     * @param month Month (1-12)
+     * @param year  Year
+     * @return ApiResponse with monthly opportunity stats
      */
-    @GetMapping("/email-performance")
-    public ApiResponse<?> getEmailPerformance(
-            @RequestParam(required = false) String fromDate,
-            @RequestParam(required = false) String toDate) {
-        return dashboardService.getEmailPerformanceByStaff(fromDate, toDate);
+    @GetMapping("/monthly-opportunities")
+    public ApiResponse<?> getMonthlyOpportunities(
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year) {
+        return dashboardService.getMonthlyOpportunities(month, year);
     }
 
     /**
-     * Get revenue metrics for dashboard cards
-     * Returns estimated revenue, won revenue, lost revenue, etc.
+     * Get quarterly opportunity statistics
      * 
-     * @param fromDate Optional start date (YYYY-MM-DD)
-     * @param toDate   Optional end date (YYYY-MM-DD)
-     * @return ApiResponse with revenue metrics
+     * @param quarter    Quarter number (1-4)
+     * @param fiscalYear Optional fiscal year
+     * @return ApiResponse with quarterly opportunity stats
      */
-    @GetMapping("/revenue-metrics")
-    public ApiResponse<?> getRevenueMetrics(
-            @RequestParam(required = false) String fromDate,
-            @RequestParam(required = false) String toDate) {
-        return dashboardService.getRevenueMetrics(fromDate, toDate);
+    @GetMapping("/quarterly-opportunities")
+    public ApiResponse<?> getQuarterlyOpportunities(
+            @RequestParam(required = false) Integer quarter,
+            @RequestParam(required = false) String fiscalYear) {
+        return dashboardService.getQuarterlyOpportunities(quarter, fiscalYear);
     }
 
     /**
-     * Get revenue metrics grouped by month
-     * Returns monthly breakdown of revenue data for the past 12 months
+     * Get fiscal year opportunity statistics
      * 
-     * @return ApiResponse with monthly revenue data
+     * @param fiscalYear Optional fiscal year
+     * @return ApiResponse with fiscal year opportunity stats
      */
-    @GetMapping("/revenue-by-month")
-    public ApiResponse<?> getRevenueByMonth() {
-        return dashboardService.getRevenueByMonth();
+    @GetMapping("/fiscal-year-opportunities")
+    public ApiResponse<?> getFiscalYearOpportunities(
+            @RequestParam(required = false) String fiscalYear) {
+        return dashboardService.getFiscalYearOpportunities(fiscalYear);
+    }
+
+    /**
+     * Get top staff performance based on won opportunities
+     * 
+     * @param period     Period type: "fiscal-year", "quarter", "month"
+     * @param fiscalYear Optional fiscal year
+     * @param quarter    Optional quarter
+     * @param month      Optional month
+     * @param year       Optional year
+     * @return ApiResponse with top staff performance
+     */
+    @GetMapping("/top-staff-performance")
+    public ApiResponse<?> getTopStaffPerformance(
+            @RequestParam(defaultValue = "fiscal-year") String period,
+            @RequestParam(required = false) String fiscalYear,
+            @RequestParam(required = false) Integer quarter,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer year) {
+        return dashboardService.getTopStaffPerformance(period, fiscalYear, quarter, month, year);
     }
 }

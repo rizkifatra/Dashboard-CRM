@@ -30,293 +30,305 @@ public class D365DashboardService {
     private D365OpportunityService opportunityService;
 
     /**
-     * Get overall dashboard metrics
-     * 
-     * @param fromDate Optional start date filter
-     * @param toDate   Optional end date filter
-     * @return Dashboard metrics including total activities, opportunities, emails,
-     *         response rate
+     * Get fiscal year date range
+     * Fiscal year: June (current year) to July (next year)
      */
-    public ApiResponse<?> getDashboardMetrics(String fromDate, String toDate) {
+    private Map<String, String> getFiscalYearDateRange(String fiscalYear) {
+        int year = fiscalYear != null ? Integer.parseInt(fiscalYear) : java.time.LocalDate.now().getYear();
+
+        // If current month is before June, use previous fiscal year
+        if (fiscalYear == null && java.time.LocalDate.now().getMonthValue() < 6) {
+            year = year - 1;
+        }
+
+        String fromDate = String.format("%d-06-01", year);
+        String toDate = String.format("%d-07-31", year + 1);
+
+        Map<String, String> range = new HashMap<>();
+        range.put("fromDate", fromDate);
+        range.put("toDate", toDate);
+        range.put("fiscalYear", String.format("FY%d-%d", year, year + 1));
+        return range;
+    }
+
+    /**
+     * Get quarter date range within fiscal year
+     * Q1: Jun-Aug, Q2: Sep-Nov, Q3: Dec-Feb, Q4: Mar-May
+     */
+    private Map<String, String> getQuarterDateRange(Integer quarter, String fiscalYear) {
+        Map<String, String> fyRange = getFiscalYearDateRange(fiscalYear);
+        int year = Integer.parseInt(fyRange.get("fromDate").substring(0, 4));
+
+        int currentQuarter = quarter != null ? quarter : getCurrentFiscalQuarter();
+
+        String fromDate, toDate;
+        switch (currentQuarter) {
+            case 1: // Jun-Aug
+                fromDate = String.format("%d-06-01", year);
+                toDate = String.format("%d-08-31", year);
+                break;
+            case 2: // Sep-Nov
+                fromDate = String.format("%d-09-01", year);
+                toDate = String.format("%d-11-30", year);
+                break;
+            case 3: // Dec-Feb
+                fromDate = String.format("%d-12-01", year);
+                toDate = String.format("%d-02-28", year + 1);
+                break;
+            case 4: // Mar-May
+                fromDate = String.format("%d-03-01", year + 1);
+                toDate = String.format("%d-05-31", year + 1);
+                break;
+            default:
+                fromDate = fyRange.get("fromDate");
+                toDate = fyRange.get("toDate");
+        }
+
+        Map<String, String> range = new HashMap<>();
+        range.put("fromDate", fromDate);
+        range.put("toDate", toDate);
+        range.put("quarter", "Q" + currentQuarter);
+        return range;
+    }
+
+    /**
+     * Get current fiscal quarter (1-4)
+     */
+    private int getCurrentFiscalQuarter() {
+        int month = java.time.LocalDate.now().getMonthValue();
+        if (month >= 6 && month <= 8)
+            return 1;
+        if (month >= 9 && month <= 11)
+            return 2;
+        if (month >= 12 || month <= 2)
+            return 3;
+        return 4; // Mar-May
+    }
+
+    /**
+     * Get fiscal year revenue metrics
+     */
+    public ApiResponse<?> getFiscalYearMetrics(String fiscalYear) {
         try {
-            log.info("Fetching dashboard metrics (FromDate: {}, ToDate: {})", fromDate, toDate);
+            Map<String, String> range = getFiscalYearDateRange(fiscalYear);
+            int currentQuarter = getCurrentFiscalQuarter();
+            String today = java.time.LocalDate.now().toString();
+            log.info("Fetching fiscal year metrics for {} (Q1 through Q{} up to {})",
+                    range.get("fiscalYear"), currentQuarter, today);
 
-            // Get all staff with email statistics
-            List<Staff> staffList = staffService.getAllStaffUnfiltered(null, null, true, fromDate, toDate);
+            double totalWonRevenue = 0.0;
+            double totalEstimatedRevenue = 0.0;
+            double totalLostRevenue = 0.0;
 
-            if (staffList == null || staffList.isEmpty()) {
-                log.warn("No staff data available");
-                staffList = new ArrayList<>();
+            // Sum revenue from Q1 through current quarter
+            for (int q = 1; q <= currentQuarter; q++) {
+                Map<String, String> quarterRange = getQuarterDateRange(q, fiscalYear);
+
+                // For the current quarter, use today's date instead of quarter end date
+                String endDate = (q == currentQuarter) ? today : quarterRange.get("toDate");
+
+                log.info("Loading Q{} data from {} to {}", q, quarterRange.get("fromDate"), endDate);
+
+                Map<String, Object> quarterMetrics = opportunityService.getRevenueMetrics(
+                        quarterRange.get("fromDate"), endDate);
+
+                totalWonRevenue += (double) quarterMetrics.getOrDefault("wonRevenue", 0.0);
+                totalEstimatedRevenue += (double) quarterMetrics.getOrDefault("estimatedRevenue", 0.0);
+                totalLostRevenue += (double) quarterMetrics.getOrDefault("lostRevenue", 0.0);
             }
 
-            // Calculate aggregated metrics
-            int totalActivities = 0;
-            int totalEmailsSent = 0;
-            int totalEmailsReceived = 0;
-            int staffWithResponseData = 0;
-            double totalResponseRate = 0.0;
+            Map<String, Object> result = new HashMap<>();
+            result.put("fiscalYear", range.get("fiscalYear"));
+            result.put("fromDate", range.get("fromDate"));
+            result.put("toDate", range.get("toDate"));
+            result.put("currentQuarter", currentQuarter);
+            result.put("targetRevenue", 18000000.0); // Fixed target
+            result.put("wonRevenue", totalWonRevenue);
+            result.put("estimatedRevenue", totalEstimatedRevenue);
+            result.put("lostRevenue", totalLostRevenue);
 
-            for (Staff staff : staffList) {
-                // Count activities (incoming + outgoing emails)
-                totalActivities += staff.getTotalEmailCount();
-
-                // Count emails sent/received
-                totalEmailsSent += staff.getOutgoingEmailCount();
-                totalEmailsReceived += staff.getIncomingEmailCount();
-
-                // Calculate response rate if staff has incoming emails
-                if (staff.getIncomingEmailCount() > 0 && staff.getRespondedEmailCount() > 0) {
-                    double responseRate = (double) staff.getRespondedEmailCount() / staff.getIncomingEmailCount() * 100;
-                    totalResponseRate += responseRate;
-                    staffWithResponseData++;
-                }
-            }
-
-            // Calculate average response rate
-            double avgResponseRate = staffWithResponseData > 0 ? Math.round(totalResponseRate / staffWithResponseData)
-                    : 0;
-
-            // Get actual active opportunities count from Dynamics 365
-            int activeOpportunities = opportunityService.getActiveOpportunityCount(fromDate, toDate);
-
-            Map<String, Object> metrics = new HashMap<>();
-            metrics.put("totalActivities", totalActivities);
-            metrics.put("activeOpportunities", activeOpportunities);
-            metrics.put("totalEmailsSent", totalEmailsSent);
-            metrics.put("averageResponseRate", Math.round(avgResponseRate));
-            metrics.put("totalStaff", staffList.size());
-            metrics.put("dateRange", Map.of(
-                    "from", fromDate != null ? fromDate : "all",
-                    "to", toDate != null ? toDate : "all"));
-
-            log.info(
-                    "Dashboard metrics calculated: {} activities, {} opportunities (from D365), {} emails, {}% response rate",
-                    totalActivities, activeOpportunities, totalEmailsSent, Math.round(avgResponseRate));
-
-            return ApiResponse.success("Dashboard metrics retrieved successfully", metrics);
-
+            return ApiResponse.success("Fiscal year metrics retrieved", result);
         } catch (Exception e) {
-            log.error("Error fetching dashboard metrics", e);
-            return ApiResponse.error("Failed to fetch dashboard metrics: " + e.getMessage());
+            log.error("Error fetching fiscal year metrics", e);
+            return ApiResponse.error("Failed to fetch fiscal year metrics: " + e.getMessage());
         }
     }
 
     /**
-     * Get top performing staff members
-     * 
-     * @param top      Number of top performers to return
-     * @param fromDate Optional start date filter
-     * @param toDate   Optional end date filter
-     * @return List of top performers with their metrics
+     * Get quarterly revenue metrics
      */
-    public ApiResponse<?> getTopPerformers(Integer top, String fromDate, String toDate) {
+    public ApiResponse<?> getQuarterlyMetrics(Integer quarter, String fiscalYear) {
         try {
-            log.info("Fetching top {} performers (FromDate: {}, ToDate: {})", top, fromDate, toDate);
+            Map<String, String> range = getQuarterDateRange(quarter, fiscalYear);
+            log.info("Fetching quarterly metrics for {}", range.get("quarter"));
 
-            // Get all staff with email statistics
-            List<Staff> staffList = staffService.getAllStaffUnfiltered(null, null, true, fromDate, toDate);
+            Map<String, Object> revenueMetrics = opportunityService.getRevenueMetrics(
+                    range.get("fromDate"), range.get("toDate"));
 
-            if (staffList == null || staffList.isEmpty()) {
-                return ApiResponse.success("No staff data available", new ArrayList<>());
-            }
+            Map<String, Object> result = new HashMap<>();
+            result.put("quarter", range.get("quarter"));
+            result.put("fromDate", range.get("fromDate"));
+            result.put("toDate", range.get("toDate"));
+            result.put("targetRevenue", 4500000.0); // 18M / 4 quarters
+            result.put("wonRevenue", revenueMetrics.getOrDefault("wonRevenue", 0.0));
+            result.put("estimatedRevenue", revenueMetrics.getOrDefault("estimatedRevenue", 0.0));
+            result.put("lostRevenue", revenueMetrics.getOrDefault("lostRevenue", 0.0));
 
-            // Calculate performance score for each staff
-            List<Map<String, Object>> performers = new ArrayList<>();
-
-            for (Staff staff : staffList) {
-                // Calculate performance score based on:
-                // - Total emails (40%)
-                // - Response rate (30%)
-                // - Response time (30%)
-
-                double emailScore = staff.getTotalEmailCount();
-
-                double responseRateScore = 0;
-                if (staff.getIncomingEmailCount() > 0 && staff.getRespondedEmailCount() > 0) {
-                    responseRateScore = (double) staff.getRespondedEmailCount() / staff.getIncomingEmailCount() * 100;
-                }
-
-                double responseTimeScore = 0;
-                if (staff.getAverageResponseTimeMinutes() != null && staff.getAverageResponseTimeMinutes() > 0) {
-                    // Lower response time is better, inverse scoring (max 1440 minutes = 24 hours)
-                    responseTimeScore = Math.max(0, 100 - (staff.getAverageResponseTimeMinutes() / 14.4));
-                }
-
-                // Weighted score
-                double performanceScore = (emailScore * 0.4) + (responseRateScore * 0.3) + (responseTimeScore * 0.3);
-
-                Map<String, Object> performer = new HashMap<>();
-                performer.put("staffId", staff.getSystemUserId());
-                performer.put("fullname", staff.getFullName());
-                performer.put("title", staff.getTitle());
-                performer.put("email", staff.getEmail());
-                performer.put("totalEmails", staff.getTotalEmailCount());
-                performer.put("incomingEmails", staff.getIncomingEmailCount());
-                performer.put("outgoingEmails", staff.getOutgoingEmailCount());
-                performer.put("responseRate", Math.round(responseRateScore));
-                performer.put("averageResponseTimeMinutes", staff.getAverageResponseTimeMinutes());
-                performer.put("performanceScore", Math.round(performanceScore * 100) / 100.0);
-
-                performers.add(performer);
-            }
-
-            // Sort by performance score and get top N
-            List<Map<String, Object>> topPerformers = performers.stream()
-                    .sorted((a, b) -> Double.compare(
-                            (Double) b.get("performanceScore"),
-                            (Double) a.get("performanceScore")))
-                    .limit(top)
-                    .collect(Collectors.toList());
-
-            log.info("Top {} performers retrieved", topPerformers.size());
-
-            return ApiResponse.success("Top performers retrieved successfully", topPerformers);
-
+            return ApiResponse.success("Quarterly metrics retrieved", result);
         } catch (Exception e) {
-            log.error("Error fetching top performers", e);
-            return ApiResponse.error("Failed to fetch top performers: " + e.getMessage());
+            log.error("Error fetching quarterly metrics", e);
+            return ApiResponse.error("Failed to fetch quarterly metrics: " + e.getMessage());
         }
     }
 
     /**
-     * Get email performance data by staff for chart visualization
-     * 
-     * @param fromDate Optional start date filter
-     * @param toDate   Optional end date filter
-     * @return Email performance data grouped by staff
+     * Get monthly opportunity statistics
      */
-    public ApiResponse<?> getEmailPerformanceByStaff(String fromDate, String toDate) {
+    public ApiResponse<?> getMonthlyOpportunities(Integer month, Integer year) {
         try {
-            log.info("Fetching email performance by staff (FromDate: {}, ToDate: {})", fromDate, toDate);
+            int currentMonth = month != null ? month : java.time.LocalDate.now().getMonthValue();
+            int currentYear = year != null ? year : java.time.LocalDate.now().getYear();
 
-            // Get all staff with email statistics
-            List<Staff> staffList = staffService.getAllStaffUnfiltered(null, null, true, fromDate, toDate);
+            String fromDate = String.format("%d-%02d-01", currentYear, currentMonth);
+            java.time.LocalDate endDate = java.time.LocalDate.of(currentYear, currentMonth, 1)
+                    .plusMonths(1).minusDays(1);
+            String toDate = endDate.toString();
 
-            if (staffList == null || staffList.isEmpty()) {
-                return ApiResponse.success("No staff data available", new ArrayList<>());
-            }
+            Map<String, Object> stats = opportunityService.getOpportunityStats(fromDate, toDate);
 
-            // Filter staff with email activity and prepare chart data
-            List<Map<String, Object>> chartData = staffList.stream()
-                    .filter(staff -> staff.getTotalEmailCount() > 0)
-                    .sorted((a, b) -> Integer.compare(b.getTotalEmailCount(), a.getTotalEmailCount()))
-                    .map(staff -> {
-                        Map<String, Object> data = new HashMap<>();
-                        data.put("staffName", staff.getFullName());
-                        data.put("incomingEmails", staff.getIncomingEmailCount());
-                        data.put("outgoingEmails", staff.getOutgoingEmailCount());
-                        data.put("totalEmails", staff.getTotalEmailCount());
-                        return data;
-                    })
-                    .collect(Collectors.toList());
+            Map<String, Object> result = new HashMap<>();
+            result.put("month", currentMonth);
+            result.put("year", currentYear);
+            result.put("totalOpportunities", stats.getOrDefault("totalOpportunities", 0));
+            result.put("wonOpportunities", stats.getOrDefault("wonOpportunities", 0));
+            result.put("lostOpportunities", stats.getOrDefault("lostOpportunities", 0));
+            result.put("openOpportunities", stats.getOrDefault("openOpportunities", 0));
 
-            log.info("Email performance data retrieved for {} staff members", chartData.size());
-
-            return ApiResponse.success("Email performance data retrieved successfully", chartData);
-
+            return ApiResponse.success("Monthly opportunities retrieved", result);
         } catch (Exception e) {
-            log.error("Error fetching email performance by staff", e);
-            return ApiResponse.error("Failed to fetch email performance data: " + e.getMessage());
+            log.error("Error fetching monthly opportunities", e);
+            return ApiResponse.error("Failed to fetch monthly opportunities: " + e.getMessage());
         }
     }
 
     /**
-     * Get revenue metrics from opportunities
-     * 
-     * @param fromDate Optional start date filter
-     * @param toDate   Optional end date filter
-     * @return Revenue metrics including estimated, won, lost, and in-progress
-     *         revenue
+     * Get quarterly opportunity statistics
      */
-    public ApiResponse<?> getRevenueMetrics(String fromDate, String toDate) {
+    public ApiResponse<?> getQuarterlyOpportunities(Integer quarter, String fiscalYear) {
         try {
-            log.info("Fetching revenue metrics (FromDate: {}, ToDate: {})", fromDate, toDate);
+            Map<String, String> range = getQuarterDateRange(quarter, fiscalYear);
+            int currentQuarter = getCurrentFiscalQuarter();
+            String today = java.time.LocalDate.now().toString();
 
-            Map<String, Object> stats = opportunityService.getOpportunityStatistics(fromDate, toDate);
+            // For the current quarter, use today's date instead of quarter end date
+            String endDate = (quarter == null || quarter == currentQuarter) ? today : range.get("toDate");
 
-            // Extract revenue-related data
-            double totalEstimatedRevenue = (double) stats.getOrDefault("totalEstimatedValue", 0.0);
-            double wonRevenue = (double) stats.getOrDefault("wonValue", 0.0);
-            int wonCount = (int) stats.getOrDefault("wonOpportunities", 0);
-            int lostCount = (int) stats.getOrDefault("lostOpportunities", 0);
-            int openCount = (int) stats.getOrDefault("openOpportunities", 0);
-            double avgDealSize = (double) stats.getOrDefault("averageDealSize", 0.0);
-            double winRate = (double) stats.getOrDefault("winRate", 0.0);
+            log.info("Fetching quarterly opportunities from {} to {}", range.get("fromDate"), endDate);
 
-            // Calculate in-progress revenue (estimated value of open opportunities)
-            double inProgressRevenue = totalEstimatedRevenue - wonRevenue;
+            Map<String, Object> stats = opportunityService.getOpportunityStats(
+                    range.get("fromDate"), endDate);
 
-            Map<String, Object> revenueMetrics = new HashMap<>();
-            revenueMetrics.put("estimatedRevenue", Math.round(totalEstimatedRevenue * 100.0) / 100.0);
-            revenueMetrics.put("wonRevenue", Math.round(wonRevenue * 100.0) / 100.0);
-            revenueMetrics.put("inProgressRevenue", Math.round(inProgressRevenue * 100.0) / 100.0);
-            revenueMetrics.put("wonCount", wonCount);
-            revenueMetrics.put("lostCount", lostCount);
-            revenueMetrics.put("openCount", openCount);
-            revenueMetrics.put("averageDealSize", Math.round(avgDealSize * 100.0) / 100.0);
-            revenueMetrics.put("winRate", Math.round(winRate * 10.0) / 10.0);
-            revenueMetrics.put("dateRange", Map.of(
-                    "from", fromDate != null ? fromDate : "all",
-                    "to", toDate != null ? toDate : "all"));
+            Map<String, Object> result = new HashMap<>();
+            result.put("quarter", range.get("quarter"));
+            result.put("totalOpportunities", stats.getOrDefault("totalOpportunities", 0));
+            result.put("wonOpportunities", stats.getOrDefault("wonOpportunities", 0));
+            result.put("lostOpportunities", stats.getOrDefault("lostOpportunities", 0));
+            result.put("openOpportunities", stats.getOrDefault("openOpportunities", 0));
 
-            log.info("Revenue metrics calculated: Estimated=${}, Won=${}, InProgress=${}, WinRate={}%",
-                    totalEstimatedRevenue, wonRevenue, inProgressRevenue, winRate);
-
-            return ApiResponse.success("Revenue metrics retrieved successfully", revenueMetrics);
-
+            return ApiResponse.success("Quarterly opportunities retrieved", result);
         } catch (Exception e) {
-            log.error("Error fetching revenue metrics", e);
-            return ApiResponse.error("Failed to fetch revenue metrics: " + e.getMessage());
+            log.error("Error fetching quarterly opportunities", e);
+            return ApiResponse.error("Failed to fetch quarterly opportunities: " + e.getMessage());
         }
     }
 
     /**
-     * Get revenue metrics grouped by month for the past 12 months
-     * 
-     * @return Monthly revenue breakdown
+     * Get fiscal year opportunity statistics
+     * Sums Q1 through current quarter up to today
      */
-    public ApiResponse<?> getRevenueByMonth() {
+    public ApiResponse<?> getFiscalYearOpportunities(String fiscalYear) {
         try {
-            log.info("Fetching revenue metrics by month for past 12 months");
+            Map<String, String> range = getFiscalYearDateRange(fiscalYear);
+            int currentQuarter = getCurrentFiscalQuarter();
+            String today = java.time.LocalDate.now().toString();
 
-            List<Map<String, Object>> monthlyRevenue = new ArrayList<>();
+            log.info("Fetching fiscal year opportunities for {} (Q1 through Q{} up to {})",
+                    range.get("fiscalYear"), currentQuarter, today);
 
-            // Calculate date ranges for past 12 months
-            java.time.LocalDate now = java.time.LocalDate.now();
+            int totalOpportunities = 0;
+            int wonOpportunities = 0;
+            int lostOpportunities = 0;
+            int openOpportunities = 0;
 
-            for (int i = 11; i >= 0; i--) {
-                java.time.LocalDate monthStart = now.minusMonths(i).withDayOfMonth(1);
-                java.time.LocalDate monthEnd = monthStart.withDayOfMonth(monthStart.lengthOfMonth());
+            // Sum opportunities from Q1 through current quarter
+            for (int q = 1; q <= currentQuarter; q++) {
+                Map<String, String> quarterRange = getQuarterDateRange(q, fiscalYear);
 
-                String fromDate = monthStart.toString();
-                String toDate = monthEnd.toString();
+                // For the current quarter, use today's date instead of quarter end date
+                String endDate = (q == currentQuarter) ? today : quarterRange.get("toDate");
 
-                // Get revenue stats for this month
-                Map<String, Object> stats = opportunityService.getOpportunityStatistics(fromDate, toDate);
+                log.info("Loading Q{} opportunities from {} to {}", q, quarterRange.get("fromDate"), endDate);
 
-                Map<String, Object> monthData = new HashMap<>();
-                monthData.put("month", monthStart.getMonth().toString());
-                monthData.put("year", monthStart.getYear());
-                monthData.put("monthLabel", String.format("%s %d",
-                        monthStart.getMonth().toString().substring(0, 3),
-                        monthStart.getYear()));
-                monthData.put("estimatedRevenue",
-                        Math.round((double) stats.getOrDefault("totalEstimatedValue", 0.0) * 100.0) / 100.0);
-                monthData.put("wonRevenue", Math.round((double) stats.getOrDefault("wonValue", 0.0) * 100.0) / 100.0);
-                monthData.put("wonCount", stats.getOrDefault("wonOpportunities", 0));
-                monthData.put("openCount", stats.getOrDefault("openOpportunities", 0));
-                monthData.put("lostCount", stats.getOrDefault("lostOpportunities", 0));
+                Map<String, Object> stats = opportunityService.getOpportunityStats(
+                        quarterRange.get("fromDate"), endDate);
 
-                monthlyRevenue.add(monthData);
+                totalOpportunities += (int) stats.getOrDefault("totalOpportunities", 0);
+                wonOpportunities += (int) stats.getOrDefault("wonOpportunities", 0);
+                lostOpportunities += (int) stats.getOrDefault("lostOpportunities", 0);
+                openOpportunities += (int) stats.getOrDefault("openOpportunities", 0);
             }
 
-            log.info("Monthly revenue data retrieved for {} months", monthlyRevenue.size());
+            Map<String, Object> result = new HashMap<>();
+            result.put("fiscalYear", range.get("fiscalYear"));
+            result.put("currentQuarter", currentQuarter);
+            result.put("totalOpportunities", totalOpportunities);
+            result.put("wonOpportunities", wonOpportunities);
+            result.put("lostOpportunities", lostOpportunities);
+            result.put("openOpportunities", openOpportunities);
 
-            return ApiResponse.success("Monthly revenue data retrieved successfully", monthlyRevenue);
-
+            return ApiResponse.success("Fiscal year opportunities retrieved", result);
         } catch (Exception e) {
-            log.error("Error fetching revenue by month", e);
-            return ApiResponse.error("Failed to fetch revenue by month: " + e.getMessage());
+            log.error("Error fetching fiscal year opportunities", e);
+            return ApiResponse.error("Failed to fetch fiscal year opportunities: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Get top staff performance based on won opportunities
+     */
+    public ApiResponse<?> getTopStaffPerformance(String period, String fiscalYear,
+            Integer quarter, Integer month, Integer year) {
+        try {
+            String fromDate, toDate;
+
+            switch (period.toLowerCase()) {
+                case "quarter":
+                    Map<String, String> qRange = getQuarterDateRange(quarter, fiscalYear);
+                    fromDate = qRange.get("fromDate");
+                    toDate = qRange.get("toDate");
+                    break;
+                case "month":
+                    int m = month != null ? month : java.time.LocalDate.now().getMonthValue();
+                    int y = year != null ? year : java.time.LocalDate.now().getYear();
+                    fromDate = String.format("%d-%02d-01", y, m);
+                    java.time.LocalDate endDate = java.time.LocalDate.of(y, m, 1)
+                            .plusMonths(1).minusDays(1);
+                    toDate = endDate.toString();
+                    break;
+                default: // fiscal-year
+                    Map<String, String> fyRange = getFiscalYearDateRange(fiscalYear);
+                    fromDate = fyRange.get("fromDate");
+                    toDate = fyRange.get("toDate");
+            }
+
+            // Get staff with won opportunities
+            List<Map<String, Object>> topStaff = opportunityService.getTopStaffByWonOpportunities(
+                    fromDate, toDate, 5);
+
+            return ApiResponse.success("Top staff performance retrieved", topStaff);
+        } catch (Exception e) {
+            log.error("Error fetching top staff performance", e);
+            return ApiResponse.error("Failed to fetch top staff performance: " + e.getMessage());
         }
     }
 }

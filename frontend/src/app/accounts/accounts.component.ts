@@ -279,7 +279,7 @@ export class AccountsComponent implements OnInit {
     this.stats.accountsThisMonth = this.accounts.filter((account) => {
       if (!account.createdon) return false;
       const createdDate = new Date(account.createdon);
-      return (ppppp
+      return (
         createdDate.getMonth() === currentMonth &&
         createdDate.getFullYear() === currentYear
       );

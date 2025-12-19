@@ -509,4 +509,228 @@ public class D365OpportunityService {
             return new java.util.ArrayList<>();
         }
     }
+
+    /**
+     * Get top staff by won opportunities
+     * 
+     * @param fromDate Start date filter
+     * @param toDate   End date filter
+     * @param top      Number of top staff to return
+     * @return List of staff with won opportunity counts and revenue
+     */
+    public List<java.util.Map<String, Object>> getTopStaffByWonOpportunities(
+            String fromDate, String toDate, int top) {
+        try {
+            log.info("Fetching top {} staff by won opportunities", top);
+
+            // Build filter for won opportunities
+            StringBuilder filter = new StringBuilder();
+            filter.append("statecode eq 1 and statuscode eq 3"); // Won opportunities
+
+            if (fromDate != null && !fromDate.isEmpty()) {
+                filter.append(" and createdon ge ").append(fromDate);
+            }
+            if (toDate != null && !toDate.isEmpty()) {
+                filter.append(" and createdon le ").append(toDate);
+            }
+
+            String token = authService.getAccessToken();
+            String uri = String.format("/opportunities?$filter=%s&$select=_ownerid_value,estimatedvalue",
+                    java.net.URLEncoder.encode(filter.toString(), "UTF-8"));
+
+            String response = webClient.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            D365Response<Opportunity> d365Response = objectMapper.readValue(
+                    response, new TypeReference<D365Response<Opportunity>>() {
+                    });
+
+            // Group by owner and calculate stats
+            java.util.Map<String, java.util.Map<String, Object>> staffStats = new java.util.HashMap<>();
+
+            for (Opportunity opp : d365Response.getValue()) {
+                String ownerId = opp.getOwnerId();
+                if (ownerId == null)
+                    continue;
+
+                staffStats.putIfAbsent(ownerId, new java.util.HashMap<>());
+                java.util.Map<String, Object> stats = staffStats.get(ownerId);
+
+                stats.put("ownerId", ownerId);
+                stats.put("wonCount", (int) stats.getOrDefault("wonCount", 0) + 1);
+                double currentRevenue = ((Number) stats.getOrDefault("wonRevenue", 0.0)).doubleValue();
+                double oppValue = opp.getEstimatedValue() != null ? opp.getEstimatedValue().doubleValue() : 0.0;
+                stats.put("wonRevenue", currentRevenue + oppValue);
+            }
+
+            // Get staff names
+            List<com.example.backend.model.Staff> allStaff = staffService.getAllStaffUnfiltered(
+                    null, null, false, null, null);
+            java.util.Map<String, String> staffNames = new java.util.HashMap<>();
+            for (com.example.backend.model.Staff staff : allStaff) {
+                staffNames.put(staff.getSystemUserId(), staff.getFullName());
+            }
+
+            // Convert to list and add names
+            List<java.util.Map<String, Object>> result = new java.util.ArrayList<>(staffStats.values());
+            for (java.util.Map<String, Object> stats : result) {
+                String ownerId = (String) stats.get("ownerId");
+                stats.put("ownerName", staffNames.getOrDefault(ownerId, "Unknown"));
+            }
+
+            // Sort by won count descending
+            result.sort((a, b) -> Integer.compare((int) b.getOrDefault("wonCount", 0),
+                    (int) a.getOrDefault("wonCount", 0)));
+
+            // Return top N
+            return result.size() > top ? result.subList(0, top) : result;
+
+        } catch (Exception e) {
+            log.error("Error fetching top staff by won opportunities", e);
+            return new java.util.ArrayList<>();
+        }
+    }
+
+    /**
+     * Get opportunity statistics for a date range
+     * 
+     * @param fromDate Start date
+     * @param toDate   End date
+     * @return Map with opportunity counts
+     */
+    public java.util.Map<String, Object> getOpportunityStats(String fromDate, String toDate) {
+        try {
+            log.info("Fetching opportunity stats from {} to {}", fromDate, toDate);
+
+            StringBuilder filter = new StringBuilder();
+            if (fromDate != null && !fromDate.isEmpty()) {
+                filter.append("createdon ge ").append(fromDate);
+            }
+            if (toDate != null && !toDate.isEmpty()) {
+                if (filter.length() > 0)
+                    filter.append(" and ");
+                filter.append("createdon le ").append(toDate);
+            }
+
+            String token = authService.getAccessToken();
+            String uri = "/opportunities?$select=statecode,statuscode,estimatedvalue";
+            if (filter.length() > 0) {
+                uri += "&$filter=" + java.net.URLEncoder.encode(filter.toString(), "UTF-8");
+            }
+
+            String response = webClient.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            D365Response<Opportunity> d365Response = objectMapper.readValue(
+                    response, new TypeReference<D365Response<Opportunity>>() {
+                    });
+
+            int totalCount = d365Response.getValue().size();
+            int wonCount = 0, lostCount = 0, openCount = 0;
+
+            for (Opportunity opp : d365Response.getValue()) {
+                if (opp.getStateCode() != null) {
+                    if (opp.getStateCode() == 1 && opp.getStatusCode() == 3) {
+                        // Won: StateCode=1, StatusCode=3
+                        wonCount++;
+                    } else if (opp.getStateCode() == 2) {
+                        // Lost: StateCode=2 (any statuscode like 4, 5, etc.)
+                        lostCount++;
+                    } else if (opp.getStateCode() == 0) {
+                        // Open: StateCode=0
+                        openCount++;
+                    }
+                }
+            }
+
+            java.util.Map<String, Object> stats = new java.util.HashMap<>();
+            stats.put("totalOpportunities", totalCount);
+            stats.put("wonOpportunities", wonCount);
+            stats.put("lostOpportunities", lostCount);
+            stats.put("openOpportunities", openCount);
+
+            return stats;
+
+        } catch (Exception e) {
+            log.error("Error fetching opportunity stats", e);
+            return new java.util.HashMap<>();
+        }
+    }
+
+    /**
+     * Get revenue metrics for a date range
+     * 
+     * @param fromDate Start date
+     * @param toDate   End date
+     * @return Map with revenue metrics
+     */
+    public java.util.Map<String, Object> getRevenueMetrics(String fromDate, String toDate) {
+        try {
+            log.info("Fetching revenue metrics from {} to {}", fromDate, toDate);
+
+            StringBuilder filter = new StringBuilder();
+            if (fromDate != null && !fromDate.isEmpty()) {
+                filter.append("createdon ge ").append(fromDate);
+            }
+            if (toDate != null && !toDate.isEmpty()) {
+                if (filter.length() > 0)
+                    filter.append(" and ");
+                filter.append("createdon le ").append(toDate);
+            }
+
+            String token = authService.getAccessToken();
+            String uri = "/opportunities?$select=statecode,statuscode,estimatedvalue";
+            if (filter.length() > 0) {
+                uri += "&$filter=" + java.net.URLEncoder.encode(filter.toString(), "UTF-8");
+            }
+
+            String response = webClient.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            D365Response<Opportunity> d365Response = objectMapper.readValue(
+                    response, new TypeReference<D365Response<Opportunity>>() {
+                    });
+
+            double estimatedRevenue = 0, wonRevenue = 0, lostRevenue = 0;
+
+            for (Opportunity opp : d365Response.getValue()) {
+                double value = opp.getEstimatedValue() != null ? opp.getEstimatedValue().doubleValue() : 0.0;
+                estimatedRevenue += value;
+
+                if (opp.getStateCode() != null) {
+                    if (opp.getStateCode() == 1 && opp.getStatusCode() == 3) {
+                        wonRevenue += value;
+                    } else if (opp.getStateCode() == 1 && opp.getStatusCode() == 4) {
+                        lostRevenue += value;
+                    }
+                }
+            }
+
+            java.util.Map<String, Object> metrics = new java.util.HashMap<>();
+            metrics.put("estimatedRevenue", Math.round(estimatedRevenue * 100.0) / 100.0);
+            metrics.put("wonRevenue", Math.round(wonRevenue * 100.0) / 100.0);
+            metrics.put("lostRevenue", Math.round(lostRevenue * 100.0) / 100.0);
+
+            return metrics;
+
+        } catch (Exception e) {
+            log.error("Error fetching revenue metrics", e);
+            return new java.util.HashMap<>();
+        }
+    }
 }

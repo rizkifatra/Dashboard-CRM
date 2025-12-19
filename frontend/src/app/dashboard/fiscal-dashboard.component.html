@@ -1,0 +1,231 @@
+<div class="fiscal-dashboard">
+    <!-- Top Header -->
+    <div class="top-header">
+        <div class="header-left">
+            <h1 class="header-title">CRM DASHBOARD</h1>
+            <p class="header-subtitle">Real-time Performance Analytics</p>
+        </div>
+        <div class="header-right">
+            <button (click)="refreshDashboard()" class="refresh-button" [disabled]="loading">
+                <span class="refresh-icon">↻</span>
+                Refresh
+            </button>
+            <span class="last-updated" *ngIf="lastUpdated">
+                Updated: {{ lastUpdated | date:'short' }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading fiscal year data...</p>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error && !loading" class="error-state">
+        <p>{{ error }}</p>
+        <button (click)="loadAllData()" class="retry-button">Retry</button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div *ngIf="!loading && !error">
+        <!-- Current Fiscal Year Section -->
+        <div class="fiscal-section">
+            <div class="section-header">
+                <h2>Current Fiscal Year</h2>
+                <select [(ngModel)]="selectedFiscalYear" (change)="loadFiscalYearData()" class="period-select">
+                    <option value="current">This Year</option>
+                    <option *ngFor="let year of fiscalYears" [value]="year">FY{{year}}-{{year+1}}</option>
+                </select>
+            </div>
+
+            <div class="metrics-row">
+                <div class="metric-card">
+                    <div class="metric-label">TARGET REVENUE</div>
+                    <div class="metric-value">RM {{fiscalYearMetrics?.targetRevenue | number:'1.0-0'}}</div>
+                    <div class="metric-subtitle">{{calculatePercentage(fiscalYearMetrics?.wonRevenue,
+                        fiscalYearMetrics?.targetRevenue)}}% Achievement</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">WON REVENUE</div>
+                    <div class="metric-value">RM {{fiscalYearMetrics?.wonRevenue | number:'1.0-0'}}</div>
+                    <div class="metric-subtitle">From {{fiscalYearMetrics?.targetRevenue | number:'1.0-0'}} Target</div>
+                </div>
+            </div>
+
+            <div class="staff-performance">
+                <h3>TOP STAFF PERFORMANCE</h3>
+                <div class="staff-list">
+                    <div *ngFor="let staff of fiscalYearTopStaff; let i = index" class="staff-item">
+                        <span class="staff-rank">{{i + 1}}.</span>
+                        <span class="staff-name">{{staff.ownerName}}</span>
+                        <span class="staff-subtitle">{{staff.wonCount}} Won Opportunities</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Quarter Section -->
+        <div class="fiscal-section">
+            <div class="section-header">
+                <h2>Current Quarter</h2>
+                <select [(ngModel)]="selectedQuarter" (change)="loadQuarterData()" class="period-select">
+                    <option value="current">This Quarter</option>
+                    <option value="1">Q1 (Jun-Aug)</option>
+                    <option value="2">Q2 (Sep-Nov)</option>
+                    <option value="3">Q3 (Dec-Feb)</option>
+                    <option value="4">Q4 (Mar-May)</option>
+                </select>
+            </div>
+
+            <div class="metrics-row">
+                <div class="metric-card">
+                    <div class="metric-label">TARGET REVENUE</div>
+                    <div class="metric-value">RM {{quarterMetrics?.targetRevenue | number:'1.0-0'}}</div>
+                    <div class="metric-subtitle">{{calculatePercentage(quarterMetrics?.wonRevenue,
+                        quarterMetrics?.targetRevenue)}}% Achievement</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">WON REVENUE</div>
+                    <div class="metric-value">RM {{quarterMetrics?.wonRevenue | number:'1.0-0'}}</div>
+                    <div class="metric-subtitle">From {{quarterMetrics?.targetRevenue | number:'1.0-0'}} Target</div>
+                </div>
+            </div>
+
+            <div class="staff-performance">
+                <h3>TOP STAFF PERFORMANCE </h3>
+                <div class="staff-list">
+                    <div *ngFor="let staff of quarterTopStaff; let i = index" class="staff-item">
+                        <span class="staff-rank">{{i + 1}}.</span>
+                        <span class="staff-name">{{staff.ownerName}}</span>
+                        <span class="staff-subtitle">{{staff.wonCount}} Won Opportunities</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Opportunities Monthly Section -->
+        <div class="fiscal-section">
+            <div class="section-header">
+                <h2>Opportunities Monthly</h2>
+                <select [(ngModel)]="selectedMonth" (change)="loadMonthlyOpportunities()" class="period-select">
+                    <option value="current">This Quarter</option>
+                    <option *ngFor="let month of months; let i = index" [value]="i+1">{{month}}</option>
+                </select>
+            </div>
+
+            <div class="opportunities-grid">
+                <div class="opp-card">
+                    <div class="opp-label">TOTAL OPPORTUNITIES</div>
+                    <div class="opp-value">{{monthlyOpps?.totalOpportunities || 0}}</div>
+                    <div class="opp-subtitle">All opportunities created</div>
+                </div>
+
+                <div class="opp-card">
+                    <div class="opp-label">WON OPPORTUNITIES</div>
+                    <div class="opp-value">{{monthlyOpps?.wonOpportunities || 0}}</div>
+                    <div class="opp-subtitle">{{calculatePercentage(monthlyOpps?.wonOpportunities,
+                        monthlyOpps?.totalOpportunities)}}% Win Rate</div>
+                </div>
+
+                <div class="opp-card">
+                    <div class="opp-label">LOST OPPORTUNITIES</div>
+                    <div class="opp-value">{{monthlyOpps?.lostOpportunities || 0}}</div>
+                    <div class="opp-subtitle">{{calculatePercentage(monthlyOpps?.lostOpportunities,
+                        monthlyOpps?.totalOpportunities)}}% Loss Rate</div>
+                </div>
+
+                <div class="opp-card">
+                    <div class="opp-label">OPEN OPPORTUNITIES</div>
+                    <div class="opp-value">{{monthlyOpps?.openOpportunities || 0}}</div>
+                    <div class="opp-subtitle">Still in progress</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Opportunities Quarter Section -->
+        <div class="fiscal-section">
+            <div class="section-header">
+                <h2>Opportunities Quarter</h2>
+                <select [(ngModel)]="selectedOppQuarter" (change)="loadQuarterOpportunities()" class="period-select">
+                    <option value="current">This Quarter</option>
+                    <option value="1">Q1 (Jun-Aug)</option>
+                    <option value="2">Q2 (Sep-Nov)</option>
+                    <option value="3">Q3 (Dec-Feb)</option>
+                    <option value="4">Q4 (Mar-May)</option>
+                </select>
+            </div>
+
+            <div class="opportunities-grid">
+                <div class="opp-card">
+                    <div class="opp-label">TOTAL OPPORTUNITIES</div>
+                    <div class="opp-value">{{quarterOpps?.totalOpportunities || 0}}</div>
+                    <div class="opp-subtitle">All opportunities created</div>
+                </div>
+
+                <div class="opp-card">
+                    <div class="opp-label">WON OPPORTUNITIES</div>
+                    <div class="opp-value">{{quarterOpps?.wonOpportunities || 0}}</div>
+                    <div class="opp-subtitle">{{calculatePercentage(quarterOpps?.wonOpportunities,
+                        quarterOpps?.totalOpportunities)}}% Win Rate</div>
+                </div>
+
+                <div class="opp-card">
+                    <div class="opp-label">LOST OPPORTUNITIES</div>
+                    <div class="opp-value">{{quarterOpps?.lostOpportunities || 0}}</div>
+                    <div class="opp-subtitle">{{calculatePercentage(quarterOpps?.lostOpportunities,
+                        quarterOpps?.totalOpportunities)}}% Loss Rate</div>
+                </div>
+
+                <div class="opp-card">
+                    <div class="opp-label">OPEN OPPORTUNITIES</div>
+                    <div class="opp-value">{{quarterOpps?.openOpportunities || 0}}</div>
+                    <div class="opp-subtitle">Still in progress</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Opportunities Fiscal year Section -->
+        <div class="fiscal-section">
+            <div class="section-header">
+                <h2>Opportunities Fiscal year</h2>
+                <select [(ngModel)]="selectedFiscalYearOpps" (change)="loadFiscalYearOpportunities()"
+                    class="period-select">
+                    <option value="current">This Year</option>
+                    <option *ngFor="let year of fiscalYears" [value]="year">FY{{year}}-{{year+1}}</option>
+                </select>
+            </div>
+
+            <div class="opportunities-grid">
+                <div class="opp-card">
+                    <div class="opp-label">TOTAL OPPORTUNITIES</div>
+                    <div class="opp-value">{{fiscalYearOpps?.totalOpportunities || 0}}</div>
+                    <div class="opp-subtitle">All opportunities created</div>
+                </div>
+
+                <div class="opp-card">
+                    <div class="opp-label">WON OPPORTUNITIES</div>
+                    <div class="opp-value">{{fiscalYearOpps?.wonOpportunities || 0}}</div>
+                    <div class="opp-subtitle">{{calculatePercentage(fiscalYearOpps?.wonOpportunities,
+                        fiscalYearOpps?.totalOpportunities)}}% Win Rate</div>
+                </div>
+
+                <div class="opp-card">
+                    <div class="opp-label">LOST OPPORTUNITIES</div>
+                    <div class="opp-value">{{fiscalYearOpps?.lostOpportunities || 0}}</div>
+                    <div class="opp-subtitle">{{calculatePercentage(fiscalYearOpps?.lostOpportunities,
+                        fiscalYearOpps?.totalOpportunities)}}% Loss Rate</div>
+                </div>
+
+                <div class="opp-card">
+                    <div class="opp-label">OPEN OPPORTUNITIES</div>
+                    <div class="opp-value">{{fiscalYearOpps?.openOpportunities || 0}}</div>
+                    <div class="opp-subtitle">Still in progress</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
