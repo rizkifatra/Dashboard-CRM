@@ -3,22 +3,22 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface Account {
-  accountId: string;
+  accountid: string;
   name: string;
-  accountNumber: string;
-  emailAddress: string;
-  telephone: string;
-  websiteUrl: string;
-  city: string;
-  state: string;
-  country: string;
+  accountnumber: string;
+  emailaddress1: string;
+  telephone1: string;
+  websiteurl: string;
+  address1_city: string;
+  address1_stateorprovince: string;
+  address1_country: string;
   revenue: number;
-  numberOfEmployees: number;
-  industryCode: number;
+  numberofemployees: number;
+  industrycode: number;
   description: string;
-  createdOn: string;
-  modifiedOn: string;
-  ownerId: string;
+  createdon: string;
+  modifiedon: string;
+  _ownerid_value: string;
 }
 
 export interface ApiResponse<T> {

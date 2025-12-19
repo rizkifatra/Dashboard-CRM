@@ -1,19 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-
-export interface Activity {
-  activityId: string;
-  subject: string;
-  description: string;
-  activityType: string;
-  direction: string;
-  createdOn: string;
-  modifiedOn: string;
-  staffName: string;
-  staffEmail: string;
-  staffTitle: string;
-}
+import { Activity, ApiResponse } from '../models';
 
 export interface EmailStats {
   staffEmail: string;
@@ -22,12 +10,7 @@ export interface EmailStats {
   totalEmails: number;
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-  error?: string;
-}
+export type { Activity, ApiResponse };
 
 @Injectable({
   providedIn: 'root',

@@ -679,6 +679,20 @@
     font-weight: 500;
 }
 
+.email-addresses {
+    font-size: 13px;
+    color: #4B5563;
+    word-break: break-word;
+    line-height: 1.6;
+}
+
+.activity-id {
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    color: #6B7280;
+    word-break: break-all;
+}
+
 .description-section {
     margin-top: 32px;
     padding-top: 32px;

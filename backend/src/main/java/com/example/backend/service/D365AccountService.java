@@ -70,6 +70,9 @@ public class D365AccountService {
                         .append("_ownerid_value,_createdby_value,_modifiedby_value&");
             }
 
+            // Sort by creation date (newest first)
+            queryParams.append("$orderby=createdon desc&");
+
             // Add count
             queryParams.append("$count=true");
 

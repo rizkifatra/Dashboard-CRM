@@ -1,19 +1,14 @@
 <div class="page-container">
     <div class="page-header">
         <h2 class="page-title">Opportunities Dashboard</h2>
-        <div class="filter-controls">
-            <div class="filter-group">
-                <label>Month:</label>
-                <input type="month" [(ngModel)]="selectedMonth" (change)="onMonthChange()" class="month-input">
-            </div>
-            <div class="filter-group">
-                <label>From:</label>
-                <input type="date" [(ngModel)]="fromDate" (change)="onDateChange()" class="date-input">
-            </div>
-            <div class="filter-group">
-                <label>To:</label>
-                <input type="date" [(ngModel)]="toDate" (change)="onDateChange()" class="date-input">
-            </div>
+        <div class="month-filter">
+            <select id="monthSelect" [(ngModel)]="selectedMonth" (change)="onMonthChange($any($event.target).value)"
+                class="month-select">
+                <option value="current">This Month</option>
+                <option *ngFor="let month of monthlyData; let i = index" [value]="i">
+                    {{ month.monthLabel }}
+                </option>
+            </select>
         </div>
     </div>
 
@@ -28,164 +23,342 @@
     </div>
 
     <div *ngIf="!loading && !error && stats" class="dashboard-content">
-        <!-- Statistics Cards -->
-        <div class="stats-grid">
-            <div class="stat-card purple">
-                <div class="stat-content">
-                    <h3>Total Opportunities</h3>
-                    <p class="stat-value">{{ stats.totalOpportunities }}</p>
-                </div>
-                <div class="stat-circle">
-                    <svg viewBox="0 0 36 36" class="circular-chart">
-                        <path class="circle-bg"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle" [attr.stroke-dasharray]="'100, 100'"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
-                </div>
+        <!-- Statistics Cards Row 1 -->
+        <div class="stats-row">
+            <div class="stat-card purple clickable-card" (click)="switchView('top')"
+                [class.active]="activeView === 'top'" title="View all opportunities">
+                <div class="stat-label">TOTAL OPPORTUNITIES</div>
+                <div class="stat-value">{{ stats.totalOpportunities }}</div>
             </div>
 
-            <div class="stat-card orange">
-                <div class="stat-content">
-                    <h3>Open Opportunities</h3>
-                    <p class="stat-value">{{ stats.openOpportunities }}</p>
-                </div>
-                <div class="stat-circle">
-                    <svg viewBox="0 0 36 36" class="circular-chart">
-                        <path class="circle-bg"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle"
-                            [attr.stroke-dasharray]="getPercentage(stats.openOpportunities, stats.totalOpportunities) + ', 100'"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
-                </div>
+            <div class="stat-card orange clickable-card" (click)="switchView('open')"
+                [class.active]="activeView === 'open'" title="Click to view open opportunities">
+                <div class="stat-label">OPEN OPPORTUNITIES</div>
+                <div class="stat-value">{{ stats.openOpportunities }}</div>
             </div>
 
-            <div class="stat-card green">
-                <div class="stat-content">
-                    <h3>Won Opportunities</h3>
-                    <p class="stat-value">{{ stats.wonOpportunities }}</p>
-                </div>
-                <div class="stat-circle">
-                    <svg viewBox="0 0 36 36" class="circular-chart">
-                        <path class="circle-bg"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle"
-                            [attr.stroke-dasharray]="getPercentage(stats.wonOpportunities, stats.totalOpportunities) + ', 100'"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
-                </div>
+            <div class="stat-card green clickable-card" (click)="switchView('won')"
+                [class.active]="activeView === 'won'" title="Click to view won opportunities">
+                <div class="stat-label">WON OPPORTUNITIES</div>
+                <div class="stat-value">{{ stats.wonOpportunities }}</div>
             </div>
 
-            <div class="stat-card red">
-                <div class="stat-content">
-                    <h3>Lost Opportunities</h3>
-                    <p class="stat-value">{{ stats.lostOpportunities }}</p>
-                </div>
-                <div class="stat-circle">
-                    <svg viewBox="0 0 36 36" class="circular-chart">
-                        <path class="circle-bg"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle"
-                            [attr.stroke-dasharray]="getPercentage(stats.lostOpportunities, stats.totalOpportunities) + ', 100'"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
-                </div>
+            <div class="stat-card red clickable-card" (click)="switchView('lost')"
+                [class.active]="activeView === 'lost'" title="Click to view lost opportunities">
+                <div class="stat-label">LOST OPPORTUNITIES</div>
+                <div class="stat-value">{{ stats.lostOpportunities }}</div>
             </div>
+        </div>
 
+        <!-- Revenue Cards Row 2 -->
+        <div class="stats-row">
             <div class="stat-card blue">
-                <div class="stat-content">
-                    <h3>Total Estimated Value</h3>
-                    <p class="stat-value">{{ formatCurrency(stats.totalEstimatedValue) }}</p>
-                </div>
-                <div class="stat-circle">
-                    <svg viewBox="0 0 36 36" class="circular-chart">
-                        <path class="circle-bg"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle" [attr.stroke-dasharray]="'100, 100'"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
-                </div>
+                <div class="stat-label">TOTAL ESTIMATED VALUE</div>
+                <div class="stat-value">{{ formatCurrency(stats.totalEstimatedValue) }}</div>
             </div>
 
             <div class="stat-card yellow">
-                <div class="stat-content">
-                    <h3>Won Value</h3>
-                    <p class="stat-value">{{ formatCurrency(stats.wonValue) }}</p>
+                <div class="stat-label">WON VALUE</div>
+                <div class="stat-value">{{ formatCurrency(stats.wonValue) }}</div>
+            </div>
+
+            <div class="stat-card pink">
+                <div class="stat-label">WIN RATE</div>
+                <div class="stat-value">{{ formatPercentage(stats.winRate) }}</div>
+            </div>
+
+            <div class="stat-card teal">
+                <div class="stat-label">AVERAGE DEAL SIZE</div>
+                <div class="stat-value">{{ formatCurrency(stats.averageDealSize) }}</div>
+            </div>
+        </div>
+
+        <!-- Revenue Charts Section -->
+        <div class="charts-section">
+            <div class="chart-container">
+                <h3 class="chart-title">Top Performers by Won Revenue</h3>
+                <div class="chart-subtitle">Actual Revenue from Closed Deals</div>
+
+                <div *ngIf="staffStats.length === 0" class="empty-chart">
+                    <p>No staff members with won opportunities yet</p>
                 </div>
-                <div class="stat-circle">
-                    <svg viewBox="0 0 36 36" class="circular-chart">
-                        <path class="circle-bg"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle"
-                            [attr.stroke-dasharray]="getPercentage(stats.wonValue, stats.totalEstimatedValue) + ', 100'"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
+
+                <div *ngIf="staffStats.length > 0" class="staff-revenue-chart">
+                    <div *ngFor="let staff of staffStats; let i = index" class="staff-revenue-bar">
+                        <div class="staff-name-label">
+                            <span class="rank-badge">{{ i + 1 }}</span>
+                            {{ staff.ownerName || 'Staff ' + staff.ownerId }}
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" [style.width.%]="getBarWidth(staff.wonValue, getMaxRevenue())"
+                                [class.top-performer]="i === 0">
+                            </div>
+                            <div class="bar-value">RM {{ formatCompactCurrency(staff.wonValue) }}</div>
+                        </div>
+                        <div class="staff-stats-mini">
+                            <span class="mini-stat won clickable" (click)="toggleWonOpportunities()"
+                                title="Click to view won opportunities">
+                                {{ staff.wonOpportunities }} Won
+                            </span>
+                            <span class="mini-stat rate">{{ formatPercentage(staff.winRate) }} Win Rate</span>
+                            <span class="mini-stat avg">RM {{ formatCompactCurrency(staff.averageDealSize) }} Avg
+                                Deal</span>
+                            <span class="mini-stat total">{{ staff.totalOpportunities }} Total</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="stat-card win-rate">
-                <div class="stat-icon">📈</div>
-                <div class="stat-content">
-                    <h3>Win Rate</h3>
-                    <p class="stat-value">{{ formatPercentage(stats.winRate) }}</p>
-                </div>
-            </div>
+            <div class="chart-container">
+                <h3 class="chart-title">Revenue by Status</h3>
+                <div class="chart-subtitle">Pipeline Distribution</div>
 
-            <div class="stat-card avg-deal">
-                <div class="stat-icon">🎯</div>
-                <div class="stat-content">
-                    <h3>Average Deal Size</h3>
-                    <p class="stat-value">{{ formatCurrency(stats.averageDealSize) }}</p>
+                <div class="status-revenue-chart">
+                    <div class="status-revenue-bar">
+                        <div class="status-name-label">
+                            <span class="status-dot open-dot"></span>
+                            Open
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill status-open"
+                                [style.width.%]="getBarWidth(statusData.open, getMaxStatusRevenue())">
+                            </div>
+                            <div class="bar-value">{{ formatCompactCurrency(statusData.open) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="status-revenue-bar">
+                        <div class="status-name-label">
+                            <span class="status-dot won-dot"></span>
+                            Won
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill status-won"
+                                [style.width.%]="getBarWidth(statusData.won, getMaxStatusRevenue())">
+                            </div>
+                            <div class="bar-value">{{ formatCompactCurrency(statusData.won) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="status-revenue-bar">
+                        <div class="status-name-label">
+                            <span class="status-dot lost-dot"></span>
+                            Lost
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill status-lost"
+                                [style.width.%]="getBarWidth(statusData.lost, getMaxStatusRevenue())">
+                            </div>
+                            <div class="bar-value">{{ formatCompactCurrency(statusData.lost) }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Top Opportunities Table -->
-        <div class="top-opportunities-section">
-            <h3 class="section-title">Top Open Opportunities by Value</h3>
-
-            <div *ngIf="topOpportunities.length === 0" class="empty-state">
-                <p>No open opportunities found</p>
+        <!-- Dynamic Opportunities Table -->
+        <div class="opportunities-section" [ngClass]="'view-' + activeView">
+            <div class="section-header-main">
+                <h3 class="section-title">
+                    <span *ngIf="activeView === 'top'">Top Open Opportunities by Value</span>
+                    <span *ngIf="activeView === 'won'">Won Opportunities</span>
+                    <span *ngIf="activeView === 'open'">Open Opportunities</span>
+                    <span *ngIf="activeView === 'lost'">Lost Opportunities</span>
+                </h3>
+                <div class="view-tabs">
+                    <button class="tab-btn" [class.active]="activeView === 'top'" (click)="switchView('top')">
+                        Top 10
+                    </button>
+                    <button class="tab-btn" [class.active]="activeView === 'open'" (click)="switchView('open')">
+                        Open ({{ stats ? stats.openOpportunities : 0 }})
+                    </button>
+                    <button class="tab-btn" [class.active]="activeView === 'won'" (click)="switchView('won')">
+                        Won ({{ stats ? stats.wonOpportunities : 0 }})
+                    </button>
+                    <button class="tab-btn" [class.active]="activeView === 'lost'" (click)="switchView('lost')">
+                        Lost ({{ stats ? stats.lostOpportunities : 0 }})
+                    </button>
+                </div>
             </div>
 
-            <div *ngIf="topOpportunities.length > 0" class="opportunities-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Estimated Value</th>
-                            <th>Close Date</th>
-                            <th>Days Until Close</th>
-                            <th>Probability</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr *ngFor="let opp of topOpportunities">
-                            <td class="opp-name">
-                                <strong>{{ opp.name }}</strong>
-                                <span class="opp-description" *ngIf="opp.description">{{
-                                    opp.description
-                                    }}</span>
-                            </td>
-                            <td class="opp-value">
-                                {{ formatCurrency(opp.estimatedValue) }}
-                            </td>
-                            <td>{{ formatDate(opp.estimatedCloseDate || '') }}</td>
-                            <td class="opp-days" [class.urgent]="getDaysUntilClose(opp.estimatedCloseDate || '') <= 7">
-                                {{ getDaysUntilClose(opp.estimatedCloseDate || '') }} days
-                            </td>
-                            <td>{{ opp.closeProbability || 0 }}%</td>
-                            <td>
-                                <span class="status-badge" [ngClass]="getStatusColorClass(opp.stateCode)">
-                                    {{ getStatusLabel(opp.stateCode) }}
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- Top Opportunities -->
+            <div *ngIf="activeView === 'top'">
+                <div *ngIf="topOpportunities.length === 0" class="empty-state">
+                    <p>No open opportunities found</p>
+                </div>
+
+                <div *ngIf="topOpportunities.length > 0" class="opportunities-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Estimated Value</th>
+                                <th>Close Date</th>
+                                <th>Days Until Close</th>
+                                <th>Probability</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let opp of topOpportunities">
+                                <td class="opp-name">
+                                    <strong>{{ opp.name }}</strong>
+                                    <span class="opp-description" *ngIf="opp.description">{{
+                                        opp.description
+                                        }}</span>
+                                </td>
+                                <td class="opp-value">
+                                    {{ formatCurrency(opp.estimatedValue) }}
+                                </td>
+                                <td>{{ formatDate(opp.estimatedCloseDate || '') }}</td>
+                                <td class="opp-days"
+                                    [class.urgent]="getDaysUntilClose(opp.estimatedCloseDate || '') <= 7">
+                                    {{ getDaysUntilClose(opp.estimatedCloseDate || '') }} days
+                                </td>
+                                <td>{{ opp.closeProbability || 0 }}%</td>
+                                <td>
+                                    <span class="status-badge" [ngClass]="getStatusColorClass(opp.stateCode)">
+                                        {{ getStatusLabel(opp.stateCode) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Won Opportunities -->
+            <div *ngIf="activeView === 'won'">
+                <div *ngIf="wonOpportunities.length === 0" class="empty-state">
+                    <p>No won opportunities found</p>
+                </div>
+
+                <div *ngIf="wonOpportunities.length > 0" class="opportunities-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Actual Value</th>
+                                <th>Estimated Value</th>
+                                <th>Close Date</th>
+                                <th>Probability</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let opp of wonOpportunities">
+                                <td class="opp-name">
+                                    <strong>{{ opp.name }}</strong>
+                                    <span class="opp-description" *ngIf="opp.description">{{
+                                        opp.description
+                                        }}</span>
+                                </td>
+                                <td class="opp-value won-value">
+                                    {{ formatCurrency(opp.actualValue || 0) }}
+                                </td>
+                                <td class="opp-value estimated-value">
+                                    {{ formatCurrency(opp.estimatedValue) }}
+                                </td>
+                                <td>{{ formatDate(opp.actualCloseDate || opp.estimatedCloseDate || '') }}</td>
+                                <td>{{ opp.closeProbability || 0 }}%</td>
+                                <td>
+                                    <span class="status-badge status-won">
+                                        {{ getStatusLabel(opp.stateCode) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Open Opportunities -->
+            <div *ngIf="activeView === 'open'">
+                <div *ngIf="openOpportunities.length === 0" class="empty-state">
+                    <p>No open opportunities found</p>
+                </div>
+
+                <div *ngIf="openOpportunities.length > 0" class="opportunities-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Estimated Value</th>
+                                <th>Close Date</th>
+                                <th>Days Until Close</th>
+                                <th>Probability</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let opp of openOpportunities">
+                                <td class="opp-name">
+                                    <strong>{{ opp.name }}</strong>
+                                    <span class="opp-description" *ngIf="opp.description">{{
+                                        opp.description
+                                        }}</span>
+                                </td>
+                                <td class="opp-value">
+                                    {{ formatCurrency(opp.estimatedValue) }}
+                                </td>
+                                <td>{{ formatDate(opp.estimatedCloseDate || '') }}</td>
+                                <td class="opp-days"
+                                    [class.urgent]="getDaysUntilClose(opp.estimatedCloseDate || '') <= 7">
+                                    {{ getDaysUntilClose(opp.estimatedCloseDate || '') }} days
+                                </td>
+                                <td>{{ opp.closeProbability || 0 }}%</td>
+                                <td>
+                                    <span class="status-badge status-open">
+                                        {{ getStatusLabel(opp.stateCode) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Lost Opportunities -->
+            <div *ngIf="activeView === 'lost'">
+                <div *ngIf="lostOpportunities.length === 0" class="empty-state">
+                    <p>No lost opportunities found</p>
+                </div>
+
+                <div *ngIf="lostOpportunities.length > 0" class="opportunities-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Estimated Value</th>
+                                <th>Expected Close Date</th>
+                                <th>Lost Date</th>
+                                <th>Probability</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let opp of lostOpportunities">
+                                <td class="opp-name">
+                                    <strong>{{ opp.name }}</strong>
+                                    <span class="opp-description" *ngIf="opp.description">{{
+                                        opp.description
+                                        }}</span>
+                                </td>
+                                <td class="opp-value lost-value">
+                                    {{ formatCurrency(opp.estimatedValue) }}
+                                </td>
+                                <td>{{ formatDate(opp.estimatedCloseDate || '') }}</td>
+                                <td>{{ formatDate(opp.actualCloseDate || '') }}</td>
+                                <td>{{ opp.closeProbability || 0 }}%</td>
+                                <td>
+                                    <span class="status-badge status-lost">
+                                        {{ getStatusLabel(opp.stateCode) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
-</div>

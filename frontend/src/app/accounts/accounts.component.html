@@ -1,32 +1,24 @@
 <div class="page-container">
     <div class="page-header">
         <h2 class="page-title">Accounts Management</h2>
-        <div class="page-stats">
-            <span class="stat-badge">Total: {{ totalCount }} accounts</span>
-            <span class="stat-badge">Showing: {{ accounts.length }}</span>
-        </div>
-    </div>
-
-    <!-- Search and Filter Section -->
-    <div class="search-section">
-        <div class="search-bar">
-            <input type="text" [(ngModel)]="searchTerm" (keyup.enter)="searchAccounts()"
-                placeholder="Search by name or account number..." class="search-input" />
-            <button (click)="searchAccounts()" class="search-button" [disabled]="loading">
-                🔍 Search
-            </button>
-            <button *ngIf="isSearching" (click)="clearSearch()" class="clear-button">
-                ✕ Clear
-            </button>
-        </div>
-        <div class="filter-group">
-            <label>Show Top:</label>
-            <select [(ngModel)]="topLimit" (change)="onTopLimitChange()" class="filter-select">
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
+        <div class="header-filters">
+            <div class="month-filter">
+                <select id="monthSelect" [(ngModel)]="selectedMonth" (change)="onMonthChange($any($event.target).value)"
+                    class="month-select">
+                    <option value="current">This Month</option>
+                    <option *ngFor="let month of monthlyData; let i = index" [value]="i">
+                        {{ month.monthLabel }}
+                    </option>
+                </select>
+            </div>
+            <div class="staff-filter">
+                <select [(ngModel)]="selectedStaffId" (change)="onStaffChange()" class="staff-select">
+                    <option value="all">All Staff</option>
+                    <option *ngFor="let staff of staffList" [value]="staff.systemUserId">
+                        {{ staff.fullName }}
+                    </option>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -40,56 +32,113 @@
         <button (click)="loadAccounts()" class="retry-button">Retry</button>
     </div>
 
-    <div *ngIf="!loading && !error" class="accounts-grid">
-        <div *ngFor="let account of accounts" class="account-card">
-            <div class="account-header">
-                <div class="account-avatar">
-                    {{ getInitials(account.name) }}
-                </div>
-                <div class="account-title-section">
-                    <h3 class="account-name">{{ account.name }}</h3>
-                    <p class="account-number" *ngIf="account.accountNumber">
-                        #{{ account.accountNumber }}
-                    </p>
-                </div>
+    <div *ngIf="!loading && !error" class="dashboard-content">
+
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-label">TOTAL ACCOUNTS</div>
+                <div class="stat-value">{{ stats.totalAccounts }}</div>
             </div>
 
-            <div class="account-details">
-                <div class="detail-row" *ngIf="account.emailAddress">
-                    <span class="detail-icon">📧</span>
-                    <span class="detail-text">{{ account.emailAddress }}</span>
-                </div>
-                <div class="detail-row" *ngIf="account.telephone">
-                    <span class="detail-icon">📞</span>
-                    <span class="detail-text">{{ account.telephone }}</span>
-                </div>
-                <div class="detail-row" *ngIf="account.websiteUrl">
-                    <span class="detail-icon">🌐</span>
-                    <a [href]="account.websiteUrl" target="_blank" class="detail-link">
-                        {{ account.websiteUrl }}
-                    </a>
-                </div>
-                <div class="detail-row" *ngIf="account.city || account.country">
-                    <span class="detail-icon">📍</span>
-                    <span class="detail-text">
-                        {{ account.city }}{{ account.city && account.country ? ', ' : '' }}{{ account.country }}
-                    </span>
-                </div>
+            <div class="stat-card">
+                <div class="stat-label">ACTIVE ACCOUNTS</div>
+                <div class="stat-value">{{ stats.activeAccounts }}</div>
             </div>
 
-            <div class="account-stats">
-                <div class="stat-box" *ngIf="account.revenue">
-                    <span class="stat-label">Revenue</span>
-                    <span class="stat-value">{{ formatRevenue(account.revenue) }}</span>
-                </div>
-                <div class="stat-box" *ngIf="account.numberOfEmployees">
-                    <span class="stat-label">Employees</span>
-                    <span class="stat-value">{{ account.numberOfEmployees }}</span>
-                </div>
+            <div class="stat-card">
+                <div class="stat-label">NEW THIS MONTH</div>
+                <div class="stat-value">{{ stats.accountsThisMonth }}</div>
             </div>
 
-            <div class="account-footer" *ngIf="account.createdOn">
-                <span class="footer-text">Created: {{ formatDate(account.createdOn) }}</span>
+            <div class="stat-card">
+                <div class="stat-label">DATA COMPLETION</div>
+                <div class="stat-value">{{ stats.dataCompletionRate }}%</div>
+            </div>
+        </div>
+
+
+        <div class="alert-box" *ngIf="staffWithIncompleteData.length > 0">
+            <div class="alert-content">
+                <strong>Data Completion Alert:</strong> {{ stats.incompleteData }} accounts have incomplete data across {{ staffWithIncompleteData.length }} staff members.
+            </div>
+        </div>
+
+        <div class="charts-section-compact" *ngIf="staffPerformance.length > 0">
+            <div class="chart-header-compact">
+                <h3 class="chart-title-compact">Top Performers</h3>
+            </div>
+            <div class="bar-chart-compact">
+                <div *ngFor="let performer of staffPerformance.slice(0, 5)" class="chart-bar-row-compact">
+                    <div class="chart-label-compact">{{ performer.name }}</div>
+                    <div class="chart-bar-container-compact">
+                        <div class="chart-bar-compact" [style.width.%]="performer.percentage">
+                            <span class="bar-value-compact">{{ performer.accountCount }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-section">
+            <div class="table-header-compact">
+                <h3>All Accounts</h3>
+                <span class="table-info">{{ accounts.length }} total</span>
+            </div>
+
+            <div class="table-container">
+                <table class="accounts-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable">Account Name</th>
+                            <th class="sortable">Owner</th>
+                            <th class="sortable">Created On</th>
+                            <th class="sortable">Main Phone</th>
+                            <th class="sortable">City</th>
+                            <th class="sortable">Email</th>
+                            <th class="sortable">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let account of accounts" class="account-row"
+                            [ngClass]="{'incomplete-row': isAccountIncomplete(account)}">
+                            <td>
+                                <a href="#" class="account-link">{{ account.name }}</a>
+                            </td>
+                            <td class="owner-col">
+                                <div class="owner-info">
+                                    <span class="owner-avatar">{{
+                                        getOwnerInitials(account._ownerid_value) }}</span>
+                                    <span class="owner-name">{{ getOwnerName(account._ownerid_value)
+                                        }}</span>
+                                </div>
+                            </td>
+                            <td class="date-col">{{ formatDateTime(account.createdon) }}</td>
+                            <td class="phone-col">
+                                <a *ngIf="account.telephone1" href="tel:{{ account.telephone1 }}" class="phone-link">
+                                    {{ account.telephone1 }}
+                                </a>
+                                <span *ngIf="!account.telephone1" class="no-data missing">-
+                                    Required</span>
+                            </td>
+                            <td class="city-col">
+                                <span *ngIf="account.address1_city">{{ account.address1_city }}</span>
+                                <span *ngIf="!account.address1_city" class="no-data missing">-
+                                    Required</span>
+                            </td>
+                            <td class="email-col">
+                                <span *ngIf="account.emailaddress1">{{ account.emailaddress1 }}</span>
+                                <span *ngIf="!account.emailaddress1" class="no-data missing">-
+                                    Required</span>
+                            </td>
+                            <td class="status-col">
+                                <span class="status-badge"
+                                    [ngClass]="isAccountIncomplete(account) ? 'incomplete' : 'active'">
+                                    {{ isAccountIncomplete(account) ? 'Incomplete' : 'Active' }}
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

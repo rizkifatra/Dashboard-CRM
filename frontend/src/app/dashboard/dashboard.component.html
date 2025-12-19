@@ -40,7 +40,7 @@
         <div class="revenue-section">
             <div class="revenue-header">
                 <div>
-                    <h2 class="section-title" style="padding: 0px 24px 0px 24px;">Revenue Metric</h2>
+                    <h2 class="section-title" style="padding: 0px 24px 0px 24px;">Revenue </h2>
                 </div>
                 <div class="month-filter">
                     <select id="monthSelect" [(ngModel)]="selectedMonth"
@@ -77,71 +77,6 @@
             </div>
         </div>
 
-        <!-- Metric Cards Row -->
-        <div class="metrics-row">
-            <div class="metric-card purple">
-                <div class="metric-label">TOTAL EMAIL ACTIVITIES</div>
-                <div class="metric-content">
-                    <div class="metric-value">{{ metrics?.totalActivities || 0 }}</div>
-                    <div class="metric-circle">
-                        <svg viewBox="0 0 36 36" class="circular-chart">
-                            <path class="circle-bg"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            <path class="circle"
-                                [attr.stroke-dasharray]="getMetricPercentage(metrics?.totalActivities || 0, 2000) + ', 100'"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        </svg>
-                    </div>
-                </div>
-            </div>
-
-            <div class="metric-card orange">
-                <div class="metric-label">ACTIVE OPPORTUNITIES</div>
-                <div class="metric-content">
-                    <div class="metric-value">{{ metrics?.activeOpportunities || 0 }}</div>
-                    <div class="metric-circle">
-                        <svg viewBox="0 0 36 36" class="circular-chart">
-                            <path class="circle-bg"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            <path class="circle"
-                                [attr.stroke-dasharray]="getMetricPercentage(metrics?.activeOpportunities || 0, 150) + ', 100'"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        </svg>
-                    </div>
-                </div>
-            </div>
-
-            <div class="metric-card green">
-                <div class="metric-label">EMAILS SENT</div>
-                <div class="metric-content">
-                    <div class="metric-value">{{ metrics?.totalEmailsSent || 0 }}</div>
-                    <div class="metric-circle">
-                        <svg viewBox="0 0 36 36" class="circular-chart">
-                            <path class="circle-bg"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            <path class="circle"
-                                [attr.stroke-dasharray]="getMetricPercentage(metrics?.totalEmailsSent || 0, 10000) + ', 100'"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        </svg>
-                    </div>
-                </div>
-            </div>
-
-            <div class="metric-card red">
-                <div class="metric-label">AVG RESPONSE RATE</div>
-                <div class="metric-content">
-                    <div class="metric-value">{{ metrics?.averageResponseRate || 0 }}%</div>
-                    <div class="metric-circle">
-                        <svg viewBox="0 0 36 36" class="circular-chart">
-                            <path class="circle-bg"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            <path class="circle" [attr.stroke-dasharray]="(metrics?.averageResponseRate || 0) + ', 100'"
-                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        </svg>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Monthly Trends Chart -->
         <div class="trends-chart-section">
@@ -153,6 +88,50 @@
                 <canvas #lineChart></canvas>
             </div>
         </div>
+
+        <!-- Top Staff Performance -->
+        <div class="top-performers-section">
+            <div class="section-header-inline">
+                <div>
+                    <h3 class="section-title">Top Performing Staff</h3>
+                    <p class="section-subtitle">Based on CRM activities and email performance</p>
+                </div>
+            </div>
+
+            <div *ngIf="topPerformers.length === 0" class="empty-state">
+                <p>No performance data available for this period</p>
+            </div>
+
+            <div *ngIf="topPerformers.length > 0" class="performers-grid">
+                <div *ngFor="let performer of topPerformers; let i = index" class="performer-item">
+                    <div class="performer-rank" [class.top-three]="i < 3">
+                        <span *ngIf="i === 0">🥇</span>
+                        <span *ngIf="i === 1">🥈</span>
+                        <span *ngIf="i === 2">🥉</span>
+                        <span *ngIf="i >= 3">{{ i + 1 }}</span>
+                    </div>
+                    <div class="performer-avatar">
+                        {{ getInitials(performer.fullname) }}
+                    </div>
+                    <div class="performer-info">
+                        <div class="performer-name">{{ performer.fullname }}</div>
+                        <div class="performer-title">{{ performer.title }}</div>
+                        <div class="performer-stats">
+                            <span class="stat-item">{{ performer.totalEmails }} emails</span>
+                            <span class="stat-separator">•</span>
+                            <span class="stat-item">{{ performer.responseRate }}% rate</span>
+                        </div>
+                    </div>
+                    <div class="performer-score">
+                        <div class="score-value" [style.color]="getPerformanceColor(performer.performanceScore)">
+                            {{ performer.performanceScore }}
+                        </div>
+                        <div class="score-label">Score</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         <!-- Main Content Grid -->
         <div class="main-grid">
@@ -195,116 +174,6 @@
                                 {{ staff.staffName.split(' ')[0] }}
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Top Staff Performance -->
-        <div class="top-performers-section">
-            <div class="section-header-inline">
-                <div>
-                    <h3 class="section-title">Top Performing Staff</h3>
-                    <p class="section-subtitle">Based on CRM activities and email performance</p>
-                </div>
-            </div>
-
-            <!-- Metric Cards Row -->
-            <div class="metrics-row">
-                <div class="metric-card purple">
-                    <div class="metric-label">TOTAL EMAIL ACTIVITIES</div>
-                    <div class="metric-content">
-                        <div class="metric-value">{{ metrics?.totalActivities || 0 }}</div>
-                        <div class="metric-circle">
-                            <svg viewBox="0 0 36 36" class="circular-chart">
-                                <path class="circle-bg"
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path class="circle"
-                                    [attr.stroke-dasharray]="getMetricPercentage(metrics?.totalActivities || 0, 2000) + ', 100'"
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="metric-card orange">
-                    <div class="metric-label">ACTIVE OPPORTUNITIES</div>
-                    <div class="metric-content">
-                        <div class="metric-value">{{ metrics?.activeOpportunities || 0 }}</div>
-                        <div class="metric-circle">
-                            <svg viewBox="0 0 36 36" class="circular-chart">
-                                <path class="circle-bg"
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path class="circle"
-                                    [attr.stroke-dasharray]="getMetricPercentage(metrics?.activeOpportunities || 0, 150) + ', 100'"
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="metric-card green">
-                    <div class="metric-label">EMAILS SENT</div>
-                    <div class="metric-content">
-                        <div class="metric-value">{{ metrics?.totalEmailsSent || 0 }}</div>
-                        <div class="metric-circle">
-                            <svg viewBox="0 0 36 36" class="circular-chart">
-                                <path class="circle-bg"
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path class="circle"
-                                    [attr.stroke-dasharray]="getMetricPercentage(metrics?.totalEmailsSent || 0, 10000) + ', 100'"
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="metric-card red">
-                    <div class="metric-label">AVG RESPONSE RATE</div>
-                    <div class="metric-content">
-                        <div class="metric-value">{{ metrics?.averageResponseRate || 0 }}%</div>
-                        <div class="metric-circle">
-                            <svg viewBox="0 0 36 36" class="circular-chart">
-                                <path class="circle-bg"
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path class="circle"
-                                    [attr.stroke-dasharray]="(metrics?.averageResponseRate || 0) + ', 100'"
-                                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div *ngIf="topPerformers.length === 0" class="empty-state">
-                <p>No performance data available for this period</p>
-            </div>
-
-            <div *ngIf="topPerformers.length > 0" class="performers-grid">
-                <div *ngFor="let performer of topPerformers; let i = index" class="performer-item">
-                    <div class="performer-rank" [class.top-three]="i < 3">
-                        <span *ngIf="i === 0">🥇</span>
-                        <span *ngIf="i === 1">🥈</span>
-                        <span *ngIf="i === 2">🥉</span>
-                        <span *ngIf="i >= 3">{{ i + 1 }}</span>
-                    </div>
-                    <div class="performer-avatar">
-                        {{ getInitials(performer.fullname) }}
-                    </div>
-                    <div class="performer-info">
-                        <div class="performer-name">{{ performer.fullname }}</div>
-                        <div class="performer-title">{{ performer.title }}</div>
-                        <div class="performer-stats">
-                            <span class="stat-item">{{ performer.totalEmails }} emails</span>
-                            <span class="stat-separator">•</span>
-                            <span class="stat-item">{{ performer.responseRate }}% rate</span>
-                        </div>
-                    </div>
-                    <div class="performer-score">
-                        <div class="score-value" [style.color]="getPerformanceColor(performer.performanceScore)">
-                            {{ performer.performanceScore }}
-                        </div>
-                        <div class="score-label">Score</div>
                     </div>
                 </div>
             </div>

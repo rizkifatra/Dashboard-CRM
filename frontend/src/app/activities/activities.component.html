@@ -195,9 +195,34 @@
                         <div class="info-value">{{ selectedActivity.staffEmail }}</div>
                     </div>
 
+                    <div class="info-item" *ngIf="selectedActivity.regardingObjectName">
+                        <label>Related To</label>
+                        <div class="info-value">{{ selectedActivity.regardingObjectName }}</div>
+                    </div>
+
+                    <div class="info-item" *ngIf="selectedActivity.fromEmail">
+                        <label>From</label>
+                        <div class="info-value email-addresses">{{ selectedActivity.fromEmail }}</div>
+                    </div>
+
+                    <div class="info-item" *ngIf="selectedActivity.toEmail">
+                        <label>To</label>
+                        <div class="info-value email-addresses">{{ selectedActivity.toEmail }}</div>
+                    </div>
+
+                    <div class="info-item" *ngIf="selectedActivity.ccEmail">
+                        <label>CC</label>
+                        <div class="info-value email-addresses">{{ selectedActivity.ccEmail }}</div>
+                    </div>
+
+                    <div class="info-item" *ngIf="selectedActivity.sender">
+                        <label>Sender</label>
+                        <div class="info-value">{{ selectedActivity.sender }}</div>
+                    </div>
+
                     <div class="info-item">
                         <label>Activity ID</label>
-                        <div class="info-value">{{ selectedActivity.activityId }}</div>
+                        <div class="info-value activity-id">{{ selectedActivity.activityId }}</div>
                     </div>
 
                     <div class="info-item">

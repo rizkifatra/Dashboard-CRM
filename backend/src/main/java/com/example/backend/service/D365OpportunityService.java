@@ -24,10 +24,12 @@ public class D365OpportunityService {
     private final D365AuthService authService;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final D365StaffService staffService;
 
-    public D365OpportunityService(D365Config d365Config, D365AuthService authService) {
+    public D365OpportunityService(D365Config d365Config, D365AuthService authService, D365StaffService staffService) {
         this.d365Config = d365Config;
         this.authService = authService;
+        this.staffService = staffService;
         this.objectMapper = new ObjectMapper();
         this.webClient = WebClient.builder()
                 .baseUrl(d365Config.getBaseUrl())
@@ -322,6 +324,7 @@ public class D365OpportunityService {
                 if (!staffStats.containsKey(ownerId)) {
                     java.util.Map<String, Object> stats = new java.util.HashMap<>();
                     stats.put("ownerId", ownerId);
+                    stats.put("ownerName", null); // Will be fetched later
                     stats.put("totalOpportunities", 0);
                     stats.put("openOpportunities", 0);
                     stats.put("wonOpportunities", 0);
@@ -375,6 +378,24 @@ public class D365OpportunityService {
                 // Average deal size
                 double avgDealSize = won > 0 ? wonValue / won : 0.0;
                 stats.put("averageDealSize", avgDealSize);
+            }
+
+            // Fetch actual staff names from D365
+            for (java.util.Map<String, Object> stats : staffStats.values()) {
+                String ownerId = (String) stats.get("ownerId");
+                try {
+                    // Fetch staff details by ID
+                    var staffOptional = staffService.getStaffById(ownerId, false, null, null);
+                    if (staffOptional.isPresent()) {
+                        stats.put("ownerName", staffOptional.get().getFullName());
+                    } else {
+                        // Fallback to ID if staff not found
+                        stats.put("ownerName", "Staff " + ownerId.substring(0, Math.min(8, ownerId.length())));
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not fetch name for staff ID: {}, using default", ownerId);
+                    stats.put("ownerName", "Staff " + ownerId.substring(0, Math.min(8, ownerId.length())));
+                }
             }
 
             log.info("Fetched opportunity stats for {} staff members", staffStats.size());

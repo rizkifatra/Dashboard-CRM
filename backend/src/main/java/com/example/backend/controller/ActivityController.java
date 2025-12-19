@@ -183,6 +183,39 @@ public class ActivityController {
     }
 
     /**
+     * Get email details for specific activity IDs
+     * POST endpoint to accept a list of activity IDs and return email details
+     * 
+     * @param activityIds List of activity IDs to get email details for
+     * @return Map of activityId -> email details (from, to, cc, sender)
+     */
+    @PostMapping("/emails/details")
+    public ResponseEntity<ApiResponse<java.util.Map<String, java.util.Map<String, String>>>> getEmailDetails(
+            @RequestBody List<String> activityIds) {
+        try {
+            log.info("POST /api/activities/emails/details - {} activity IDs",
+                    activityIds != null ? activityIds.size() : 0);
+
+            java.util.Map<String, java.util.Map<String, String>> emailDetails = activityService
+                    .getEmailDetailsByIds(activityIds);
+
+            return ResponseEntity.ok(ApiResponse.<java.util.Map<String, java.util.Map<String, String>>>builder()
+                    .success(true)
+                    .message("Successfully retrieved email details for " + emailDetails.size() + " activities")
+                    .data(emailDetails)
+                    .build());
+
+        } catch (Exception e) {
+            log.error("Error retrieving email details", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.<java.util.Map<String, java.util.Map<String, String>>>builder()
+                            .success(false)
+                            .message("Failed to retrieve email details: " + e.getMessage())
+                            .build());
+        }
+    }
+
+    /**
      * Get sent emails by staff
      * 
      * @param email Staff member's email

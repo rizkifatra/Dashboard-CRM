@@ -206,4 +206,25 @@ export class DateUtilsService {
       to: '',
     };
   }
+
+  /**
+   * Get last 12 months with labels
+   */
+  getLast12Months(): Array<{ label: string; year: number; month: number }> {
+    const result: Array<{ label: string; year: number; month: number }> = [];
+    const today = new Date();
+
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthName = this.getMonthName(date.getMonth());
+      const year = date.getFullYear();
+      result.push({
+        label: `${monthName} ${year}`,
+        year: year,
+        month: date.getMonth() + 1,
+      });
+    }
+
+    return result;
+  }
 }

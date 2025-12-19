@@ -44,6 +44,20 @@ export interface Activity {
   staffName: string;
   staffEmail: string;
   staffTitle: string;
+  // Email-specific fields (populated via expanded queries)
+  sender?: string;
+  fromEmail?: string;
+  toEmail?: string;
+  ccEmail?: string;
+  regardingObjectName?: string; // Related account or contact name
+  regardingObjectId?: string;
+  actualStart?: string;
+  actualEnd?: string;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  priorityCode?: number;
+  stateCode?: number;
+  statusCode?: number;
 }
 
 /**

@@ -67,6 +67,11 @@ public class D365ActivityService {
                     .append("scheduledstart,scheduledend,actualdurationminutes,scheduleddurationminutes,")
                     .append("prioritycode&");
 
+            // Expand to get related object details (account, contact, etc.)
+            queryParams.append("$expand=regardingobjectid_account($select=name),")
+                    .append("regardingobjectid_contact($select=fullname),")
+                    .append("owninguser($select=fullname,internalemailaddress,title)&");
+
             if (filter != null && !filter.isEmpty()) {
                 queryParams.append("$filter=").append(filter).append("&");
             }
@@ -106,9 +111,14 @@ public class D365ActivityService {
             // Enrich activities with staff information and friendly names
             List<Activity> enrichedActivities = enrichActivitiesWithStaffInfo(filteredActivities);
 
+            log.info("About to call enrichEmailActivitiesSimple with {} activities", enrichedActivities.size());
+
+            // Enrich email activities with email-specific details using simplified approach
+            List<Activity> fullyEnrichedActivities = enrichEmailActivitiesSimple(enrichedActivities);
+
             log.info("Successfully fetched {} activities ({} from tracked staff)",
-                    activities.size(), enrichedActivities.size());
-            return enrichedActivities;
+                    activities.size(), fullyEnrichedActivities.size());
+            return fullyEnrichedActivities;
 
         } catch (WebClientResponseException e) {
             log.error("Error fetching activities: Status={}, Body={}", e.getStatusCode(),
@@ -238,6 +248,139 @@ public class D365ActivityService {
             log.error("Error fetching email activities", e);
             throw new RuntimeException("Failed to fetch email activities: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Get email details for specific activity IDs
+     * This is a standalone method that queries the emails table directly
+     * without any enrichment dependencies
+     * 
+     * @param activityIds List of activity IDs to get email details for
+     * @return Map of activityId -> email details (from, to, cc, sender)
+     */
+    public java.util.Map<String, java.util.Map<String, String>> getEmailDetailsByIds(
+            java.util.List<String> activityIds) {
+        log.info("Fetching email details for {} activity IDs", activityIds != null ? activityIds.size() : 0);
+
+        java.util.Map<String, java.util.Map<String, String>> emailDetailsMap = new java.util.HashMap<>();
+
+        try {
+            if (activityIds == null || activityIds.isEmpty()) {
+                log.info("No activity IDs provided");
+                return emailDetailsMap;
+            }
+
+            String token = authService.getAccessToken();
+
+            // Process in batches of 10 to avoid URL length issues
+            int batchSize = 10;
+            for (int i = 0; i < activityIds.size(); i += batchSize) {
+                int endIndex = Math.min(i + batchSize, activityIds.size());
+                java.util.List<String> batch = activityIds.subList(i, endIndex);
+
+                log.info("Processing email details batch {}/{}: IDs {} to {}",
+                        (i / batchSize) + 1,
+                        (activityIds.size() + batchSize - 1) / batchSize,
+                        i + 1,
+                        endIndex);
+
+                // Build filter for this batch
+                String filter = batch.stream()
+                        .map(id -> "activityid eq '" + id + "'")
+                        .collect(Collectors.joining(" or "));
+
+                // Query emails with description which might contain email addresses
+                String uri = "/emails?$filter=" + filter +
+                        "&$select=activityid,description";
+
+                log.info("Fetching email details for {} emails", batch.size());
+
+                String response = webClient.get()
+                        .uri(uri)
+                        .header("Authorization", "Bearer " + token)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                        .block();
+
+                JsonNode root = objectMapper.readTree(response);
+                JsonNode emailRecords = root.get("value");
+
+                if (emailRecords != null && emailRecords.isArray()) {
+                    log.debug("Received {} email records from D365", emailRecords.size());
+
+                    for (JsonNode emailNode : emailRecords) {
+                        String activityId = emailNode.has("activityid") ? emailNode.get("activityid").asText() : null;
+                        if (activityId != null) {
+                            java.util.Map<String, String> details = new java.util.HashMap<>();
+
+                            // Extract email addresses from description if available
+                            if (emailNode.has("description") && !emailNode.get("description").isNull()) {
+                                String description = emailNode.get("description").asText();
+
+                                // Parse email addresses from description
+                                // Look for patterns like "From:", "To:", "Cc:"
+                                details.put("from", extractEmailFromDescription(description, "From:"));
+                                details.put("to", extractEmailFromDescription(description, "To:"));
+                                details.put("cc", extractEmailFromDescription(description, "Cc:"));
+                                details.put("sender", extractEmailFromDescription(description, "From:"));
+                            }
+
+                            emailDetailsMap.put(activityId, details);
+
+                            log.debug("Email {} details: from={}, to={}, cc={}",
+                                    activityId,
+                                    details.get("from"),
+                                    details.get("to"),
+                                    details.get("cc"));
+                        }
+                    }
+                } else {
+                    log.warn("No email records returned from D365 for batch");
+                }
+            }
+
+            log.info("Successfully fetched email details for {} activities", emailDetailsMap.size());
+            return emailDetailsMap;
+
+        } catch (Exception e) {
+            log.error("Error fetching email details by IDs", e);
+            return emailDetailsMap;
+        }
+    }
+
+    /**
+     * Extract email address from description field
+     * Looks for patterns like "From: email@example.com" or "To: email@example.com"
+     */
+    private String extractEmailFromDescription(String description, String prefix) {
+        if (description == null || description.isEmpty()) {
+            return null;
+        }
+
+        try {
+            int startIndex = description.indexOf(prefix);
+            if (startIndex == -1) {
+                return null;
+            }
+
+            // Find email pattern after the prefix
+            int emailStart = startIndex + prefix.length();
+            String remaining = description.substring(emailStart).trim();
+
+            // Extract email using regex
+            java.util.regex.Pattern pattern = java.util.regex.Pattern
+                    .compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}");
+            java.util.regex.Matcher matcher = pattern.matcher(remaining);
+
+            if (matcher.find()) {
+                return matcher.group();
+            }
+        } catch (Exception e) {
+            log.debug("Error extracting email from description: {}", e.getMessage());
+        }
+
+        return null;
     }
 
     /**
@@ -1588,6 +1731,277 @@ public class D365ActivityService {
             return activities.stream()
                     .map(this::setFriendlyNames)
                     .collect(Collectors.toList());
+        }
+    }
+
+    /**
+     * Enrich email activities with email-specific details (from, to, cc, sender)
+     * Fetches data from the /emails endpoint with expanded activity parties
+     * 
+     * @param activities List of activities to enrich
+     * @return List of activities with email details added
+     */
+    private List<Activity> enrichEmailActivitiesWithDetails(List<Activity> activities) {
+        log.info("Starting enrichEmailActivitiesWithDetails for {} activities", activities.size());
+        try {
+            // Filter only email activities
+            List<Activity> emailActivities = activities.stream()
+                    .filter(a -> "email".equalsIgnoreCase(a.getActivityTypeCode()))
+                    .collect(Collectors.toList());
+
+            log.info("Found {} email activities to enrich", emailActivities.size());
+
+            if (emailActivities.isEmpty()) {
+                log.info("No email activities to enrich, returning original list");
+                return activities;
+            }
+
+            String token = authService.getAccessToken();
+
+            // Build filter to fetch email details for all email activities in one query
+            String activityIds = emailActivities.stream()
+                    .map(Activity::getActivityId)
+                    .filter(id -> id != null && !id.isEmpty())
+                    .map(id -> "activityid eq '" + id + "'")
+                    .collect(Collectors.joining(" or "));
+
+            if (activityIds.isEmpty()) {
+                return activities;
+            }
+
+            log.debug("Built filter for {} email activities: {}", emailActivities.size(), activityIds);
+
+            // Query emails with expanded activity parties and regarding object
+            String uri = "/emails?$filter=" + activityIds
+                    + "&$select=activityid,sender,from,torecipients,ccrecipients,bccrecipients,directioncode"
+                    + "&$expand=email_activity_parties($select=participationtypemask,addressused),"
+                    + "regardingobjectid_account($select=name),"
+                    + "regardingobjectid_contact($select=fullname)";
+
+            log.info("Fetching email details for {} emails", emailActivities.size());
+
+            String response = webClient.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            JsonNode root = objectMapper.readTree(response);
+            JsonNode emailsArray = root.get("value");
+
+            log.debug("Received {} email records from D365",
+                    emailsArray != null && emailsArray.isArray() ? emailsArray.size() : 0);
+
+            // Create a map of activityId -> email details
+            java.util.Map<String, java.util.Map<String, Object>> emailDetailsMap = new java.util.HashMap<>();
+            if (emailsArray != null && emailsArray.isArray()) {
+                for (JsonNode emailNode : emailsArray) {
+                    String activityId = emailNode.has("activityid") ? emailNode.get("activityid").asText() : null;
+                    if (activityId != null) {
+                        log.debug("Processing email activityId: {}", activityId);
+                        java.util.Map<String, Object> details = new java.util.HashMap<>();
+
+                        // Extract email addresses from activity parties
+                        if (emailNode.has("email_activity_parties")) {
+                            JsonNode parties = emailNode.get("email_activity_parties");
+                            List<String> fromEmails = new ArrayList<>();
+                            List<String> toEmails = new ArrayList<>();
+                            List<String> ccEmails = new ArrayList<>();
+
+                            for (JsonNode party : parties) {
+                                String address = party.has("addressused") ? party.get("addressused").asText() : null;
+                                int participationType = party.has("participationtypemask")
+                                        ? party.get("participationtypemask").asInt()
+                                        : 0;
+
+                                if (address != null && !address.isEmpty()) {
+                                    // 1 = Sender/From, 2 = To, 3 = CC, 4 = BCC
+                                    if (participationType == 1) {
+                                        fromEmails.add(address);
+                                        // Use the first from email as sender if we don't have one yet
+                                        if (!details.containsKey("sender") || details.get("sender") == null) {
+                                            details.put("sender", address);
+                                        }
+                                    } else if (participationType == 2) {
+                                        toEmails.add(address);
+                                    } else if (participationType == 3) {
+                                        ccEmails.add(address);
+                                    }
+                                }
+                            }
+
+                            details.put("fromEmail", String.join("; ", fromEmails));
+                            details.put("toEmail", String.join("; ", toEmails));
+                            details.put("ccEmail", String.join("; ", ccEmails));
+
+                            log.debug("Email {} - Extracted: sender={}, from={}, to={}, cc={}",
+                                    activityId, details.get("sender"),
+                                    details.get("fromEmail"), details.get("toEmail"), details.get("ccEmail"));
+                        }
+
+                        // Extract regarding object (account or contact name)
+                        if (emailNode.has("regardingobjectid_account")
+                                && emailNode.get("regardingobjectid_account").has("name")) {
+                            details.put("regardingObjectName",
+                                    emailNode.get("regardingobjectid_account").get("name").asText());
+                        } else if (emailNode.has("regardingobjectid_contact")
+                                && emailNode.get("regardingobjectid_contact").has("fullname")) {
+                            details.put("regardingObjectName",
+                                    emailNode.get("regardingobjectid_contact").get("fullname").asText());
+                        }
+
+                        emailDetailsMap.put(activityId, details);
+                    }
+                }
+            }
+
+            // Enrich the original activities list with email details
+            log.debug("Enriching {} activities with email details. emailDetailsMap has {} entries",
+                    activities.size(), emailDetailsMap.size());
+
+            return activities.stream()
+                    .map(activity -> {
+                        if ("email".equalsIgnoreCase(activity.getActivityTypeCode())
+                                && emailDetailsMap.containsKey(activity.getActivityId())) {
+                            java.util.Map<String, Object> details = emailDetailsMap.get(activity.getActivityId());
+                            activity.setSender((String) details.get("sender"));
+                            activity.setFromEmail((String) details.get("fromEmail"));
+                            activity.setToEmail((String) details.get("toEmail"));
+                            activity.setCcEmail((String) details.get("ccEmail"));
+                            activity.setRegardingObjectName((String) details.get("regardingObjectName"));
+
+                            log.debug("Enriched email activity {} with sender={}, from={}, to={}",
+                                    activity.getActivityId(), activity.getSender(),
+                                    activity.getFromEmail(), activity.getToEmail());
+                        }
+                        return activity;
+                    })
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("Error enriching email activities with details", e);
+            // Return original activities if enrichment fails
+            return activities;
+        }
+    }
+
+    /**
+     * Simplified email enrichment using conversation tracking and email entity
+     * fields
+     * This method directly queries the emails table to get sender/recipient info
+     * 
+     * @param activities List of activities to enrich
+     * @return List of activities with email details added
+     */
+    private List<Activity> enrichEmailActivitiesSimple(List<Activity> activities) {
+        log.info("Starting enrichEmailActivitiesSimple for {} activities", activities.size());
+
+        try {
+            // Filter to get only email activities
+            List<Activity> emailActivities = activities.stream()
+                    .filter(a -> "email".equalsIgnoreCase(a.getActivityTypeCode()))
+                    .collect(Collectors.toList());
+
+            log.info("Found {} email activities to enrich", emailActivities.size());
+
+            if (emailActivities.isEmpty()) {
+                log.info("No email activities to enrich, returning original list");
+                return activities;
+            }
+
+            String token = authService.getAccessToken();
+
+            // Process in batches of 10 to avoid URL length issues
+            int batchSize = 10;
+            for (int i = 0; i < emailActivities.size(); i += batchSize) {
+                int endIndex = Math.min(i + batchSize, emailActivities.size());
+                List<Activity> batch = emailActivities.subList(i, endIndex);
+
+                log.info("Processing email batch {}/{}: emails {} to {}",
+                        (i / batchSize) + 1,
+                        (emailActivities.size() + batchSize - 1) / batchSize,
+                        i + 1,
+                        endIndex);
+
+                // Build filter for this batch
+                String activityIds = batch.stream()
+                        .map(Activity::getActivityId)
+                        .map(id -> "activityid eq '" + id + "'")
+                        .collect(Collectors.joining(" or "));
+
+                log.debug("Built filter for {} emails in batch", batch.size());
+
+                // Query emails with sender and description fields
+                String uri = "/emails?$filter=" + activityIds +
+                        "&$select=activityid,sender,from,to,cc,description,conversationindex,conversationtrackingid";
+
+                log.info("Fetching email details for {} emails", batch.size());
+
+                String response = webClient.get()
+                        .uri(uri)
+                        .header("Authorization", "Bearer " + token)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                        .block();
+
+                JsonNode root = objectMapper.readTree(response);
+                JsonNode emailRecords = root.get("value");
+
+                if (emailRecords != null && emailRecords.isArray()) {
+                    log.debug("Received {} email records from D365", emailRecords.size());
+
+                    // Create map of activityId -> email data
+                    java.util.Map<String, JsonNode> emailMap = new java.util.HashMap<>();
+                    for (JsonNode emailNode : emailRecords) {
+                        String activityId = emailNode.has("activityid") ? emailNode.get("activityid").asText() : null;
+                        if (activityId != null) {
+                            emailMap.put(activityId, emailNode);
+                        }
+                    }
+
+                    // Enrich activities with email data
+                    for (Activity activity : batch) {
+                        JsonNode emailData = emailMap.get(activity.getActivityId());
+                        if (emailData != null) {
+                            // Extract email fields directly
+                            if (emailData.has("sender")) {
+                                activity.setSender(emailData.get("sender").asText());
+                            }
+                            if (emailData.has("from")) {
+                                activity.setFromEmail(emailData.get("from").asText());
+                            }
+                            if (emailData.has("to")) {
+                                activity.setToEmail(emailData.get("to").asText());
+                            }
+                            if (emailData.has("cc")) {
+                                activity.setCcEmail(emailData.get("cc").asText());
+                            }
+
+                            log.debug("Enriched email {} with sender={}, from={}, to={}, cc={}",
+                                    activity.getActivityId(),
+                                    activity.getSender(),
+                                    activity.getFromEmail(),
+                                    activity.getToEmail(),
+                                    activity.getCcEmail());
+                        } else {
+                            log.debug("No email data found for activity {}", activity.getActivityId());
+                        }
+                    }
+                } else {
+                    log.warn("No email records returned from D365 for batch");
+                }
+            }
+
+            log.info("Successfully enriched {} email activities", emailActivities.size());
+            return activities;
+
+        } catch (Exception e) {
+            log.error("Error in enrichEmailActivitiesSimple", e);
+            // Return original activities if enrichment fails
+            return activities;
         }
     }
 
