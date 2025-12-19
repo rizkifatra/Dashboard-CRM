@@ -120,41 +120,48 @@
         <button (click)="loadActivities()" class="retry-button">Retry</button>
     </div>
 
-    <div *ngIf="!loading && !error" class="activities-list">
-        <div class="list-header">
-            <div class="col-icon"></div>
-            <div class="col-subject">Subject</div>
-            <div class="col-type">Activity Type</div>
-            <div class="col-direction">Direction</div>
-            <div class="col-staff">Staff</div>
-            <div class="col-date">Date</div>
+    <!-- Email Code Filter Section -->
+    <div class="email-code-section">
+        <div class="code-tabs">
+            <button class="code-tab" [class.active]="emailCodeFilter === 'all'" (click)="emailCodeFilter = 'all'">
+                All ({{ getEmailCodeCount('all') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'RE'" (click)="emailCodeFilter = 'RE'">
+                RE ({{ getEmailCodeCount('RE') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'FW'" (click)="emailCodeFilter = 'FW'">
+                FW ({{ getEmailCodeCount('FW') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'RFQ'" (click)="emailCodeFilter = 'RFQ'">
+                RFQ ({{ getEmailCodeCount('RFQ') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'RFP'" (click)="emailCodeFilter = 'RFP'">
+                RFP ({{ getEmailCodeCount('RFP') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'OTHER'" (click)="emailCodeFilter = 'OTHER'">
+                Other ({{ getEmailCodeCount('OTHER') }})
+            </button>
         </div>
 
-        <div *ngFor="let activity of activities" class="activity-row" (click)="openActivityDetails(activity)">
-            <div class="col-icon">
-                <div class="activity-avatar-small">
-                    {{ getInitials(activity.staffName) }}
+        <!-- Email Code Activities Table -->
+        <div class="simple-table" *ngIf="!loading && !error">
+            <div *ngFor="let activity of getFilteredActivities()" class="simple-row"
+                (click)="openActivityDetails(activity)">
+                <div class="row-left">
+                    <span class="code-badge" [ngClass]="'badge-' + getEmailCode(activity.subject).toLowerCase()">
+                        {{ getEmailCode(activity.subject) }}
+                    </span>
+                    <span class="subject">{{ activity.subject }}</span>
+                </div>
+                <div class="row-right">
+                    <span class="staff">{{ activity.staffName }}</span>
+                    <span class="direction">{{ activity.direction === 'outgoing' ? '📤' : '📥' }}</span>
+                    <span class="date">{{ getRelativeTime(activity.createdOn) }}</span>
                 </div>
             </div>
-            <div class="col-subject">
-                <div class="subject-text">{{ activity.subject }}</div>
-            </div>
-            <div class="col-type">
-                <span class="type-badge-small">{{ activity.activityType }}</span>
-            </div>
-            <div class="col-direction">
-                <span class="direction-badge" [class]="activity.direction">
-                    {{ activity.direction === 'outgoing' ? '📤 Sent' : '📥 Received' }}
-                </span>
-            </div>
-            <div class="col-staff">
-                <div class="staff-info">
-                    <div class="staff-name">{{ activity.staffName }}</div>
-                    <div class="staff-title">{{ activity.staffTitle }}</div>
-                </div>
-            </div>
-            <div class="col-date">
-                {{ getRelativeTime(activity.createdOn) }}
+
+            <div *ngIf="getFilteredActivities().length === 0" class="no-data">
+                <p>No activities found</p>
             </div>
         </div>
     </div>

@@ -25,6 +25,9 @@ export class ActivitiesComponent implements OnInit {
   activityCount = 0;
   topLimit = 50;
 
+  // Email code filter
+  emailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' = 'all';
+
   constructor(
     private activityService: ActivityService,
     private dateUtils: DateUtilsService
@@ -223,5 +226,91 @@ export class ActivitiesComponent implements OnInit {
   getPercentage(value: number, total: number): number {
     if (total === 0) return 0;
     return Math.round((value / total) * 100);
+  }
+
+  /**
+   * Extract email code from activity subject line
+   * @param subject - The activity subject line
+   * @returns Email code: 'RE', 'FW', 'RFQ', 'RFP', or 'OTHER'
+   */
+  getEmailCode(subject: string): string {
+    if (!subject) return 'OTHER';
+
+    const upperSubject = subject.toUpperCase().trim();
+
+    // Check for standard email prefixes (RE:, FW:, Fw:, Re:)
+    if (upperSubject.startsWith('RE:') || upperSubject.startsWith('RE ')) {
+      return 'RE';
+    }
+    if (
+      upperSubject.startsWith('FW:') ||
+      upperSubject.startsWith('FWD:') ||
+      upperSubject.startsWith('FW ')
+    ) {
+      return 'FW';
+    }
+
+    // Check for business request types (can be anywhere in subject)
+    if (
+      upperSubject.includes('RFQ') ||
+      upperSubject.includes('REQUEST FOR QUOTE')
+    ) {
+      return 'RFQ';
+    }
+    if (
+      upperSubject.includes('RFP') ||
+      upperSubject.includes('REQUEST FOR PROPOSAL')
+    ) {
+      return 'RFP';
+    }
+
+    return 'OTHER';
+  }
+
+  /**
+   * Get filtered activities based on email code filter
+   */
+  getFilteredActivities(): Activity[] {
+    if (this.emailCodeFilter === 'all') {
+      return this.activities;
+    }
+
+    return this.activities.filter((activity) => {
+      const emailCode = this.getEmailCode(activity.subject);
+      return emailCode === this.emailCodeFilter;
+    });
+  }
+
+  /**
+   * Get count of activities for each email code
+   */
+  getEmailCodeCount(code: string): number {
+    if (code === 'all') {
+      return this.activities.length;
+    }
+    return this.activities.filter((activity) => {
+      const emailCode = this.getEmailCode(activity.subject);
+      return emailCode === code;
+    }).length;
+  }
+
+  /**
+   * Get status badge class based on state and status codes
+   */
+  getStatusBadgeClass(activity: Activity): string {
+    if (activity.stateCode === 0) return 'status-open';
+    if (activity.stateCode === 1) return 'status-completed';
+    if (activity.stateCode === 2) return 'status-cancelled';
+    return 'status-unknown';
+  }
+
+  /**
+   * Get status text based on state and status codes
+   */
+  getStatusText(activity: Activity): string {
+    if (activity.stateCode === 0) return 'Open';
+    if (activity.stateCode === 1) return 'Completed';
+    if (activity.stateCode === 2) return 'Cancelled';
+    return 'Unknown';
   }
 }
