@@ -23,13 +23,17 @@ export class ActivityService {
   /**
    * Get all activities with optional filtering
    * @param top Maximum number of activities to return
+   * @param skip Number of activities to skip (for pagination)
    * @param filter Optional OData filter
    */
   getAllActivities(
     top: number = 50,
+    skip: number = 0,
     filter?: string
   ): Observable<ApiResponse<Activity[]>> {
-    let params = new HttpParams().set('top', top.toString());
+    let params = new HttpParams()
+      .set('top', top.toString())
+      .set('skip', skip.toString());
     if (filter) params = params.set('filter', filter);
 
     return this.http.get<ApiResponse<Activity[]>>(this.apiUrl, { params });
@@ -80,9 +84,15 @@ export class ActivityService {
   /**
    * Get email activities only
    * @param top Maximum number of activities to return
+   * @param skip Number of activities to skip (for pagination)
    */
-  getEmailActivities(top: number = 50): Observable<ApiResponse<Activity[]>> {
-    let params = new HttpParams().set('top', top.toString());
+  getEmailActivities(
+    top: number = 50,
+    skip: number = 0
+  ): Observable<ApiResponse<Activity[]>> {
+    let params = new HttpParams()
+      .set('top', top.toString())
+      .set('skip', skip.toString());
 
     return this.http.get<ApiResponse<Activity[]>>(`${this.apiUrl}/emails`, {
       params,

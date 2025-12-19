@@ -71,57 +71,11 @@
             </div>
         </div>
     </div>
-
-    <!-- Filter Section -->
-    <div class="filter-section">
-        <div class="filter-group">
-            <label>Filter Type:</label>
-            <select [(ngModel)]="filterType" (change)="onFilterChange()" class="filter-select">
-                <option value="all">All Activities</option>
-                <option value="recent">Recent (Last 30 Days)</option>
-                <option value="emails">Email Activities Only</option>
-                <option value="staff">By Staff Member</option>
-                <option value="account">By Account</option>
-            </select>
-        </div>
-
-        <div class="filter-group" *ngIf="filterType === 'staff'">
-            <label>Staff Email:</label>
-            <input type="email" [(ngModel)]="staffEmail" (keyup.enter)="loadActivities()"
-                placeholder="Enter staff email" class="filter-input" />
-            <button (click)="loadActivities()" class="filter-button">Apply</button>
-        </div>
-
-        <div class="filter-group" *ngIf="filterType === 'account'">
-            <label>Account ID:</label>
-            <input type="text" [(ngModel)]="accountId" (keyup.enter)="loadActivities()" placeholder="Enter account ID"
-                class="filter-input" />
-            <button (click)="loadActivities()" class="filter-button">Apply</button>
-        </div>
-
-        <div class="filter-group">
-            <label>Show Top:</label>
-            <select [(ngModel)]="topLimit" (change)="loadActivities()" class="filter-select-small">
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-    </div>
-
-    <div *ngIf="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading activities...</p>
-    </div>
-
-    <div *ngIf="error" class="error-state">
-        <p>{{ error }}</p>
-        <button (click)="loadActivities()" class="retry-button">Retry</button>
-    </div>
-
     <!-- Email Code Filter Section -->
     <div class="email-code-section">
+        <div class="section-title-bar">
+            <h3 class="filter-section-title">Filter by Email Code</h3>
+        </div>
         <div class="code-tabs">
             <button class="code-tab" [class.active]="emailCodeFilter === 'all'" (click)="emailCodeFilter = 'all'">
                 All ({{ getEmailCodeCount('all') }})
@@ -143,15 +97,70 @@
             </button>
         </div>
 
+        <!-- Status Type Filter - Only show when "Other" is selected -->
+        <div *ngIf="emailCodeFilter === 'OTHER'">
+            <div class="status-type-tabs">
+                <div class="status-tab active">Activity Status</div>
+                <button class="status-tab" [class.active]="statusTypeFilter === 'all'"
+                    (click)="statusTypeFilter = 'all'">
+                    All ({{ getStatusTypeCount('all') }})
+                </button>
+                <button class="status-tab" [class.active]="statusTypeFilter === 'empty'"
+                    (click)="statusTypeFilter = 'empty'">
+                    No Subject ({{ getStatusTypeCount('empty') }})
+                </button>
+                <button class="status-tab" [class.active]="statusTypeFilter === 'follow-up'"
+                    (click)="statusTypeFilter = 'follow-up'">
+                    Follow Up ({{ getStatusTypeCount('follow-up') }})
+                </button>
+                <button class="status-tab" [class.active]="statusTypeFilter === 'tender'"
+                    (click)="statusTypeFilter = 'tender'">
+                    Tender ({{ getStatusTypeCount('tender') }})
+                </button>
+                <button class="status-tab" [class.active]="statusTypeFilter === 'meeting'"
+                    (click)="statusTypeFilter = 'meeting'">
+                    Meeting ({{ getStatusTypeCount('meeting') }})
+                </button>
+                <button class="status-tab" [class.active]="statusTypeFilter === 'call'"
+                    (click)="statusTypeFilter = 'call'">
+                    Call ({{ getStatusTypeCount('call') }})
+                </button>
+                <button class="status-tab" [class.active]="statusTypeFilter === 'quote'"
+                    (click)="statusTypeFilter = 'quote'">
+                    Quote ({{ getStatusTypeCount('quote') }})
+                </button>
+                <button class="status-tab" [class.active]="statusTypeFilter === 'update'"
+                    (click)="statusTypeFilter = 'update'">
+                    Update ({{ getStatusTypeCount('update') }})
+                </button>
+            </div>
+        </div>
+
         <!-- Email Code Activities Table -->
-        <div class="simple-table" *ngIf="!loading && !error">
-            <div *ngFor="let activity of getFilteredActivities()" class="simple-row"
+        <div class="simple-table" *ngIf="!loading && !error" (scroll)="onTableScroll($event)">
+            <div *ngFor="let activity of getDoubleFilteredActivities()" class="simple-row"
                 (click)="openActivityDetails(activity)">
                 <div class="row-left">
                     <span class="code-badge" [ngClass]="'badge-' + getEmailCode(activity.subject).toLowerCase()">
                         {{ getEmailCode(activity.subject) }}
                     </span>
-                    <span class="subject">{{ activity.subject }}</span>
+                    <span class="status-type-badge"
+                        [ngClass]="'status-type-' + getActivityStatusType(activity.subject)">
+                        {{ getStatusTypeLabel(getActivityStatusType(activity.subject)) }}
+                    </span>
+
+                    <!-- Show activity type prominently when subject is empty -->
+                    <div class="subject-area">
+                        <span class="subject"
+                            [class.empty-subject]="!activity.subject || activity.subject.trim() === ''">
+                            {{ activity.subject || '(' + activity.activityType + ' - Status Update)' }}
+                        </span>
+                        <span class="activity-meta" *ngIf="!activity.subject || activity.subject.trim() === ''">
+                            {{ getStatusDescription(activity.stateCode, activity.statusCode) }}
+                            <span class="related-info" *ngIf="activity.regardingObjectName"> • Related to: {{
+                                activity.regardingObjectName }}</span>
+                        </span>
+                    </div>
                 </div>
                 <div class="row-right">
                     <span class="staff">{{ activity.staffName }}</span>
@@ -160,8 +169,14 @@
                 </div>
             </div>
 
-            <div *ngIf="getFilteredActivities().length === 0" class="no-data">
+            <div *ngIf="getDoubleFilteredActivities().length === 0" class="no-data">
                 <p>No activities found</p>
+            </div>
+
+            <!-- Loading More Indicator -->
+            <div *ngIf="loadingMore" class="loading-more">
+                <div class="spinner"></div>
+                <p>Loading more activities...</p>
             </div>
         </div>
     </div>

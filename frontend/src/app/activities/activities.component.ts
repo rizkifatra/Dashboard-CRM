@@ -18,6 +18,12 @@ export class ActivitiesComponent implements OnInit {
   selectedActivity: Activity | null = null;
   showModal = false;
 
+  // Pagination for infinite scroll
+  currentPage = 0;
+  pageSize = 50;
+  hasMoreActivities = true;
+  loadingMore = false;
+
   // Filter options
   filterType: 'all' | 'recent' | 'emails' | 'staff' | 'account' = 'all';
   staffEmail = '';
@@ -27,6 +33,17 @@ export class ActivitiesComponent implements OnInit {
 
   // Email code filter
   emailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' = 'all';
+
+  // Status type filter for managing activity statuses
+  statusTypeFilter:
+    | 'all'
+    | 'follow-up'
+    | 'tender'
+    | 'meeting'
+    | 'call'
+    | 'quote'
+    | 'update'
+    | 'empty' = 'all';
 
   constructor(
     private activityService: ActivityService,
@@ -41,6 +58,9 @@ export class ActivitiesComponent implements OnInit {
   loadActivities() {
     this.loading = true;
     this.error = null;
+    this.currentPage = 0;
+    this.activities = [];
+    this.hasMoreActivities = true;
 
     switch (this.filterType) {
       case 'all':
@@ -72,15 +92,20 @@ export class ActivitiesComponent implements OnInit {
   }
 
   loadAllActivities() {
-    this.activityService.getAllActivities(this.topLimit).subscribe({
+    const skip = this.currentPage * this.pageSize;
+    this.activityService.getAllActivities(this.pageSize, skip).subscribe({
       next: (response) => {
         if (response.success) {
-          this.activities = response.data;
+          this.activities = [...this.activities, ...response.data];
+          this.hasMoreActivities = response.data.length === this.pageSize;
+          this.currentPage++;
         }
         this.loading = false;
+        this.loadingMore = false;
       },
       error: (err) => {
         this.handleError('Failed to load activities', err);
+        this.loadingMore = false;
       },
     });
   }
@@ -105,15 +130,20 @@ export class ActivitiesComponent implements OnInit {
   }
 
   loadEmailActivities() {
-    this.activityService.getEmailActivities(this.topLimit).subscribe({
+    const skip = this.currentPage * this.pageSize;
+    this.activityService.getEmailActivities(this.pageSize, skip).subscribe({
       next: (response) => {
         if (response.success) {
-          this.activities = response.data;
+          this.activities = [...this.activities, ...response.data];
+          this.hasMoreActivities = response.data.length === this.pageSize;
+          this.currentPage++;
         }
         this.loading = false;
+        this.loadingMore = false;
       },
       error: (err) => {
         this.handleError('Failed to load email activities', err);
+        this.loadingMore = false;
       },
     });
   }
@@ -312,5 +342,175 @@ export class ActivitiesComponent implements OnInit {
     if (activity.stateCode === 1) return 'Completed';
     if (activity.stateCode === 2) return 'Cancelled';
     return 'Unknown';
+  }
+
+  /**
+   * Detect activity status type from subject line
+   * Helps categorize activities like "Follow Up", "Close Tender", etc.
+   */
+  getActivityStatusType(subject: string): string {
+    if (!subject || subject.trim() === '') return 'empty';
+
+    const lowerSubject = subject.toLowerCase();
+
+    // Follow up activities
+    if (lowerSubject.includes('follow') || lowerSubject.includes('followup')) {
+      return 'follow-up';
+    }
+
+    // Tender related
+    if (lowerSubject.includes('tender') || lowerSubject.includes('bid')) {
+      return 'tender';
+    }
+
+    // Meeting related
+    if (
+      lowerSubject.includes('meeting') ||
+      lowerSubject.includes('appointment')
+    ) {
+      return 'meeting';
+    }
+
+    // Call related
+    if (lowerSubject.includes('call') || lowerSubject.includes('phone')) {
+      return 'call';
+    }
+
+    // Quote/Quotation
+    if (lowerSubject.includes('quote') || lowerSubject.includes('quotation')) {
+      return 'quote';
+    }
+
+    // Update status
+    if (lowerSubject.includes('update') || lowerSubject.includes('status')) {
+      return 'update';
+    }
+
+    return 'other';
+  }
+
+  /**
+   * Get status type badge label
+   */
+  getStatusTypeLabel(statusType: string): string {
+    const labels: { [key: string]: string } = {
+      'follow-up': 'Follow Up',
+      tender: 'Tender',
+      meeting: 'Meeting',
+      call: 'Call',
+      quote: 'Quote',
+      update: 'Update',
+      empty: 'No Subject',
+      other: 'Other',
+    };
+    return labels[statusType] || 'Other';
+  }
+
+  /**
+   * Get count of activities by status type
+   */
+  getStatusTypeCount(statusType: string): number {
+    if (statusType === 'all') {
+      return this.getFilteredActivities().length;
+    }
+    return this.getFilteredActivities().filter((activity) => {
+      const activityStatusType = this.getActivityStatusType(activity.subject);
+      return activityStatusType === statusType;
+    }).length;
+  }
+
+  /**
+   * Get filtered activities by both email code and status type
+   */
+  getDoubleFilteredActivities(): Activity[] {
+    let activities = this.getFilteredActivities();
+
+    // Apply status type filter
+    if (this.statusTypeFilter !== 'all') {
+      activities = activities.filter((activity) => {
+        const statusType = this.getActivityStatusType(activity.subject);
+        return statusType === this.statusTypeFilter;
+      });
+    }
+
+    return activities;
+  }
+
+  /**
+   * Get human-readable status description from state and status codes
+   */
+  getStatusDescription(stateCode?: number, statusCode?: number): string {
+    // Dynamics 365 Activity State Codes
+    // 0 = Open, 1 = Completed, 2 = Canceled, 3 = Scheduled
+
+    if (stateCode === undefined && statusCode === undefined) {
+      return 'Status update';
+    }
+
+    const stateLabels: { [key: number]: string } = {
+      0: 'Open',
+      1: 'Completed',
+      2: 'Canceled',
+      3: 'Scheduled',
+    };
+
+    const statusLabels: { [key: number]: string } = {
+      1: 'Open',
+      2: 'Completed',
+      3: 'Canceled',
+      4: 'Scheduled',
+      5: 'Busy',
+      6: 'Out of Office',
+    };
+
+    let description = stateLabels[stateCode || 0] || 'Unknown State';
+
+    if (statusCode && statusLabels[statusCode]) {
+      description += ` (${statusLabels[statusCode]})`;
+    }
+
+    return description;
+  }
+
+  /**
+   * Handle scroll event on the table to implement infinite scrolling
+   * @param event - The scroll event
+   */
+  onTableScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    const threshold = 100; // pixels from bottom to trigger load
+    const position = element.scrollTop + element.clientHeight;
+    const height = element.scrollHeight;
+
+    if (
+      position > height - threshold &&
+      !this.loadingMore &&
+      this.hasMoreActivities
+    ) {
+      this.loadMoreActivities();
+    }
+  }
+
+  /**
+   * Load more activities when scrolling to bottom
+   */
+  loadMoreActivities(): void {
+    if (this.loadingMore || !this.hasMoreActivities) {
+      return;
+    }
+
+    this.loadingMore = true;
+
+    switch (this.filterType) {
+      case 'all':
+        this.loadAllActivities();
+        break;
+      case 'emails':
+        this.loadEmailActivities();
+        break;
+      // Add other filter types as needed
+      default:
+        this.loadingMore = false;
+    }
   }
 }
