@@ -71,8 +71,21 @@
             </div>
         </div>
     </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading activities...</p>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error && !loading" class="error-state">
+        <p>{{ error }}</p>
+        <button (click)="loadActivities()" class="retry-button">Retry</button>
+    </div>
+
     <!-- Email Code Filter Section -->
-    <div class="email-code-section">
+    <div class="email-code-section" *ngIf="!loading && !error">
         <div class="section-title-bar">
             <h3 class="filter-section-title">Filter by Email Code</h3>
         </div>
