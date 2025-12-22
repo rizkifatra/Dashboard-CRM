@@ -201,3 +201,29 @@ export interface MonthlyRevenue {
   openCount: number;
   lostCount: number;
 }
+
+/**
+ * Unreplied email with reminder metadata
+ */
+export interface UnrepliedEmail {
+  activityId: string;
+  subject: string;
+  fromEmail: string;
+  sender: string;
+  description: string;
+  assignedTo: string; // Staff email
+  assignedToName: string; // Staff name
+  createdOn: string;
+  modifiedOn: string;
+
+  // Reminder metadata
+  hoursUnreplied: number; // How many hours since received
+  urgencyLevel: 'low' | 'medium' | 'high' | 'critical';
+  ageCategory: '< 24h' | '24-48h' | '48-72h' | '> 72h';
+  isOverdue: boolean; // Over 48 hours
+
+  // Related account info
+  regardingObjectId: string;
+  regardingObjectName: string;
+  regardingObjectTypeCode: string;
+}

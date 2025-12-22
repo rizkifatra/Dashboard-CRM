@@ -38,22 +38,6 @@
                 </div>
             </div>
 
-            <div class="metric-card green">
-                <div class="metric-left">
-                    <div class="metric-label">Sent</div>
-                    <div class="metric-value">{{ getOutgoingCount() }}</div>
-                </div>
-                <div class="metric-circle">
-                    <svg viewBox="0 0 36 36" class="circular-chart">
-                        <path class="circle-bg"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle"
-                            [attr.stroke-dasharray]="getPercentage(getOutgoingCount(), activityCount) + ', 100'"
-                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
-                </div>
-            </div>
-
             <div class="metric-card red">
                 <div class="metric-left">
                     <div class="metric-label">Received</div>
@@ -65,6 +49,25 @@
                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                         <path class="circle"
                             [attr.stroke-dasharray]="getPercentage(getIncomingCount(), activityCount) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Unreplied Emails Card -->
+            <div class="metric-card yellow" (click)="filterType = 'unreplied'; loadActivities()"
+                style="cursor: pointer;">
+                <div class="metric-left">
+                    <div class="metric-label">Unreplied</div>
+                    <div class="metric-value">{{ unrepliedCount }}</div>
+                    <div class="metric-sublabel" *ngIf="unrepliedCount > 0"
+                        style="font-size: 0.7rem; color: #dc2626; margin-top: 4px;">Needs Attention!</div>
+                </div>
+                <div class="metric-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle" [attr.stroke-dasharray]="'75, 100'"
                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                     </svg>
                 </div>
@@ -85,7 +88,7 @@
     </div>
 
     <!-- Email Code Filter Section -->
-    <div class="email-code-section" *ngIf="!loading && !error">
+    <div class="email-code-section" *ngIf="!loading && !error && filterType !== 'unreplied'">
         <div class="section-title-bar">
             <h3 class="filter-section-title">Filter by Email Code</h3>
         </div>
@@ -149,8 +152,72 @@
             </div>
         </div>
 
+        <!-- Unreplied Emails Section -->
+        <div *ngIf="filterType === 'unreplied'" class="unreplied-section">
+            <div class="section-title-bar">
+                <h3 class="filter-section-title">⚠️ Unreplied Emails Reminder</h3>
+                <button class="back-button" (click)="filterType = 'all'; loadActivities()">← Back to All</button>
+            </div>
+
+            <div *ngIf="unrepliedEmails.length === 0" class="no-data"
+                style="background: #dcfce7; padding: 2rem; border-radius: 12px;">
+                <svg style="width: 48px; height: 48px; margin: 0 auto 1rem; display: block; color: #16a34a;" fill="none"
+                    stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p style="color: #16a34a; font-weight: 600; margin: 0;">🎉 Great job! All emails have been replied to!
+                </p>
+            </div>
+
+            <div class="unreplied-list" *ngIf="unrepliedEmails.length > 0">
+                <div *ngFor="let email of unrepliedEmails" class="unreplied-card"
+                    [ngClass]="'urgency-' + email.urgencyLevel">
+                    <div class="unreplied-header">
+                        <div class="urgency-badge" [ngClass]="email.urgencyLevel">
+                            {{ email.urgencyLevel.toUpperCase() }}
+                        </div>
+                        <div class="age-badge">{{ email.ageCategory }}</div>
+                        <div class="overdue-badge" *ngIf="email.isOverdue">OVERDUE</div>
+                    </div>
+
+                    <div class="email-content">
+                        <h4 class="email-subject">{{ email.subject }}</h4>
+                        <div class="email-meta">
+                            <span class="sender"><strong>📧 From:</strong> {{ email.fromEmail || email.sender ||
+                                'Unknown' }}</span>
+                            <span class="assigned"><strong>👤 Assigned to:</strong> {{ email.assignedToName ||
+                                email.assignedTo }}</span>
+                        </div>
+                        <div class="email-reminder">
+                            <span class="reminder-text">💡 <strong>Reminder:</strong> Reply to {{ email.fromEmail ||
+                                email.sender || 'this customer' }}</span>
+                        </div>
+                        <div class="email-timing">
+                            <span>📅 Received: {{ formatDate(email.createdOn) }}</span>
+                            <span class="hours-unreplied">⏰ <strong>{{ email.hoursUnreplied }}h</strong>
+                                unreplied</span>
+                        </div>
+                        <div class="email-description" *ngIf="email.description">
+                            <p>{{ email.description.substring(0, 150) }}{{ email.description.length > 150 ? '...' : ''
+                                }}</p>
+                        </div>
+                        <div class="account-link" *ngIf="email.regardingObjectName">
+                            🔗 Related to: <strong>{{ email.regardingObjectName }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="unreplied-actions">
+                        <button class="reply-btn" (click)="openReplyModal(email)">Reply Now</button>
+                        <button class="view-btn" (click)="viewEmailDetails(email)">View Details</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Email Code Activities Table -->
-        <div class="simple-table" *ngIf="!loading && !error" (scroll)="onTableScroll($event)">
+        <div class="simple-table" *ngIf="!loading && !error && filterType !== 'unreplied'"
+            (scroll)="onTableScroll($event)">
             <div *ngFor="let activity of getDoubleFilteredActivities()" class="simple-row"
                 (click)="openActivityDetails(activity)">
                 <div class="row-left">

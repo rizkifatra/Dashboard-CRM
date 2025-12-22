@@ -380,6 +380,20 @@
     }
 }
 
+/* Clickable card styles */
+.opp-card.clickable {
+    transition: all 0.3s ease;
+}
+
+.opp-card.clickable:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.opp-card.clickable:active {
+    transform: translateY(-2px);
+}
+
 @media (max-width: 768px) {
     .fiscal-dashboard {
         padding: 16px;

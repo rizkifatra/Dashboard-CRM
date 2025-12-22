@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 
 interface FiscalYearMetrics {
   fiscalYear: string;
@@ -84,7 +85,10 @@ export class FiscalDashboardComponent implements OnInit {
   selectedFiscalYearOpps = 'current';
   fiscalYearOpps: OpportunityStats | null = null;
 
-  constructor(private http: HttpClient) {
+  // Unreplied Emails
+  unrepliedCount = 0;
+
+  constructor(private http: HttpClient, private router: Router) {
     // Generate fiscal years (current and past 3 years)
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
@@ -109,6 +113,7 @@ export class FiscalDashboardComponent implements OnInit {
 
   ngOnInit() {
     this.loadAllData();
+    this.loadUnrepliedEmails();
   }
 
   /**
@@ -317,5 +322,33 @@ export class FiscalDashboardComponent implements OnInit {
         console.error('Error loading fiscal year opportunities:', error);
         throw error;
       });
+  }
+
+  /**
+   * Load unreplied emails count
+   */
+  loadUnrepliedEmails() {
+    this.http
+      .get<any>(
+        'http://localhost:8080/api/activities/unreplied?maxHoursOld=168'
+      )
+      .subscribe({
+        next: (response) => {
+          this.unrepliedCount = response.data?.length || 0;
+        },
+        error: (err) => {
+          console.error('Error loading unreplied emails:', err);
+          this.unrepliedCount = 0;
+        },
+      });
+  }
+
+  /**
+   * Navigate to activities page with unreplied filter
+   */
+  navigateToUnrepliedEmails() {
+    this.router.navigate(['/activities'], {
+      queryParams: { filter: 'unreplied' },
+    });
   }
 }

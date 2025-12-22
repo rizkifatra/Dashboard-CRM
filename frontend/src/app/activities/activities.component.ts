@@ -1,7 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivityService, Activity } from '../services/activity.service';
+import { ActivatedRoute } from '@angular/router';
+import {
+  ActivityService,
+  Activity,
+  UnrepliedEmail,
+} from '../services/activity.service';
 import { DateUtilsService } from '../services/date-utils.service';
 
 @Component({
@@ -25,11 +30,17 @@ export class ActivitiesComponent implements OnInit {
   loadingMore = false;
 
   // Filter options
-  filterType: 'all' | 'recent' | 'emails' | 'staff' | 'account' = 'all';
+  // prettier-ignore
+  filterType: 'all' | 'recent' | 'emails' | 'staff' | 'account' | 'unreplied' = 'all';
   staffEmail = '';
   accountId = '';
   activityCount = 0;
   topLimit = 50;
+
+  // Unreplied emails
+  unrepliedEmails: UnrepliedEmail[] = [];
+  unrepliedCount = 0;
+  maxHoursOld = 168; // 7 days default
 
   // Email code filter
   emailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' = 'all';
@@ -47,12 +58,21 @@ export class ActivitiesComponent implements OnInit {
 
   constructor(
     private activityService: ActivityService,
-    private dateUtils: DateUtilsService
+    private dateUtils: DateUtilsService,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit() {
+    // Check for filter query parameter
+    this.route.queryParams.subscribe((params) => {
+      if (params['filter'] === 'unreplied') {
+        this.filterType = 'unreplied';
+      }
+    });
+
     this.loadActivities();
     this.loadActivityCount();
+    this.loadUnrepliedCount(); // Load unreplied count for the card
   }
 
   loadActivities() {
@@ -87,6 +107,9 @@ export class ActivitiesComponent implements OnInit {
           this.error = 'Please enter an account ID';
           this.loading = false;
         }
+        break;
+      case 'unreplied':
+        this.loadUnrepliedEmails();
         break;
     }
   }
@@ -227,6 +250,38 @@ export class ActivitiesComponent implements OnInit {
     return this.activities.filter(
       (activity) => activity.direction === 'incoming'
     ).length;
+  }
+
+  loadUnrepliedEmails() {
+    this.activityService.getUnrepliedEmails(this.maxHoursOld).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.unrepliedEmails = response.data;
+          this.unrepliedCount = response.data.length;
+        }
+        this.loading = false;
+      },
+      error: (err) => {
+        this.handleError('Failed to load unreplied emails', err);
+      },
+    });
+  }
+
+  /**
+   * Load unreplied emails count only (for the metric card)
+   */
+  loadUnrepliedCount() {
+    this.activityService.getUnrepliedEmails(this.maxHoursOld).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.unrepliedCount = response.data.length;
+        }
+      },
+      error: (err) => {
+        console.error('Failed to load unreplied count:', err);
+        this.unrepliedCount = 0;
+      },
+    });
   }
 
   openActivityDetails(activity: Activity) {
@@ -512,5 +567,35 @@ export class ActivitiesComponent implements OnInit {
       default:
         this.loadingMore = false;
     }
+  }
+
+  /**
+   * Open reply modal for unreplied email
+   */
+  openReplyModal(email: UnrepliedEmail): void {
+    // TODO: Implement reply modal - for now, open in new email client
+    const subject = `RE: ${email.subject}`;
+    const mailtoLink = `mailto:${email.fromEmail}?subject=${encodeURIComponent(
+      subject
+    )}`;
+    window.open(mailtoLink, '_blank');
+  }
+
+  /**
+   * View email details
+   */
+  viewEmailDetails(email: UnrepliedEmail): void {
+    // Fetch full activity details and open modal
+    this.activityService.getActivityById(email.activityId).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.selectedActivity = response.data;
+          this.showModal = true;
+        }
+      },
+      error: (err) => {
+        console.error('Error loading email details:', err);
+      },
+    });
   }
 }

@@ -107,6 +107,26 @@
     stroke: #EF4444;
 }
 
+.metric-card.yellow .circle {
+    stroke: #FBBF24;
+}
+
+.metric-card.yellow {
+    border: 2px solid #FEF3C7;
+}
+
+.metric-card.yellow:hover {
+    border-color: #FDE047;
+}
+
+.metric-card.green .circle {
+    stroke: #10B981;
+}
+
+.metric-card.red .circle {
+    stroke: #EF4444;
+}
+
 @keyframes progress {
     0% {
         stroke-dasharray: 0 100;
@@ -821,9 +841,7 @@
     overflow-y: auto;
 }
 
-.activity-description::ng-deep {
-    /* Style HTML content */
-}
+
 
 .activity-description::ng-deep p {
     margin: 0 0 8px 0;
@@ -1570,4 +1588,233 @@
     color: #6B7280;
     font-size: 14px;
     margin-top: 8px;
+}
+
+/* Unreplied Emails Section */
+.unreplied-section {
+    margin-top: 24px;
+}
+
+.back-button {
+    background: #6366F1;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.back-button:hover {
+    background: #4F46E5;
+}
+
+.unreplied-list {
+    display: grid;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.unreplied-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    border-left: 4px solid;
+    transition: all 0.3s ease;
+}
+
+.unreplied-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateX(4px);
+}
+
+.unreplied-card.urgency-low {
+    border-left-color: #10B981;
+}
+
+.unreplied-card.urgency-medium {
+    border-left-color: #F59E0B;
+}
+
+.unreplied-card.urgency-high {
+    border-left-color: #EF4444;
+}
+
+.unreplied-card.urgency-critical {
+    border-left-color: #DC2626;
+    background: #FEF2F2;
+}
+
+.unreplied-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.urgency-badge {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.urgency-badge.low {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.urgency-badge.medium {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.urgency-badge.high {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.urgency-badge.critical {
+    background: #DC2626;
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.age-badge {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #E5E7EB;
+    color: #374151;
+}
+
+.overdue-badge {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #DC2626;
+    color: white;
+}
+
+.email-content {
+    margin-top: 12px;
+}
+
+.email-subject {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1F2937;
+    margin: 0 0 12px 0;
+}
+
+.email-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: #6B7280;
+    margin-bottom: 10px;
+}
+
+.email-reminder {
+    background: #FEF3C7;
+    border-left: 4px solid #F59E0B;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin: 10px 0;
+    font-size: 13px;
+}
+
+.email-reminder .reminder-text {
+    color: #92400E;
+    font-weight: 500;
+}
+
+.email-timing {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: #9CA3AF;
+    margin-bottom: 10px;
+}
+
+.hours-unreplied {
+    color: #DC2626;
+    font-weight: 600;
+}
+
+.email-description {
+    padding: 12px;
+    background: #F9FAFB;
+    border-radius: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: #4B5563;
+    line-height: 1.5;
+}
+
+.email-description p {
+    margin: 0;
+}
+
+.account-link {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #6366F1;
+}
+
+.unreplied-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #E5E7EB;
+}
+
+.reply-btn,
+.view-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.reply-btn {
+    background: #6366F1;
+    color: white;
+}
+
+.reply-btn:hover {
+    background: #4F46E5;
+    transform: translateY(-1px);
+}
+
+.view-btn {
+    background: #F3F4F6;
+    color: #374151;
+}
+
+.view-btn:hover {
+    background: #E5E7EB;
 }

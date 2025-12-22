@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.model.Activity;
+import com.example.backend.model.UnrepliedEmail;
 import com.example.backend.config.D365Config;
 import com.example.backend.config.StaffFilterConfig;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,10 +12,15 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Service for interacting with Dynamics 365 Activities (Emails, Calls,

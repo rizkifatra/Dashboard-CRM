@@ -3,6 +3,7 @@ package com.example.backend.controller;
 import com.example.backend.model.Activity;
 import com.example.backend.model.ApiResponse;
 import com.example.backend.service.D365ActivityService;
+import com.example.backend.service.UnrepliedEmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ import java.util.Optional;
 public class ActivityController {
 
     private final D365ActivityService activityService;
+    private final UnrepliedEmailService unrepliedEmailService;
 
     /**
      * Get all activities
@@ -369,6 +371,39 @@ public class ActivityController {
                     .body(ApiResponse.<List<java.util.Map<String, Object>>>builder()
                             .success(false)
                             .message("Failed to retrieve recent activities: " + e.getMessage())
+                            .build());
+        }
+    }
+
+    /**
+     * Get unreplied incoming emails for reminder system
+     * Helps track emails that haven't been responded to yet
+     * 
+     * @param maxHoursOld Optional maximum age in hours (default: 168 hours / 7
+     *                    days)
+     * @return List of unreplied emails with urgency levels and aging metadata
+     */
+    @GetMapping("/unreplied")
+    public ResponseEntity<ApiResponse<List<com.example.backend.model.UnrepliedEmail>>> getUnrepliedEmails(
+            @RequestParam(required = false, defaultValue = "168") Integer maxHoursOld) {
+        try {
+            log.info("GET /api/activities/unreplied - maxHoursOld: {}", maxHoursOld);
+
+            List<com.example.backend.model.UnrepliedEmail> unrepliedEmails = unrepliedEmailService
+                    .getUnrepliedEmails(maxHoursOld);
+
+            return ResponseEntity.ok(ApiResponse.<List<com.example.backend.model.UnrepliedEmail>>builder()
+                    .success(true)
+                    .message("Successfully retrieved " + unrepliedEmails.size() + " unreplied emails")
+                    .data(unrepliedEmails)
+                    .build());
+
+        } catch (Exception e) {
+            log.error("Error retrieving unreplied emails", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.<List<com.example.backend.model.UnrepliedEmail>>builder()
+                            .success(false)
+                            .message("Failed to retrieve unreplied emails: " + e.getMessage())
                             .build());
         }
     }

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Activity, ApiResponse } from '../models';
+import { Activity, ApiResponse, UnrepliedEmail } from '../models';
 
 export interface EmailStats {
   staffEmail: string;
@@ -10,7 +10,7 @@ export interface EmailStats {
   totalEmails: number;
 }
 
-export type { Activity, ApiResponse };
+export type { Activity, ApiResponse, UnrepliedEmail };
 
 @Injectable({
   providedIn: 'root',
@@ -210,5 +210,38 @@ export class ActivityService {
     if (diffDays < 7) return `${diffDays} days ago`;
 
     return past.toLocaleDateString();
+  }
+
+  /**
+   * Get unreplied incoming emails for reminder system
+   * @param maxHoursOld Maximum age of emails to check (default: 168 hours / 7 days)
+   */
+  getUnrepliedEmails(
+    maxHoursOld: number = 168
+  ): Observable<ApiResponse<UnrepliedEmail[]>> {
+    let params = new HttpParams().set('maxHoursOld', maxHoursOld.toString());
+
+    return this.http.get<ApiResponse<UnrepliedEmail[]>>(
+      `${this.apiUrl}/unreplied`,
+      { params }
+    );
+  }
+
+  /**
+   * Get urgency color based on urgency level
+   */
+  getUrgencyColor(level: string): string {
+    switch (level) {
+      case 'low':
+        return '#10b981'; // green
+      case 'medium':
+        return '#f59e0b'; // amber
+      case 'high':
+        return '#ef4444'; // red
+      case 'critical':
+        return '#dc2626'; // dark red
+      default:
+        return '#6b7280'; // gray
+    }
   }
 }
