@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -40,7 +40,11 @@ export class ActivitiesComponent implements OnInit {
   // Unreplied emails
   unrepliedEmails: UnrepliedEmail[] = [];
   unrepliedCount = 0;
-  maxHoursOld = 168; // 7 days default
+  maxHoursOld = 720; // 30 days default (increased to capture more emails)
+  unrepliedPage = 0;
+  unrepliedPageSize = 50;
+  hasMoreUnreplied = true;
+  loadingMoreUnreplied = false;
 
   // Email code filter
   emailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' = 'all';
@@ -59,7 +63,8 @@ export class ActivitiesComponent implements OnInit {
   constructor(
     private activityService: ActivityService,
     private dateUtils: DateUtilsService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -76,6 +81,7 @@ export class ActivitiesComponent implements OnInit {
   }
 
   loadActivities() {
+    console.log('Loading activities with filterType:', this.filterType);
     this.loading = true;
     this.error = null;
     this.currentPage = 0;
@@ -253,16 +259,67 @@ export class ActivitiesComponent implements OnInit {
   }
 
   loadUnrepliedEmails() {
+    console.log('Loading unreplied emails...');
+    this.unrepliedPage = 0;
+    this.unrepliedEmails = [];
+    this.hasMoreUnreplied = true;
+    this.loadMoreUnrepliedEmails();
+  }
+
+  loadMoreUnrepliedEmails() {
+    if (this.loadingMoreUnreplied || !this.hasMoreUnreplied) {
+      console.log('Cannot load more:', {
+        loadingMore: this.loadingMoreUnreplied,
+        hasMore: this.hasMoreUnreplied,
+      });
+      return;
+    }
+
+    const isInitialLoad = this.unrepliedPage === 0;
+    console.log('Loading page:', this.unrepliedPage, 'Initial:', isInitialLoad);
+
+    if (isInitialLoad) {
+      this.loading = true;
+    } else {
+      this.loadingMoreUnreplied = true;
+    }
+
     this.activityService.getUnrepliedEmails(this.maxHoursOld).subscribe({
       next: (response) => {
+        console.log(' Unreplied emails response:', response);
         if (response.success) {
-          this.unrepliedEmails = response.data;
-          this.unrepliedCount = response.data.length;
+          const allEmails = response.data;
+          const skip = this.unrepliedPage * this.unrepliedPageSize;
+          const pageEmails = allEmails.slice(
+            skip,
+            skip + this.unrepliedPageSize
+          );
+
+          console.log('Pagination:', {
+            totalEmails: allEmails.length,
+            skip: skip,
+            pageSize: this.unrepliedPageSize,
+            loadedInThisPage: pageEmails.length,
+            currentTotal: this.unrepliedEmails.length,
+          });
+
+          this.unrepliedEmails = [...this.unrepliedEmails, ...pageEmails];
+          this.unrepliedCount = allEmails.length;
+          this.hasMoreUnreplied =
+            skip + this.unrepliedPageSize < allEmails.length;
+          this.unrepliedPage++;
+
+          console.log('Loaded unreplied emails:', this.unrepliedEmails.length);
+          console.log('Has more:', this.hasMoreUnreplied);
         }
         this.loading = false;
+        this.loadingMoreUnreplied = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
+        console.error('❌ Error loading unreplied emails:', err);
         this.handleError('Failed to load unreplied emails', err);
+        this.loadingMoreUnreplied = false;
       },
     });
   }
@@ -282,6 +339,18 @@ export class ActivitiesComponent implements OnInit {
         this.unrepliedCount = 0;
       },
     });
+  }
+
+  /**
+   * Switch to unreplied emails view
+   */
+  showUnrepliedEmails() {
+    console.log('🔄 Switching to unreplied view...');
+    this.filterType = 'unreplied';
+    console.log('✅ FilterType set to:', this.filterType);
+    this.cdr.detectChanges(); // Force change detection
+    console.log('✅ Change detection triggered');
+    this.loadActivities();
   }
 
   openActivityDetails(activity: Activity) {
@@ -375,6 +444,33 @@ export class ActivitiesComponent implements OnInit {
     }
     return this.activities.filter((activity) => {
       const emailCode = this.getEmailCode(activity.subject);
+      return emailCode === code;
+    }).length;
+  }
+
+  /**
+   * Get filtered unreplied emails based on email code filter
+   */
+  getFilteredUnrepliedEmails(): UnrepliedEmail[] {
+    if (this.emailCodeFilter === 'all') {
+      return this.unrepliedEmails;
+    }
+
+    return this.unrepliedEmails.filter((email) => {
+      const emailCode = this.getEmailCode(email.subject);
+      return emailCode === this.emailCodeFilter;
+    });
+  }
+
+  /**
+   * Get count of unreplied emails for each email code
+   */
+  getUnrepliedEmailCodeCount(code: string): number {
+    if (code === 'all') {
+      return this.unrepliedEmails.length;
+    }
+    return this.unrepliedEmails.filter((email) => {
+      const emailCode = this.getEmailCode(email.subject);
       return emailCode === code;
     }).length;
   }
@@ -537,12 +633,25 @@ export class ActivitiesComponent implements OnInit {
     const position = element.scrollTop + element.clientHeight;
     const height = element.scrollHeight;
 
-    if (
-      position > height - threshold &&
-      !this.loadingMore &&
-      this.hasMoreActivities
-    ) {
-      this.loadMoreActivities();
+    console.log('📜 Scroll event:', {
+      position,
+      height,
+      threshold,
+      nearBottom: position > height - threshold,
+      filterType: this.filterType,
+    });
+
+    if (position > height - threshold) {
+      if (
+        this.filterType === 'unreplied' &&
+        !this.loadingMoreUnreplied &&
+        this.hasMoreUnreplied
+      ) {
+        console.log('Triggering load more unreplied emails...');
+        this.loadMoreUnrepliedEmails();
+      } else if (!this.loadingMore && this.hasMoreActivities) {
+        this.loadMoreActivities();
+      }
     }
   }
 

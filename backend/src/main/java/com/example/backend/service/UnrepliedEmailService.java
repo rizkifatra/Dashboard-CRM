@@ -63,7 +63,7 @@ public class UnrepliedEmailService {
             // Using minimal fields to avoid OData errors - will enrich later if needed
             String dateFilter = String.format("createdon ge %s", cutoffTime.toString().substring(0, 19) + "Z");
             String uri = "/emails?$select=activityid,subject,directioncode,createdon,modifiedon,description," +
-                    "statecode,statuscode&$filter=" + dateFilter + "&$top=50";
+                    "statecode,statuscode&$filter=" + dateFilter + "&$top=200";
 
             log.debug("Fetching emails from: {}", uri);
 

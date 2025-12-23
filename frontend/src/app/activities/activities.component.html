@@ -7,7 +7,7 @@
 
         <!-- Metric Cards Row -->
         <div class="metrics-row">
-            <div class="metric-card purple">
+            <div class="metric-card purple" (click)="filterType = 'all'; loadActivities()" style="cursor: pointer;">
                 <div class="metric-left">
                     <div class="metric-label">Total Activities</div>
                     <div class="metric-value">{{ activityCount }}</div>
@@ -55,8 +55,7 @@
             </div>
 
             <!-- Unreplied Emails Card -->
-            <div class="metric-card yellow" (click)="filterType = 'unreplied'; loadActivities()"
-                style="cursor: pointer;">
+            <div class="metric-card yellow" (click)="showUnrepliedEmails()" style="cursor: pointer;">
                 <div class="metric-left">
                     <div class="metric-label">Unreplied</div>
                     <div class="metric-value">{{ unrepliedCount }}</div>
@@ -76,7 +75,7 @@
     </div>
 
     <!-- Loading State -->
-    <div *ngIf="loading" class="loading-state">
+    <div *ngIf="loading && filterType !== 'unreplied'" class="loading-state">
         <div class="spinner"></div>
         <p>Loading activities...</p>
     </div>
@@ -85,6 +84,89 @@
     <div *ngIf="error && !loading" class="error-state">
         <p>{{ error }}</p>
         <button (click)="loadActivities()" class="retry-button">Retry</button>
+    </div>
+
+    <!-- Unreplied Emails Section -->
+    <div class="email-code-section" *ngIf="filterType === 'unreplied'">
+        <div class="section-title-bar">
+            <h3 class="filter-section-title">Unreplied Emails ({{ getFilteredUnrepliedEmails().length }})</h3>
+        </div>
+
+        <!-- Email Code Filter for Unreplied -->
+        <div class="code-tabs" *ngIf="!loading">
+            <button class="code-tab" [class.active]="emailCodeFilter === 'all'" (click)="emailCodeFilter = 'all'">
+                All ({{ getUnrepliedEmailCodeCount('all') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'RE'" (click)="emailCodeFilter = 'RE'">
+                RE ({{ getUnrepliedEmailCodeCount('RE') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'FW'" (click)="emailCodeFilter = 'FW'">
+                FW ({{ getUnrepliedEmailCodeCount('FW') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'RFQ'" (click)="emailCodeFilter = 'RFQ'">
+                RFQ ({{ getUnrepliedEmailCodeCount('RFQ') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'RFP'" (click)="emailCodeFilter = 'RFP'">
+                RFP ({{ getUnrepliedEmailCodeCount('RFP') }})
+            </button>
+            <button class="code-tab" [class.active]="emailCodeFilter === 'OTHER'" (click)="emailCodeFilter = 'OTHER'">
+                Other ({{ getUnrepliedEmailCodeCount('OTHER') }})
+            </button>
+        </div>
+
+        <!-- Loading State for Unreplied -->
+        <div *ngIf="loading" class="loading-state" style="text-align: center; padding: 2rem;">
+            <div class="spinner"></div>
+            <p>Loading unreplied emails...</p>
+        </div>
+
+        <div *ngIf="!loading && unrepliedEmails.length === 0" class="no-data"
+            style="background: #dcfce7; padding: 2rem; border-radius: 12px; text-align: center;">
+            <svg style="width: 48px; height: 48px; margin: 0 auto 1rem; display: block; color: #16a34a;" fill="none"
+                stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <p style="color: #16a34a; font-weight: 600; margin: 0;">🎉 Great job! All emails have been replied to!
+            </p>
+        </div>
+
+        <!-- Unreplied Email Activities Table -->
+        <div class="simple-table" *ngIf="!loading && getFilteredUnrepliedEmails().length > 0"
+            (scroll)="onTableScroll($event)" style="max-height: 600px; overflow-y: auto;">
+            <div *ngFor="let email of getFilteredUnrepliedEmails()" class="simple-row"
+                (click)="viewEmailDetails(email)">
+                <div class="row-left">
+                    <span class="code-badge" [ngClass]="'badge-' + getEmailCode(email.subject).toLowerCase()">
+                        {{ getEmailCode(email.subject) }}
+                    </span>
+                    <span class="status-type-badge" [ngClass]="email.urgencyLevel === 'critical' ? 'status-type-tender' : 
+                                   email.urgencyLevel === 'high' ? 'status-type-meeting' :
+                                   email.urgencyLevel === 'medium' ? 'status-type-quote' : 'status-type-update'">
+                        {{ email.urgencyLevel === 'critical' ? 'CRITICAL' :
+                        email.urgencyLevel === 'high' ? 'HIGH' :
+                        email.urgencyLevel === 'medium' ? 'MEDIUM' : 'LOW' }} • {{ email.hoursUnreplied }}h
+                    </span>
+
+                    <div class="subject-area">
+                        <span class="subject">
+                            {{ email.subject }}
+                        </span>
+                    </div>
+                </div>
+                <div class="row-right">
+                    <span class="staff">{{ email.assignedToName || email.assignedTo || 'Staff Member' }}</span>
+                    <span class="direction">📥</span>
+                    <span class="date">{{ getRelativeTime(email.createdOn) }}</span>
+                </div>
+            </div>
+
+            <!-- Loading More Indicator -->
+            <div *ngIf="loadingMoreUnreplied" class="loading-more">
+                <div class="spinner"></div>
+                <p>Loading more emails...</p>
+            </div>
+        </div>
     </div>
 
     <!-- Email Code Filter Section -->
@@ -149,69 +231,6 @@
                     (click)="statusTypeFilter = 'update'">
                     Update ({{ getStatusTypeCount('update') }})
                 </button>
-            </div>
-        </div>
-
-        <!-- Unreplied Emails Section -->
-        <div *ngIf="filterType === 'unreplied'" class="unreplied-section">
-            <div class="section-title-bar">
-                <h3 class="filter-section-title">⚠️ Unreplied Emails Reminder</h3>
-                <button class="back-button" (click)="filterType = 'all'; loadActivities()">← Back to All</button>
-            </div>
-
-            <div *ngIf="unrepliedEmails.length === 0" class="no-data"
-                style="background: #dcfce7; padding: 2rem; border-radius: 12px;">
-                <svg style="width: 48px; height: 48px; margin: 0 auto 1rem; display: block; color: #16a34a;" fill="none"
-                    stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <p style="color: #16a34a; font-weight: 600; margin: 0;">🎉 Great job! All emails have been replied to!
-                </p>
-            </div>
-
-            <div class="unreplied-list" *ngIf="unrepliedEmails.length > 0">
-                <div *ngFor="let email of unrepliedEmails" class="unreplied-card"
-                    [ngClass]="'urgency-' + email.urgencyLevel">
-                    <div class="unreplied-header">
-                        <div class="urgency-badge" [ngClass]="email.urgencyLevel">
-                            {{ email.urgencyLevel.toUpperCase() }}
-                        </div>
-                        <div class="age-badge">{{ email.ageCategory }}</div>
-                        <div class="overdue-badge" *ngIf="email.isOverdue">OVERDUE</div>
-                    </div>
-
-                    <div class="email-content">
-                        <h4 class="email-subject">{{ email.subject }}</h4>
-                        <div class="email-meta">
-                            <span class="sender"><strong>📧 From:</strong> {{ email.fromEmail || email.sender ||
-                                'Unknown' }}</span>
-                            <span class="assigned"><strong>👤 Assigned to:</strong> {{ email.assignedToName ||
-                                email.assignedTo }}</span>
-                        </div>
-                        <div class="email-reminder">
-                            <span class="reminder-text">💡 <strong>Reminder:</strong> Reply to {{ email.fromEmail ||
-                                email.sender || 'this customer' }}</span>
-                        </div>
-                        <div class="email-timing">
-                            <span>📅 Received: {{ formatDate(email.createdOn) }}</span>
-                            <span class="hours-unreplied">⏰ <strong>{{ email.hoursUnreplied }}h</strong>
-                                unreplied</span>
-                        </div>
-                        <div class="email-description" *ngIf="email.description">
-                            <p>{{ email.description.substring(0, 150) }}{{ email.description.length > 150 ? '...' : ''
-                                }}</p>
-                        </div>
-                        <div class="account-link" *ngIf="email.regardingObjectName">
-                            🔗 Related to: <strong>{{ email.regardingObjectName }}</strong>
-                        </div>
-                    </div>
-
-                    <div class="unreplied-actions">
-                        <button class="reply-btn" (click)="openReplyModal(email)">Reply Now</button>
-                        <button class="view-btn" (click)="viewEmailDetails(email)">View Details</button>
-                    </div>
-                </div>
             </div>
         </div>
 
