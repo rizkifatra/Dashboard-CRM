@@ -1,0 +1,35 @@
+{
+  "properties": [
+    {
+      "name": "d365.api.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL for Microsoft Dynamics 365 Web API (e.g., https://yourorg.crm5.dynamics.com/api/data/v9.2)"
+    },
+    {
+      "name": "d365.api.scope",
+      "type": "java.lang.String",
+      "description": "OAuth scope for Dynamics 365 authentication (e.g., https://yourorg.crm5.dynamics.com/.default)"
+    },
+    {
+      "name": "d365.api.timeout",
+      "type": "java.lang.Integer",
+      "description": "API request timeout in milliseconds",
+      "defaultValue": 30000
+    },
+    {
+      "name": "d365.api.internal-domains",
+      "type": "java.util.List<java.lang.String>",
+      "description": "List of internal email domains to exclude from customer detection (e.g., @bintara.com.my)"
+    },
+    {
+      "name": "d365.api.internal-shared-mailboxes",
+      "type": "java.util.List<java.lang.String>",
+      "description": "List of known internal/shared mailboxes to exclude from customer detection (e.g., support@bintara.com.my)"
+    },
+    {
+      "name": "cors.allowed-origins",
+      "type": "java.lang.String",
+      "description": "Comma-separated list of allowed CORS origins for API access"
+    }
+  ]
+}

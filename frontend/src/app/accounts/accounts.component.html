@@ -22,10 +22,7 @@
         </div>
     </div>
 
-    <div *ngIf="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading accounts...</p>
-    </div>
+    <app-table-skeleton *ngIf="loading"></app-table-skeleton>
 
     <div *ngIf="error" class="error-state">
         <p>{{ error }}</p>
@@ -59,7 +56,8 @@
 
         <div class="alert-box" *ngIf="staffWithIncompleteData.length > 0">
             <div class="alert-content">
-                <strong>Data Completion Alert:</strong> {{ stats.incompleteData }} accounts have incomplete data across {{ staffWithIncompleteData.length }} staff members.
+                <strong>Data Completion Alert:</strong> {{ stats.incompleteData }} accounts have incomplete data across
+                {{ staffWithIncompleteData.length }} staff members.
             </div>
         </div>
 

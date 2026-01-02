@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { TableSkeletonComponent } from '../shared/table-skeleton.component';
 import {
   ActivityService,
   Activity,
@@ -12,7 +13,7 @@ import { DateUtilsService } from '../services/date-utils.service';
 @Component({
   selector: 'app-activities',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TableSkeletonComponent],
   templateUrl: './activities.component.html',
   styleUrls: ['./activities.component.css'],
 })
@@ -286,9 +287,12 @@ export class ActivitiesComponent implements OnInit {
 
     this.activityService.getUnrepliedEmails(this.maxHoursOld).subscribe({
       next: (response) => {
-        console.log(' Unreplied emails response:', response);
+        console.log('🔍 UNREPLIED EMAILS RESPONSE:', response);
+        console.log('🔍 Response success:', response.success);
+        console.log('🔍 Response data length:', response.data?.length);
         if (response.success) {
           const allEmails = response.data;
+          console.log('🔍 First 3 unreplied emails:', allEmails.slice(0, 3));
           const skip = this.unrepliedPage * this.unrepliedPageSize;
           const pageEmails = allEmails.slice(
             skip,
@@ -309,8 +313,13 @@ export class ActivitiesComponent implements OnInit {
             skip + this.unrepliedPageSize < allEmails.length;
           this.unrepliedPage++;
 
-          console.log('Loaded unreplied emails:', this.unrepliedEmails.length);
-          console.log('Has more:', this.hasMoreUnreplied);
+          console.log(
+            '✅ Loaded unreplied emails total:',
+            this.unrepliedEmails.length
+          );
+          console.log('✅ Unreplied count:', this.unrepliedCount);
+          console.log('✅ Has more:', this.hasMoreUnreplied);
+          console.log('✅ Filter type:', this.filterType);
         }
         this.loading = false;
         this.loadingMoreUnreplied = false;

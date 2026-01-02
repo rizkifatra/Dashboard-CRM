@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TableSkeletonComponent } from '../shared/table-skeleton.component';
 import {
   OpportunityService,
   OpportunityStats,
@@ -11,7 +12,7 @@ import { DateUtilsService } from '../services/date-utils.service';
 @Component({
   selector: 'app-opportunities',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TableSkeletonComponent],
   templateUrl: './opportunities.component.html',
   styleUrls: ['./opportunities.component.css'],
 })

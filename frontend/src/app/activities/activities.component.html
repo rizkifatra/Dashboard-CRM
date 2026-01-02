@@ -75,10 +75,7 @@
     </div>
 
     <!-- Loading State -->
-    <div *ngIf="loading && filterType !== 'unreplied'" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading activities...</p>
-    </div>
+    <app-table-skeleton *ngIf="loading && filterType !== 'unreplied'"></app-table-skeleton>
 
     <!-- Error State -->
     <div *ngIf="error && !loading" class="error-state">
@@ -115,21 +112,9 @@
         </div>
 
         <!-- Loading State for Unreplied -->
-        <div *ngIf="loading" class="loading-state" style="text-align: center; padding: 2rem;">
-            <div class="spinner"></div>
-            <p>Loading unreplied emails...</p>
-        </div>
+        <app-table-skeleton *ngIf="loading"></app-table-skeleton>
 
-        <div *ngIf="!loading && unrepliedEmails.length === 0" class="no-data"
-            style="background: #dcfce7; padding: 2rem; border-radius: 12px; text-align: center;">
-            <svg style="width: 48px; height: 48px; margin: 0 auto 1rem; display: block; color: #16a34a;" fill="none"
-                stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <p style="color: #16a34a; font-weight: 600; margin: 0;">🎉 Great job! All emails have been replied to!
-            </p>
-        </div>
+
 
         <!-- Unreplied Email Activities Table -->
         <div class="simple-table" *ngIf="!loading && getFilteredUnrepliedEmails().length > 0"

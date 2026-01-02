@@ -1,3 +1,37 @@
-*.md
+# Documentation (uncomment if needed)
+# *.md
+
+# IDE and Editor files
 .vscode
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
 .github
+
+# Build outputs
+backend/target/
+frontend/dist/
+frontend/.angular/
+frontend/node_modules/
+
+# Environment and secrets - IMPORTANT: Keep credentials safe!
+backend/.env
+backend/.env.local
+backend/src/main/resources/application-dev.properties
+*.key
+*.pem
+
+# Logs
+*.log
+backend/backend-log.txt
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS files
+Thumbs.db

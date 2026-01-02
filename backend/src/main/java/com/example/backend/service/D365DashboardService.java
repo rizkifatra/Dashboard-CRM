@@ -1,16 +1,11 @@
 package com.example.backend.service;
 
 import com.example.backend.model.ApiResponse;
-import com.example.backend.model.Staff;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service for dashboard-level data aggregation and analytics
@@ -20,11 +15,6 @@ public class D365DashboardService {
 
     private static final Logger log = LoggerFactory.getLogger(D365DashboardService.class);
 
-    @Autowired
-    private D365StaffService staffService;
-
-    @Autowired
-    private D365ActivityService activityService;
 
     @Autowired
     private D365OpportunityService opportunityService;

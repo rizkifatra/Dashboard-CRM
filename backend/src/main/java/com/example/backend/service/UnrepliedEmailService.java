@@ -20,7 +20,6 @@ public class UnrepliedEmailService {
 
     private final WebClient webClient;
     private final D365AuthService authService;
-    private final D365Config d365Config;
     private final ObjectMapper objectMapper;
 
     public UnrepliedEmailService(WebClient.Builder webClientBuilder,
@@ -28,7 +27,6 @@ public class UnrepliedEmailService {
             D365Config d365Config,
             ObjectMapper objectMapper) {
         this.authService = authService;
-        this.d365Config = d365Config;
         this.objectMapper = objectMapper;
         this.webClient = webClientBuilder
                 .baseUrl(d365Config.getBaseUrl())
@@ -60,10 +58,9 @@ public class UnrepliedEmailService {
 
             // Fetch emails from /emails endpoint with date filter
             // Format: createdon ge 2025-12-15T00:00:00Z
-            // Using minimal fields to avoid OData errors - will enrich later if needed
             String dateFilter = String.format("createdon ge %s", cutoffTime.toString().substring(0, 19) + "Z");
             String uri = "/emails?$select=activityid,subject,directioncode,createdon,modifiedon,description," +
-                    "statecode,statuscode&$filter=" + dateFilter + "&$top=200";
+                    "statecode,statuscode&$filter=" + dateFilter + "&$top=1000";
 
             log.debug("Fetching emails from: {}", uri);
 
@@ -87,88 +84,80 @@ public class UnrepliedEmailService {
                 return new ArrayList<>();
             }
 
-            // Separate into incoming and outgoing (no date filter needed as query already
-            // filtered)
-            List<Activity> incomingEmails = new ArrayList<>();
-            List<Activity> outgoingEmails = new ArrayList<>();
-            int nullDirectionCount = 0;
+            // Treat all emails as potential candidates
+            // We'll filter by checking for replies based on subject matching
+            List<Activity> allEmailsList = new ArrayList<>(allEmails);
 
-            for (Activity email : allEmails) {
-                // Check direction
-                if (email.getDirectionCode() == null) {
-                    nullDirectionCount++;
-                    log.debug("Email with null directionCode: {}", email.getSubject());
-                    continue;
-                }
+            log.info("Processing {} total emails for unreplied detection", allEmailsList.size());
 
-                // Separate by direction
-                if (email.getDirectionCode()) {
-                    outgoingEmails.add(email);
-                } else {
-                    incomingEmails.add(email);
-                }
-            }
-
-            log.info("Found {} incoming emails (directionCode=false)", incomingEmails.size());
-            log.info("Found {} outgoing emails (directionCode=true)", outgoingEmails.size());
-            log.info("Skipped {} emails with null directionCode", nullDirectionCount);
-
-            if (incomingEmails.isEmpty()) {
-                log.warn("No incoming emails found. All emails might be outgoing or filtered out.");
-                return new ArrayList<>();
-            }
-
-            // Create a set of normalized subjects from outgoing emails
-            Set<String> repliedSubjects = outgoingEmails.stream()
+            // Create a set of normalized subjects from ALL emails for matching
+            Set<String> allSubjects = allEmailsList.stream()
                     .map(Activity::getSubject)
                     .filter(Objects::nonNull)
                     .map(this::normalizeSubject)
                     .collect(Collectors.toSet());
 
-            log.info("Normalized {} unique outgoing subjects for matching", repliedSubjects.size());
-            if (log.isDebugEnabled() && !repliedSubjects.isEmpty()) {
-                log.debug("Sample outgoing subjects: {}",
-                        repliedSubjects.stream().limit(5).collect(Collectors.toList()));
-            }
+            log.info("Normalized {} unique subjects for matching", allSubjects.size());
 
-            // Find unreplied emails
+            // Find unreplied emails - emails with unique subjects that don't have a
+            // matching reply
+            // Group by normalized subject and find those with only one occurrence
+            Map<String, List<Activity>> emailsBySubject = allEmailsList.stream()
+                    .filter(email -> email.getSubject() != null && !email.getSubject().trim().isEmpty())
+                    .collect(Collectors.groupingBy(email -> normalizeSubject(email.getSubject())));
+
             List<UnrepliedEmail> unrepliedEmails = new ArrayList<>();
             int noSubjectCount = 0;
             int repliedCount = 0;
 
-            for (Activity incoming : incomingEmails) {
-                String subject = incoming.getSubject();
+            for (Activity email : allEmailsList) {
+                String subject = email.getSubject();
                 if (subject == null || subject.trim().isEmpty()) {
                     noSubjectCount++;
                     continue;
                 }
 
                 String normalizedSubject = normalizeSubject(subject);
-                boolean hasReply = repliedSubjects.contains(normalizedSubject);
+                List<Activity> matchingEmails = emailsBySubject.get(normalizedSubject);
 
-                if (!hasReply) {
+                // An email is unreplied if:
+                // 1. It's the only email with this subject (no replies)
+                // 2. OR it doesn't start with RE:/FW: and there's no reply to it
+                boolean hasReply = false;
+                boolean isOriginalEmail = !subject.toLowerCase().trim().startsWith("re:") &&
+                        !subject.toLowerCase().trim().startsWith("fw:") &&
+                        !subject.toLowerCase().trim().startsWith("fwd:");
+
+                if (matchingEmails != null && matchingEmails.size() > 1 && isOriginalEmail) {
+                    // Check if there's any email that starts with RE: or FW: (indicating a reply)
+                    hasReply = matchingEmails.stream()
+                            .anyMatch(e -> e.getSubject() != null && !e.getActivityId().equals(email.getActivityId()) &&
+                                    (e.getSubject().toLowerCase().trim().startsWith("re:") ||
+                                            e.getSubject().toLowerCase().trim().startsWith("fw:") ||
+                                            e.getSubject().toLowerCase().trim().startsWith("fwd:")));
+                }
+
+                // Only show original emails (not RE:/FW:) that don't have replies
+                if (isOriginalEmail && !hasReply) {
                     log.info("✗ UNREPLIED: '{}' (created: {})",
-                            subject, incoming.getCreatedOn());
+                            subject, email.getCreatedOn());
 
                     // Calculate time-based metadata
-                    long hoursUnreplied = calculateHoursUnreplied(incoming.getCreatedOn());
+                    long hoursUnreplied = calculateHoursUnreplied(email.getCreatedOn());
                     String urgencyLevel = determineUrgencyLevel(hoursUnreplied);
                     String ageCategory = determineAgeCategory(hoursUnreplied);
                     boolean isOverdue = hoursUnreplied > 48;
 
-                    // Use placeholder for sender - will be enriched later
-                    String senderValue = "Staff Member";
-
                     UnrepliedEmail unreplied = UnrepliedEmail.builder()
-                            .activityId(incoming.getActivityId())
+                            .activityId(email.getActivityId())
                             .subject(subject)
-                            .fromEmail(senderValue)
-                            .sender(senderValue)
-                            .description(incoming.getDescription())
+                            .fromEmail("Staff Member")
+                            .sender("Staff Member")
+                            .description(email.getDescription())
                             .assignedTo(null)
-                            .assignedToName(null)
-                            .createdOn(incoming.getCreatedOn())
-                            .modifiedOn(incoming.getModifiedOn())
+                            .assignedToName("Staff Member")
+                            .createdOn(email.getCreatedOn())
+                            .modifiedOn(email.getModifiedOn())
                             .hoursUnreplied(hoursUnreplied)
                             .urgencyLevel(urgencyLevel)
                             .ageCategory(ageCategory)
@@ -186,8 +175,8 @@ public class UnrepliedEmailService {
             }
 
             log.info("=== Detection Complete ===");
-            log.info("Total incoming: {}, Replied: {}, Unreplied: {}, No subject: {}",
-                    incomingEmails.size(), repliedCount, unrepliedEmails.size(), noSubjectCount);
+            log.info("Total emails: {}, Replied: {}, Unreplied: {}, No subject: {}",
+                    allEmailsList.size(), repliedCount, unrepliedEmails.size(), noSubjectCount);
 
             return unrepliedEmails;
 
@@ -261,5 +250,26 @@ public class UnrepliedEmailService {
         } else {
             return "> 72h";
         }
+    }
+
+    /**
+     * Determine if email is incoming based on recipient
+     * Email is considered incoming if sent TO a @bintara.com.my address
+     */
+    private boolean isEmailIncoming(Activity email) {
+        String toEmail = email.getToEmail();
+        String fromEmail = email.getFromEmail();
+
+        // Check if TO field contains @bintara.com.my
+        if (toEmail != null && toEmail.toLowerCase().contains("@bintara.com.my")) {
+            return true;
+        }
+
+        // If FROM field does NOT contain @bintara.com.my, it's likely incoming
+        if (fromEmail != null && !fromEmail.toLowerCase().contains("@bintara.com.my")) {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -12,10 +12,7 @@
         </div>
     </div>
 
-    <div *ngIf="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading opportunities...</p>
-    </div>
+    <app-table-skeleton *ngIf="loading"></app-table-skeleton>
 
     <div *ngIf="error" class="error-state">
         <p>{{ error }}</p>

@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { AccountService, Account } from '../services/account.service';
 import { StaffService, Staff } from '../services/staff.service';
 import { DateUtilsService } from '../services/date-utils.service';
+import { TableSkeletonComponent } from '../shared/table-skeleton.component';
 
 @Component({
   selector: 'app-accounts',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TableSkeletonComponent],
   templateUrl: './accounts.component.html',
   styleUrls: ['./accounts.component.css'],
 })

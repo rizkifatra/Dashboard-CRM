@@ -16,11 +16,8 @@
         </div>
     </div>
 
-    <!-- Loading State -->
-    <div *ngIf="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading fiscal year data...</p>
-    </div>
+    <!-- Loading State with Skeleton -->
+    <app-dashboard-skeleton *ngIf="loading"></app-dashboard-skeleton>
 
     <!-- Error State -->
     <div *ngIf="error && !loading" class="error-state">

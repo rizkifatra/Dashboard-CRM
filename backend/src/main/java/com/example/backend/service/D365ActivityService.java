@@ -1,9 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.model.Activity;
-import com.example.backend.model.UnrepliedEmail;
 import com.example.backend.config.D365Config;
-import com.example.backend.config.StaffFilterConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -12,15 +10,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
-import java.time.temporal.ChronoUnit;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Service for interacting with Dynamics 365 Activities (Emails, Calls,
@@ -961,7 +955,7 @@ public class D365ActivityService {
 
             log.info(
                     "Counted emails by participants for {}: Incoming={} (To only), Outgoing={} (From only), Total emails checked={}",
-                    userEmail, incomingCount, outgoingCount, emailsArray.size());
+                    userEmail, incomingCount, outgoingCount, emailsArray != null ? emailsArray.size() : 0);
             return new int[] { incomingCount, outgoingCount };
 
         } catch (Exception e) {
@@ -1032,7 +1026,7 @@ public class D365ActivityService {
             return calculateResponseTimeStats(allResponseTimes, accountIds.size());
 
         } catch (Exception e) {
-            log.error("Error calculating response time for {} accounts", accountIds.size(), e);
+            log.error("Error calculating response time for {} accounts", accountIds != null ? accountIds.size() : 0, e);
             return createEmptyResponseTimeStats();
         }
     }
@@ -1264,56 +1258,60 @@ public class D365ActivityService {
             // Calculate response times by matching incoming and outgoing emails
             java.util.List<Double> responseTimes = new java.util.ArrayList<>();
 
-            for (JsonNode incoming : incomingEmails) {
-                String incomingSubject = incoming.has("subject") ? incoming.get("subject").asText() : "";
-                String incomingTime = incoming.get("createdon").asText();
-                String regardingId = incoming.has("regardingobjectid") ? incoming.get("regardingobjectid").asText()
-                        : null;
-
-                // Find matching outgoing email (by subject similarity or regarding object)
-                for (JsonNode outgoing : outgoingEmails) {
-                    String outgoingSubject = outgoing.has("subject") ? outgoing.get("subject").asText() : "";
-                    String outgoingTime = outgoing.get("createdon").asText();
-                    String outgoingRegardingId = outgoing.has("_regardingobjectid_value")
-                            ? outgoing.get("_regardingobjectid_value").asText()
+            // Null safety: check before iteration (though we've already validated counts
+            // above)
+            if (incomingEmails != null && outgoingEmails != null) {
+                for (JsonNode incoming : incomingEmails) {
+                    String incomingSubject = incoming.has("subject") ? incoming.get("subject").asText() : "";
+                    String incomingTime = incoming.get("createdon").asText();
+                    String regardingId = incoming.has("regardingobjectid") ? incoming.get("regardingobjectid").asText()
                             : null;
 
-                    // Match by regarding object OR by similar subject
-                    boolean isMatch = false;
-                    if (regardingId != null && regardingId.equals(outgoingRegardingId)) {
-                        isMatch = true;
-                    } else if (!incomingSubject.isBlank() && !outgoingSubject.isBlank()) {
-                        // Simple subject matching (could be improved)
-                        String normalizedIncoming = incomingSubject.toLowerCase().replaceAll("^(re:|fw:)\\s*", "");
-                        String normalizedOutgoing = outgoingSubject.toLowerCase().replaceAll("^(re:|fw:)\\s*", "");
-                        if (normalizedIncoming.equals(normalizedOutgoing)) {
+                    // Find matching outgoing email (by subject similarity or regarding object)
+                    for (JsonNode outgoing : outgoingEmails) {
+                        String outgoingSubject = outgoing.has("subject") ? outgoing.get("subject").asText() : "";
+                        String outgoingTime = outgoing.get("createdon").asText();
+                        String outgoingRegardingId = outgoing.has("_regardingobjectid_value")
+                                ? outgoing.get("_regardingobjectid_value").asText()
+                                : null;
+
+                        // Match by regarding object OR by similar subject
+                        boolean isMatch = false;
+                        if (regardingId != null && regardingId.equals(outgoingRegardingId)) {
                             isMatch = true;
-                        }
-                    }
-
-                    if (isMatch) {
-                        // Calculate response time in working hours (Mon-Thu 09:00-17:00)
-                        try {
-                            java.time.LocalDateTime incomingDateTime = java.time.LocalDateTime.parse(incomingTime,
-                                    java.time.format.DateTimeFormatter.ISO_DATE_TIME);
-                            java.time.LocalDateTime outgoingDateTime = java.time.LocalDateTime.parse(outgoingTime,
-                                    java.time.format.DateTimeFormatter.ISO_DATE_TIME);
-
-                            // Only count if outgoing is after incoming (response, not proactive email)
-                            if (outgoingDateTime.isAfter(incomingDateTime)) {
-                                // Calculate working hours (Mon-Thu 09:00-17:00)
-                                long workingMinutes = calculateWorkingMinutes(incomingTime, outgoingTime);
-                                if (workingMinutes > 0) {
-                                    responseTimes.add((double) workingMinutes);
-                                    break; // Found a match, move to next incoming email
-                                }
+                        } else if (!incomingSubject.isBlank() && !outgoingSubject.isBlank()) {
+                            // Simple subject matching (could be improved)
+                            String normalizedIncoming = incomingSubject.toLowerCase().replaceAll("^(re:|fw:)\\s*", "");
+                            String normalizedOutgoing = outgoingSubject.toLowerCase().replaceAll("^(re:|fw:)\\s*", "");
+                            if (normalizedIncoming.equals(normalizedOutgoing)) {
+                                isMatch = true;
                             }
-                        } catch (Exception e) {
-                            log.warn("Error parsing timestamps: {} - {}", incomingTime, outgoingTime, e);
+                        }
+
+                        if (isMatch) {
+                            // Calculate response time in working hours (Mon-Thu 09:00-17:00)
+                            try {
+                                java.time.LocalDateTime incomingDateTime = java.time.LocalDateTime.parse(incomingTime,
+                                        java.time.format.DateTimeFormatter.ISO_DATE_TIME);
+                                java.time.LocalDateTime outgoingDateTime = java.time.LocalDateTime.parse(outgoingTime,
+                                        java.time.format.DateTimeFormatter.ISO_DATE_TIME);
+
+                                // Only count if outgoing is after incoming (response, not proactive email)
+                                if (outgoingDateTime.isAfter(incomingDateTime)) {
+                                    // Calculate working hours (Mon-Thu 09:00-17:00)
+                                    long workingMinutes = calculateWorkingMinutes(incomingTime, outgoingTime);
+                                    if (workingMinutes > 0) {
+                                        responseTimes.add((double) workingMinutes);
+                                        break; // Found a match, move to next incoming email
+                                    }
+                                }
+                            } catch (Exception e) {
+                                log.warn("Error parsing timestamps: {} - {}", incomingTime, outgoingTime, e);
+                            }
                         }
                     }
                 }
-            }
+            } // End null safety check
 
             return calculateResponseTimeStats(responseTimes, 1);
 

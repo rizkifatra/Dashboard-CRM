@@ -154,11 +154,6 @@ public class StaffController {
 
                 return ResponseEntity.ok(response);
             } else {
-                ApiResponse<Staff> response = ApiResponse.<Staff>builder()
-                        .success(false)
-                        .message("Staff member not found with ID: " + id)
-                        .build();
-
                 return ResponseEntity.notFound().build();
             }
 

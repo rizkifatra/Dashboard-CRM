@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { DashboardSkeletonComponent } from '../shared/dashboard-skeleton.component';
 
 interface FiscalYearMetrics {
   fiscalYear: string;
@@ -37,7 +38,7 @@ interface StaffPerformance {
 @Component({
   selector: 'app-fiscal-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DashboardSkeletonComponent],
   templateUrl: './fiscal-dashboard.component.html',
   styleUrls: ['./fiscal-dashboard.component.css'],
 })
