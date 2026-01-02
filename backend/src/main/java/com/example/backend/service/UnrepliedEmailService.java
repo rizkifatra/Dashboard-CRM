@@ -266,10 +266,55 @@ public class UnrepliedEmailService {
      * 
      * An email is incoming if it has participants with typeMask=2 AND addresses
      * are @bintara.com.my
+     * 
+     * FALLBACK: If emailActivityParties is missing, check fromEmail/toEmail fields
      */
     private boolean isIncomingEmail(Activity email) {
+        // FALLBACK LOGIC: If emailActivityParties is missing, use fromEmail/toEmail
+        // fields
         if (email.getEmailActivityParties() == null || email.getEmailActivityParties().isEmpty()) {
-            log.warn("No email_activity_parties found for email: {}", email.getActivityId());
+            log.warn("No email_activity_parties found for email '{}' ({}), using fallback fromEmail/toEmail detection",
+                    email.getSubject(), email.getActivityId());
+
+            String fromEmail = email.getFromEmail();
+            String toEmail = email.getToEmail();
+            String staffEmail = email.getStaffEmail();
+
+            // If we have fromEmail/toEmail data, use it
+            if (fromEmail != null || toEmail != null) {
+                // Incoming: FROM is external AND TO contains @bintara.com.my
+                boolean hasExternalFrom = fromEmail != null && !fromEmail.toLowerCase().contains("@bintara.com.my");
+                boolean hasBintaraTo = toEmail != null && toEmail.toLowerCase().contains("@bintara.com.my");
+
+                boolean isIncoming = hasExternalFrom && hasBintaraTo;
+
+                if (isIncoming) {
+                    log.info("✓ FALLBACK INCOMING: '{}' | FROM: {} | TO: {}",
+                            email.getSubject() != null ? email.getSubject() : "No Subject",
+                            fromEmail, toEmail);
+                } else {
+                    log.debug("✗ FALLBACK OUTGOING: '{}' | FROM: {} | TO: {} | Reason: {} {}",
+                            email.getSubject() != null ? email.getSubject() : "No Subject",
+                            fromEmail, toEmail,
+                            !hasExternalFrom ? "FROM is Bintara or null" : "",
+                            !hasBintaraTo ? "TO is external or null" : "");
+                }
+
+                return isIncoming;
+            }
+
+            // LAST RESORT: No participant data AND no fromEmail/toEmail
+            // If owned by Bintara staff, treat as incoming (assigned to them)
+            if (staffEmail != null && staffEmail.toLowerCase().contains("@bintara.com.my")) {
+                log.info("✓ FALLBACK INCOMING (orphaned email): '{}' | Assigned to owner: {}",
+                        email.getSubject() != null ? email.getSubject() : "No Subject",
+                        staffEmail);
+                return true;
+            }
+
+            // No data at all - default to outgoing
+            log.debug("✗ FALLBACK OUTGOING: '{}' | No participant or direction data available",
+                    email.getSubject() != null ? email.getSubject() : "No Subject");
             return false;
         }
 
@@ -304,11 +349,40 @@ public class UnrepliedEmailService {
                     return isFromSender && isExternalAddress;
                 });
 
-        boolean isIncoming = hasIncomingToRecipient && hasExternalSender;
+        // Special case: If email has TO recipient (@bintara.com.my) but FROM is
+        // internal (or missing),
+        // treat as incoming. This handles:
+        // 1. Personal emails sent to work address (test emails)
+        // 2. Emails with incomplete participant data
+        // 3. Self-assigned tasks
+        boolean isSelfAssignedTask = hasIncomingToRecipient && !hasExternalSender;
 
+        if (isSelfAssignedTask) {
+            log.debug("Email '{}' treated as incoming (has @bintara TO recipient, FROM is internal/missing)",
+                    email.getSubject());
+        }
+
+        boolean isIncoming = (hasIncomingToRecipient && hasExternalSender) || isSelfAssignedTask;
+
+        // Enhanced logging with subject and classification reason
+        String subject = email.getSubject() != null ? email.getSubject() : "No Subject";
         if (isIncoming) {
-            log.debug("Email {} classified as INCOMING (external sender to Bintara recipient)",
-                    email.getActivityId());
+            String reason = isSelfAssignedTask ? "Self-assigned task (internal/test email to Bintara staff)"
+                    : "Has @bintara TO recipient + external FROM";
+            log.info("✓ INCOMING: '{}' | ActivityID: {} | Reason: {}",
+                    subject.length() > 50 ? subject.substring(0, 50) + "..." : subject,
+                    email.getActivityId(), reason);
+        } else {
+            String reason = "";
+            if (!hasIncomingToRecipient) {
+                reason = "No @bintara TO recipient (typeMask=2)";
+            } else if (!hasExternalSender && !isSelfAssignedTask) {
+                reason = "No external FROM sender (typeMask=3)";
+            }
+            log.debug("✗ OUTGOING: '{}' | ActivityID: {} | Reason: {}",
+                    subject.length() > 50 ? subject.substring(0, 50) + "..." : subject,
+                    email.getActivityId(),
+                    reason);
         }
 
         return isIncoming;
@@ -317,9 +391,32 @@ public class UnrepliedEmailService {
     /**
      * Extract the Bintara staff email who received this email
      * Looks for participationTypeMask = 2 (To/Recipient) with @bintara.com.my
+     * FALLBACK: Uses toEmail field or staffEmail if emailActivityParties is missing
      */
     private String extractBintaraRecipient(Activity email) {
+        // FALLBACK: Use toEmail or staffEmail if emailActivityParties is missing
         if (email.getEmailActivityParties() == null || email.getEmailActivityParties().isEmpty()) {
+            // Try toEmail first
+            String toEmail = email.getToEmail();
+            if (toEmail != null && toEmail.toLowerCase().contains("@bintara.com.my")) {
+                // Extract first @bintara.com.my address from comma-separated list
+                String[] toAddresses = toEmail.split("[;,]");
+                for (String addr : toAddresses) {
+                    String trimmed = addr.trim().toLowerCase();
+                    if (trimmed.contains("@bintara.com.my")) {
+                        log.debug("Extracted Bintara recipient from toEmail fallback: {}", trimmed);
+                        return trimmed;
+                    }
+                }
+            }
+
+            // If toEmail doesn't work, use staffEmail (owner) as last resort
+            String staffEmail = email.getStaffEmail();
+            if (staffEmail != null && staffEmail.toLowerCase().contains("@bintara.com.my")) {
+                log.debug("Extracted Bintara recipient from staffEmail (owner) fallback: {}", staffEmail);
+                return staffEmail;
+            }
+
             return null;
         }
 
