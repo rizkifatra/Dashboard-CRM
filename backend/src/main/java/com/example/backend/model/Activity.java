@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * Model representing an Activity (Email, Call, Meeting, Task) from Dynamics 365
  */
@@ -99,6 +101,10 @@ public class Activity {
 
     @JsonAlias("prioritycode@OData.Community.Display.V1.FormattedValue")
     private String priorityCodeFormatted;
+
+    // Email Activity Parties (participants in the email: To, From, Cc, Bcc)
+    @JsonAlias("email_activity_parties")
+    private List<EmailActivityParty> emailActivityParties;
 
     // Additional fields for frontend (not from D365, enriched by backend)
     private String activityType; // Friendly name: "Email", "Phone Call", "Meeting", "Task"

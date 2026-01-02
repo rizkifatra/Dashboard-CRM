@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -17,7 +17,7 @@ import { DateUtilsService } from '../services/date-utils.service';
   templateUrl: './activities.component.html',
   styleUrls: ['./activities.component.css'],
 })
-export class ActivitiesComponent implements OnInit {
+export class ActivitiesComponent implements OnInit, OnDestroy {
   activities: Activity[] = [];
   loading = true;
   error: string | null = null;
@@ -40,12 +40,18 @@ export class ActivitiesComponent implements OnInit {
 
   // Unreplied emails
   unrepliedEmails: UnrepliedEmail[] = [];
+  private allUnrepliedEmails: UnrepliedEmail[] = [];
   unrepliedCount = 0;
-  maxHoursOld = 720; // 30 days default (increased to capture more emails)
+  maxHoursOld: number | null = null; // null = all time, or specify hours
   unrepliedPage = 0;
-  unrepliedPageSize = 50;
+  unrepliedPageSize = 20; // Reduced for better infinite scroll experience
   hasMoreUnreplied = true;
   loadingMoreUnreplied = false;
+
+  // Auto-refresh settings
+  private refreshInterval: any = null;
+  autoRefreshEnabled = true;
+  refreshIntervalMinutes = 2; // Refresh every 2 minutes
 
   // Email code filter
   emailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' = 'all';
@@ -79,6 +85,76 @@ export class ActivitiesComponent implements OnInit {
     this.loadActivities();
     this.loadActivityCount();
     this.loadUnrepliedCount(); // Load unreplied count for the card
+    this.startAutoRefresh(); // Start auto-refresh for unreplied emails
+  }
+
+  ngOnDestroy() {
+    // Clean up the refresh interval when component is destroyed
+    this.stopAutoRefresh();
+  }
+
+  /**
+   * Start auto-refresh timer for unreplied emails
+   */
+  startAutoRefresh() {
+    if (!this.autoRefreshEnabled) return;
+
+    this.stopAutoRefresh(); // Clear any existing interval
+
+    const intervalMs = this.refreshIntervalMinutes * 60 * 1000;
+    console.log(
+      `🔄 Auto-refresh enabled: checking for unreplied emails every ${this.refreshIntervalMinutes} minutes`
+    );
+
+    this.refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing unreplied emails...');
+      this.refreshUnrepliedEmails();
+    }, intervalMs);
+  }
+
+  /**
+   * Stop auto-refresh timer
+   */
+  stopAutoRefresh() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+      console.log('⏸️ Auto-refresh stopped');
+    }
+  }
+
+  /**
+   * Refresh unreplied emails in background (without showing loading state)
+   */
+  refreshUnrepliedEmails() {
+    this.activityService.getUnrepliedEmails(this.maxHoursOld).subscribe({
+      next: (response) => {
+        if (response.success) {
+          const previousCount = this.unrepliedCount;
+          this.allUnrepliedEmails = response.data;
+          this.unrepliedCount = this.allUnrepliedEmails.length;
+
+          // If we're viewing unreplied emails, update the display
+          if (this.filterType === 'unreplied') {
+            // Reset pagination and reload
+            this.unrepliedPage = 0;
+            this.unrepliedEmails = [];
+            this.hasMoreUnreplied = true;
+            this.loadMoreUnrepliedEmails();
+          }
+
+          // Log if count changed
+          if (previousCount !== this.unrepliedCount) {
+            console.log(
+              `📧 Unreplied count updated: ${previousCount} → ${this.unrepliedCount}`
+            );
+          }
+        }
+      },
+      error: (err) => {
+        console.error('❌ Auto-refresh failed:', err);
+      },
+    });
   }
 
   loadActivities() {
@@ -260,77 +336,77 @@ export class ActivitiesComponent implements OnInit {
   }
 
   loadUnrepliedEmails() {
-    console.log('Loading unreplied emails...');
+    console.log('🔄 Loading unreplied emails...');
     this.unrepliedPage = 0;
     this.unrepliedEmails = [];
+    this.allUnrepliedEmails = [];
     this.hasMoreUnreplied = true;
-    this.loadMoreUnrepliedEmails();
+    this.loading = true;
+
+    // Fetch all unreplied emails from backend
+    this.activityService.getUnrepliedEmails(this.maxHoursOld).subscribe({
+      next: (response) => {
+        console.log('✅ Unreplied emails response:', response);
+        if (response.success) {
+          this.allUnrepliedEmails = response.data;
+          this.unrepliedCount = this.allUnrepliedEmails.length;
+          console.log(`📧 Total unreplied emails: ${this.unrepliedCount}`);
+
+          // Load first page
+          this.loadMoreUnrepliedEmails();
+        }
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('❌ Error loading unreplied emails:', err);
+        this.handleError('Failed to load unreplied emails', err);
+        this.loading = false;
+      },
+    });
   }
 
   loadMoreUnrepliedEmails() {
     if (this.loadingMoreUnreplied || !this.hasMoreUnreplied) {
-      console.log('Cannot load more:', {
+      console.log('⏸️ Cannot load more:', {
         loadingMore: this.loadingMoreUnreplied,
         hasMore: this.hasMoreUnreplied,
       });
       return;
     }
 
-    const isInitialLoad = this.unrepliedPage === 0;
-    console.log('Loading page:', this.unrepliedPage, 'Initial:', isInitialLoad);
+    console.log(`📄 Loading page ${this.unrepliedPage}...`);
+    this.loadingMoreUnreplied = true;
 
-    if (isInitialLoad) {
-      this.loading = true;
-    } else {
-      this.loadingMoreUnreplied = true;
-    }
+    // Simulate async operation with setTimeout to show loading state
+    setTimeout(() => {
+      const skip = this.unrepliedPage * this.unrepliedPageSize;
+      const pageEmails = this.allUnrepliedEmails.slice(
+        skip,
+        skip + this.unrepliedPageSize
+      );
 
-    this.activityService.getUnrepliedEmails(this.maxHoursOld).subscribe({
-      next: (response) => {
-        console.log('🔍 UNREPLIED EMAILS RESPONSE:', response);
-        console.log('🔍 Response success:', response.success);
-        console.log('🔍 Response data length:', response.data?.length);
-        if (response.success) {
-          const allEmails = response.data;
-          console.log('🔍 First 3 unreplied emails:', allEmails.slice(0, 3));
-          const skip = this.unrepliedPage * this.unrepliedPageSize;
-          const pageEmails = allEmails.slice(
-            skip,
-            skip + this.unrepliedPageSize
-          );
+      console.log('📊 Pagination details:', {
+        totalEmails: this.allUnrepliedEmails.length,
+        currentPage: this.unrepliedPage,
+        skip: skip,
+        pageSize: this.unrepliedPageSize,
+        loadedInThisPage: pageEmails.length,
+        currentTotal: this.unrepliedEmails.length,
+      });
 
-          console.log('Pagination:', {
-            totalEmails: allEmails.length,
-            skip: skip,
-            pageSize: this.unrepliedPageSize,
-            loadedInThisPage: pageEmails.length,
-            currentTotal: this.unrepliedEmails.length,
-          });
+      this.unrepliedEmails = [...this.unrepliedEmails, ...pageEmails];
+      this.hasMoreUnreplied =
+        skip + this.unrepliedPageSize < this.allUnrepliedEmails.length;
+      this.unrepliedPage++;
 
-          this.unrepliedEmails = [...this.unrepliedEmails, ...pageEmails];
-          this.unrepliedCount = allEmails.length;
-          this.hasMoreUnreplied =
-            skip + this.unrepliedPageSize < allEmails.length;
-          this.unrepliedPage++;
+      console.log(
+        `✅ Loaded ${pageEmails.length} emails. Total displayed: ${this.unrepliedEmails.length}/${this.unrepliedCount}`
+      );
+      console.log(`📌 Has more: ${this.hasMoreUnreplied}`);
 
-          console.log(
-            '✅ Loaded unreplied emails total:',
-            this.unrepliedEmails.length
-          );
-          console.log('✅ Unreplied count:', this.unrepliedCount);
-          console.log('✅ Has more:', this.hasMoreUnreplied);
-          console.log('✅ Filter type:', this.filterType);
-        }
-        this.loading = false;
-        this.loadingMoreUnreplied = false;
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('❌ Error loading unreplied emails:', err);
-        this.handleError('Failed to load unreplied emails', err);
-        this.loadingMoreUnreplied = false;
-      },
-    });
+      this.loadingMoreUnreplied = false;
+      this.cdr.detectChanges();
+    }, 300); // Small delay to show loading indicator
   }
 
   /**
@@ -638,27 +714,41 @@ export class ActivitiesComponent implements OnInit {
    */
   onTableScroll(event: Event): void {
     const element = event.target as HTMLElement;
-    const threshold = 100; // pixels from bottom to trigger load
+    const threshold = 200; // pixels from bottom to trigger load (increased for better UX)
     const position = element.scrollTop + element.clientHeight;
     const height = element.scrollHeight;
 
-    console.log('📜 Scroll event:', {
-      position,
-      height,
-      threshold,
-      nearBottom: position > height - threshold,
-      filterType: this.filterType,
-    });
+    const nearBottom = position > height - threshold;
 
-    if (position > height - threshold) {
+    // Only log when near bottom to reduce console noise
+    if (nearBottom) {
+      console.log('📜 Near bottom - scroll details:', {
+        position,
+        height,
+        threshold,
+        remaining: height - position,
+        filterType: this.filterType,
+        hasMore:
+          this.filterType === 'unreplied'
+            ? this.hasMoreUnreplied
+            : this.hasMoreActivities,
+        loading:
+          this.filterType === 'unreplied'
+            ? this.loadingMoreUnreplied
+            : this.loadingMore,
+      });
+    }
+
+    if (nearBottom) {
       if (
         this.filterType === 'unreplied' &&
         !this.loadingMoreUnreplied &&
         this.hasMoreUnreplied
       ) {
-        console.log('Triggering load more unreplied emails...');
+        console.log('🔄 Triggering load more unreplied emails...');
         this.loadMoreUnrepliedEmails();
       } else if (!this.loadingMore && this.hasMoreActivities) {
+        console.log('🔄 Triggering load more activities...');
         this.loadMoreActivities();
       }
     }
@@ -703,16 +793,30 @@ export class ActivitiesComponent implements OnInit {
    * View email details
    */
   viewEmailDetails(email: UnrepliedEmail): void {
+    console.log('Clicked unreplied email:', email);
+    console.log('Fetching activity details for ID:', email.activityId);
+
     // Fetch full activity details and open modal
     this.activityService.getActivityById(email.activityId).subscribe({
       next: (response) => {
+        console.log('Activity details response:', response);
         if (response.success && response.data) {
           this.selectedActivity = response.data;
           this.showModal = true;
+          console.log('Modal opened with activity:', this.selectedActivity);
+        } else {
+          console.warn('Failed to load activity details:', response.message);
+          alert(
+            'Failed to load email details: ' +
+              (response.message || 'Unknown error')
+          );
         }
       },
       error: (err) => {
         console.error('Error loading email details:', err);
+        const errorMessage =
+          err.error?.message || err.message || 'Please try again.';
+        alert('Error loading email details: ' + errorMessage);
       },
     });
   }

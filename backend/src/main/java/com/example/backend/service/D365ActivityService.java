@@ -186,12 +186,18 @@ public class D365ActivityService {
 
             String token = authService.getAccessToken();
 
+            // Build query with proper $select and $expand to match getAllActivities
+            String query = "?$select=activityid,subject,description,activitytypecode," +
+                    "statecode,statuscode,_owninguser_value,_regardingobjectid_value," +
+                    "createdon,modifiedon,actualstart,actualend," +
+                    "scheduledstart,scheduledend,actualdurationminutes,scheduleddurationminutes," +
+                    "prioritycode&" +
+                    "$expand=regardingobjectid_account($select=name)," +
+                    "regardingobjectid_contact($select=fullname)," +
+                    "owninguser($select=fullname,internalemailaddress,title)";
+
             String response = webClient.get()
-                    .uri("/activitypointers(" + activityId + ")?$select=activityid,subject,description," +
-                            "activitytypecode,statecode,statuscode,_owninguser_value," +
-                            "_regardingobjectid_value,regardingobjecttypecode,createdon,modifiedon," +
-                            "actualstart,actualend,scheduledstart,scheduledend,actualdurationminutes," +
-                            "scheduleddurationminutes,prioritycode")
+                    .uri("/activitypointers(" + activityId + ")" + query)
                     .header("Authorization", "Bearer " + token)
                     .retrieve()
                     .bodyToMono(String.class)
@@ -199,6 +205,21 @@ public class D365ActivityService {
                     .block();
 
             Activity activity = objectMapper.readValue(response, Activity.class);
+
+            // Enrich with staff information
+            List<Activity> enriched = enrichActivitiesWithStaffInfo(List.of(activity));
+            if (!enriched.isEmpty()) {
+                activity = enriched.get(0);
+            }
+
+            // Enrich email-specific details if it's an email activity
+            if ("email".equalsIgnoreCase(activity.getActivityType())) {
+                enriched = enrichEmailActivitiesSimple(List.of(activity));
+                if (!enriched.isEmpty()) {
+                    activity = enriched.get(0);
+                }
+            }
+
             log.info("Successfully fetched activity: {}", activity.getSubject());
             return Optional.of(activity);
 

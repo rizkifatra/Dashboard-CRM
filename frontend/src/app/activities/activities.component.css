@@ -1237,6 +1237,9 @@
 /* Section Title */
 .section-title-bar {
     margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .filter-section-title {
@@ -1244,6 +1247,58 @@
     font-weight: 600;
     color: #374151;
     margin: 0;
+}
+
+.refresh-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.refresh-btn {
+    background: #6D5DFF;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.refresh-btn:hover {
+    background: #5A4DE6;
+    transform: translateY(-1px);
+}
+
+.refresh-btn:active {
+    transform: translateY(0);
+}
+
+.auto-refresh-indicator {
+    font-size: 12px;
+    color: #10B981;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
 }
 
 /* Simple Tab Buttons */
@@ -1542,6 +1597,21 @@
     to {
         transform: rotate(360deg);
     }
+}
+
+/* End of List Indicator */
+.end-of-list {
+    padding: 24px 20px;
+    text-align: center;
+    border-top: 1px solid #E5E7EB;
+    margin-top: 12px;
+}
+
+.end-of-list p {
+    margin: 0;
+    font-size: 13px;
+    color: #10B981;
+    font-weight: 500;
 }
 
 /* Loading & Error States */

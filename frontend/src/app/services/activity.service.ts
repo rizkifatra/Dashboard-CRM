@@ -214,12 +214,17 @@ export class ActivityService {
 
   /**
    * Get unreplied incoming emails for reminder system
-   * @param maxHoursOld Maximum age of emails to check (default: 168 hours / 7 days)
+   * @param maxHoursOld Maximum age of emails to check (null = all time, undefined = use default)
    */
   getUnrepliedEmails(
-    maxHoursOld: number = 168
+    maxHoursOld?: number | null
   ): Observable<ApiResponse<UnrepliedEmail[]>> {
-    let params = new HttpParams().set('maxHoursOld', maxHoursOld.toString());
+    let params = new HttpParams();
+
+    // Only add maxHoursOld parameter if it's a number (not null or undefined)
+    if (maxHoursOld !== null && maxHoursOld !== undefined) {
+      params = params.set('maxHoursOld', maxHoursOld.toString());
+    }
 
     return this.http.get<ApiResponse<UnrepliedEmail[]>>(
       `${this.apiUrl}/unreplied`,

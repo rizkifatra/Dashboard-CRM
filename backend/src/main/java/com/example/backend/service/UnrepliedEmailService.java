@@ -32,35 +32,39 @@ public class UnrepliedEmailService {
                 .baseUrl(d365Config.getBaseUrl())
                 .codecs(configurer -> configurer
                         .defaultCodecs()
-                        .maxInMemorySize(50 * 1024 * 1024)) // 50MB buffer size for large email responses
+                        .maxInMemorySize(100 * 1024 * 1024)) // 100MB buffer size for large email responses with
+                                                             // email_activity_parties
                 .build();
     }
 
     /**
      * Get unreplied emails for Bintara staff
      * An email is considered unreplied if:
-     * 1. It was received by Bintara staff (incoming, directionCode=false)
-     * 2. No outgoing email with matching subject was sent after receiving it
+     * 1. It was received by Bintara staff (incoming from external clients)
+     * 2. Sent TO @bintara.com.my addresses
+     * 3. FROM external (non-@bintara.com.my) addresses
+     * 4. No outgoing reply from Bintara staff has been sent
      */
     public List<UnrepliedEmail> getUnrepliedEmails(Integer maxHoursOld) {
         try {
             log.info("=== Starting Unreplied Email Detection ===");
-            log.info("Time window: {} hours", maxHoursOld);
+            log.info("Time window: {} hours (null = all time)", maxHoursOld);
 
-            // Calculate cutoff time first
+            // Calculate cutoff time - if null, go back 1 year to get all emails
             ZonedDateTime cutoffTime = maxHoursOld != null
                     ? ZonedDateTime.now().minusHours(maxHoursOld)
-                    : ZonedDateTime.now().minusDays(30);
-            log.info("Cutoff time: {}", cutoffTime);
+                    : ZonedDateTime.now().minusYears(1); // Go back 1 year for "all time"
+            log.info("Cutoff time: {} ({})", cutoffTime, maxHoursOld == null ? "ALL TIME" : maxHoursOld + " hours");
 
             // Get access token
             String token = authService.getAccessToken();
 
-            // Fetch emails from /emails endpoint with date filter
-            // Format: createdon ge 2025-12-15T00:00:00Z
+            // Fetch emails with more fields including from/to for direction detection
             String dateFilter = String.format("createdon ge %s", cutoffTime.toString().substring(0, 19) + "Z");
             String uri = "/emails?$select=activityid,subject,directioncode,createdon,modifiedon,description," +
-                    "statecode,statuscode&$filter=" + dateFilter + "&$top=1000";
+                    "statecode,statuscode,sender&" +
+                    "$expand=email_activity_parties($select=participationtypemask,addressused)&" +
+                    "$filter=" + dateFilter + "&$top=500&$orderby=createdon desc";
 
             log.debug("Fetching emails from: {}", uri);
 
@@ -69,7 +73,7 @@ public class UnrepliedEmailService {
                     .header("Authorization", "Bearer " + token)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(60000)) // Increase timeout to 60 seconds
+                    .timeout(Duration.ofMillis(60000))
                     .block();
 
             D365Response<Activity> d365Response = objectMapper.readValue(
@@ -84,80 +88,82 @@ public class UnrepliedEmailService {
                 return new ArrayList<>();
             }
 
-            // Treat all emails as potential candidates
-            // We'll filter by checking for replies based on subject matching
-            List<Activity> allEmailsList = new ArrayList<>(allEmails);
+            // Separate incoming and outgoing emails
+            List<Activity> incomingEmails = new ArrayList<>();
+            List<Activity> outgoingEmails = new ArrayList<>();
 
-            log.info("Processing {} total emails for unreplied detection", allEmailsList.size());
+            for (Activity email : allEmails) {
+                if (isIncomingEmail(email)) {
+                    incomingEmails.add(email);
+                } else {
+                    outgoingEmails.add(email);
+                }
+            }
 
-            // Create a set of normalized subjects from ALL emails for matching
-            Set<String> allSubjects = allEmailsList.stream()
-                    .map(Activity::getSubject)
-                    .filter(Objects::nonNull)
-                    .map(this::normalizeSubject)
-                    .collect(Collectors.toSet());
+            log.info("Separated: {} incoming, {} outgoing emails", incomingEmails.size(), outgoingEmails.size());
 
-            log.info("Normalized {} unique subjects for matching", allSubjects.size());
-
-            // Find unreplied emails - emails with unique subjects that don't have a
-            // matching reply
-            // Group by normalized subject and find those with only one occurrence
-            Map<String, List<Activity>> emailsBySubject = allEmailsList.stream()
+            // Group outgoing emails by normalized subject for quick lookup
+            Map<String, List<Activity>> outgoingBySubject = outgoingEmails.stream()
                     .filter(email -> email.getSubject() != null && !email.getSubject().trim().isEmpty())
                     .collect(Collectors.groupingBy(email -> normalizeSubject(email.getSubject())));
 
             List<UnrepliedEmail> unrepliedEmails = new ArrayList<>();
-            int noSubjectCount = 0;
             int repliedCount = 0;
+            int noSubjectCount = 0;
 
-            for (Activity email : allEmailsList) {
-                String subject = email.getSubject();
+            // Check each incoming email for replies
+            for (Activity incomingEmail : incomingEmails) {
+                String subject = incomingEmail.getSubject();
+
                 if (subject == null || subject.trim().isEmpty()) {
                     noSubjectCount++;
                     continue;
                 }
 
                 String normalizedSubject = normalizeSubject(subject);
-                List<Activity> matchingEmails = emailsBySubject.get(normalizedSubject);
+                ZonedDateTime incomingTime = ZonedDateTime.parse(incomingEmail.getCreatedOn());
 
-                // An email is unreplied if:
-                // 1. It's the only email with this subject (no replies)
-                // 2. OR it doesn't start with RE:/FW: and there's no reply to it
-                boolean hasReply = false;
-                boolean isOriginalEmail = !subject.toLowerCase().trim().startsWith("re:") &&
-                        !subject.toLowerCase().trim().startsWith("fw:") &&
-                        !subject.toLowerCase().trim().startsWith("fwd:");
+                // Check if there's an outgoing reply sent AFTER this incoming email
+                List<Activity> possibleReplies = outgoingBySubject.getOrDefault(normalizedSubject, new ArrayList<>());
 
-                if (matchingEmails != null && matchingEmails.size() > 1 && isOriginalEmail) {
-                    // Check if there's any email that starts with RE: or FW: (indicating a reply)
-                    hasReply = matchingEmails.stream()
-                            .anyMatch(e -> e.getSubject() != null && !e.getActivityId().equals(email.getActivityId()) &&
-                                    (e.getSubject().toLowerCase().trim().startsWith("re:") ||
-                                            e.getSubject().toLowerCase().trim().startsWith("fw:") ||
-                                            e.getSubject().toLowerCase().trim().startsWith("fwd:")));
-                }
+                boolean hasReply = possibleReplies.stream()
+                        .anyMatch(reply -> {
+                            try {
+                                ZonedDateTime replyTime = ZonedDateTime.parse(reply.getCreatedOn());
+                                // Reply must be sent AFTER the incoming email
+                                return replyTime.isAfter(incomingTime);
+                            } catch (Exception e) {
+                                return false;
+                            }
+                        });
 
-                // Only show original emails (not RE:/FW:) that don't have replies
-                if (isOriginalEmail && !hasReply) {
-                    log.info("✗ UNREPLIED: '{}' (created: {})",
-                            subject, email.getCreatedOn());
+                if (!hasReply) {
+                    log.info("✗ UNREPLIED: '{}' (from: {}, created: {})",
+                            subject, incomingEmail.getSender(), incomingEmail.getCreatedOn());
 
                     // Calculate time-based metadata
-                    long hoursUnreplied = calculateHoursUnreplied(email.getCreatedOn());
+                    long hoursUnreplied = calculateHoursUnreplied(incomingEmail.getCreatedOn());
                     String urgencyLevel = determineUrgencyLevel(hoursUnreplied);
                     String ageCategory = determineAgeCategory(hoursUnreplied);
                     boolean isOverdue = hoursUnreplied > 48;
 
+                    // Extract Bintara recipient staff from email parties (participationTypeMask =
+                    // 2)
+                    String recipientStaffEmail = extractBintaraRecipient(incomingEmail);
+                    String recipientStaffName = recipientStaffEmail != null ? extractNameFromEmail(recipientStaffEmail)
+                            : null;
+
                     UnrepliedEmail unreplied = UnrepliedEmail.builder()
-                            .activityId(email.getActivityId())
+                            .activityId(incomingEmail.getActivityId())
                             .subject(subject)
-                            .fromEmail("Staff Member")
-                            .sender("Staff Member")
-                            .description(email.getDescription())
-                            .assignedTo(null)
-                            .assignedToName("Staff Member")
-                            .createdOn(email.getCreatedOn())
-                            .modifiedOn(email.getModifiedOn())
+                            .fromEmail(
+                                    incomingEmail.getSender() != null ? incomingEmail.getSender() : "External Client")
+                            .sender(incomingEmail.getSender() != null ? incomingEmail.getSender() : "External Client")
+                            .description(incomingEmail.getDescription())
+                            .assignedTo(recipientStaffEmail)
+                            .assignedToName(recipientStaffName)
+                            .createdOn(incomingEmail.getCreatedOn())
+                            .modifiedOn(incomingEmail.getModifiedOn())
                             .hoursUnreplied(hoursUnreplied)
                             .urgencyLevel(urgencyLevel)
                             .ageCategory(ageCategory)
@@ -170,13 +176,13 @@ public class UnrepliedEmailService {
                     unrepliedEmails.add(unreplied);
                 } else {
                     repliedCount++;
-                    log.debug("✓ REPLIED: '{}'", subject);
+                    log.debug("✓ REPLIED: '{}' (reply sent after incoming)", subject);
                 }
             }
 
             log.info("=== Detection Complete ===");
-            log.info("Total emails: {}, Replied: {}, Unreplied: {}, No subject: {}",
-                    allEmailsList.size(), repliedCount, unrepliedEmails.size(), noSubjectCount);
+            log.info("Incoming: {}, Replied: {}, Unreplied: {}, No subject: {}",
+                    incomingEmails.size(), repliedCount, unrepliedEmails.size(), noSubjectCount);
 
             return unrepliedEmails;
 
@@ -253,23 +259,117 @@ public class UnrepliedEmailService {
     }
 
     /**
-     * Determine if email is incoming based on recipient
-     * Email is considered incoming if sent TO a @bintara.com.my address
+     * Determine if email is incoming (received from external clients)
+     * Uses participationTypeMask from email_activity_parties:
+     * - participationTypeMask = 2: To/Recipient (incoming to Bintara staff)
+     * - participationTypeMask = 3: From/Sender (outgoing from Bintara staff)
+     * 
+     * An email is incoming if it has participants with typeMask=2 AND addresses
+     * are @bintara.com.my
      */
-    private boolean isEmailIncoming(Activity email) {
-        String toEmail = email.getToEmail();
-        String fromEmail = email.getFromEmail();
-
-        // Check if TO field contains @bintara.com.my
-        if (toEmail != null && toEmail.toLowerCase().contains("@bintara.com.my")) {
-            return true;
+    private boolean isIncomingEmail(Activity email) {
+        if (email.getEmailActivityParties() == null || email.getEmailActivityParties().isEmpty()) {
+            log.warn("No email_activity_parties found for email: {}", email.getActivityId());
+            return false;
         }
 
-        // If FROM field does NOT contain @bintara.com.my, it's likely incoming
-        if (fromEmail != null && !fromEmail.toLowerCase().contains("@bintara.com.my")) {
-            return true;
+        // Check if any participant is a TO recipient (@bintara.com.my receiving the
+        // email)
+        boolean hasIncomingToRecipient = email.getEmailActivityParties().stream()
+                .anyMatch(party -> {
+                    Integer typeMask = party.getParticipationTypeMask();
+                    String address = party.getAddressUsed();
+
+                    // typeMask = 2 means TO/Recipient
+                    boolean isToRecipient = typeMask != null && typeMask == 2;
+                    boolean isBintaraAddress = address != null && address.toLowerCase().contains("@bintara.com.my");
+
+                    if (isToRecipient && isBintaraAddress) {
+                        log.debug("Found incoming TO recipient: {} with typeMask: {}", address, typeMask);
+                        return true;
+                    }
+                    return false;
+                });
+
+        // Check if FROM is external (typeMask = 3 but NOT @bintara.com.my)
+        boolean hasExternalSender = email.getEmailActivityParties().stream()
+                .anyMatch(party -> {
+                    Integer typeMask = party.getParticipationTypeMask();
+                    String address = party.getAddressUsed();
+
+                    // typeMask = 3 means FROM/Sender
+                    boolean isFromSender = typeMask != null && typeMask == 3;
+                    boolean isExternalAddress = address != null && !address.toLowerCase().contains("@bintara.com.my");
+
+                    return isFromSender && isExternalAddress;
+                });
+
+        boolean isIncoming = hasIncomingToRecipient && hasExternalSender;
+
+        if (isIncoming) {
+            log.debug("Email {} classified as INCOMING (external sender to Bintara recipient)",
+                    email.getActivityId());
         }
 
-        return false;
+        return isIncoming;
+    }
+
+    /**
+     * Extract the Bintara staff email who received this email
+     * Looks for participationTypeMask = 2 (To/Recipient) with @bintara.com.my
+     */
+    private String extractBintaraRecipient(Activity email) {
+        if (email.getEmailActivityParties() == null || email.getEmailActivityParties().isEmpty()) {
+            return null;
+        }
+
+        return email.getEmailActivityParties().stream()
+                .filter(party -> {
+                    Integer typeMask = party.getParticipationTypeMask();
+                    String address = party.getAddressUsed();
+                    return typeMask != null && typeMask == 2 &&
+                            address != null && address.toLowerCase().contains("@bintara.com.my");
+                })
+                .map(party -> party.getAddressUsed())
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Extract a friendly name from email address
+     * Converts "bunga@bintara.com.my" to "Bunga"
+     * Converts "faiz.muhammad@bintara.com.my" to "Faiz Muhammad"
+     */
+    private String extractNameFromEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return null;
+        }
+
+        try {
+            // Get the part before @
+            String localPart = email.substring(0, email.indexOf("@"));
+
+            // Replace dots and underscores with spaces
+            String name = localPart.replace(".", " ").replace("_", " ");
+
+            // Capitalize each word
+            String[] words = name.split("\\s+");
+            StringBuilder formattedName = new StringBuilder();
+
+            for (String word : words) {
+                if (!word.isEmpty()) {
+                    if (formattedName.length() > 0) {
+                        formattedName.append(" ");
+                    }
+                    formattedName.append(word.substring(0, 1).toUpperCase())
+                            .append(word.substring(1).toLowerCase());
+                }
+            }
+
+            return formattedName.toString();
+        } catch (Exception e) {
+            log.warn("Error extracting name from email: {}", email, e);
+            return null;
+        }
     }
 }

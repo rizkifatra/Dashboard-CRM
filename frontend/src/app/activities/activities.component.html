@@ -87,6 +87,11 @@
     <div class="email-code-section" *ngIf="filterType === 'unreplied'">
         <div class="section-title-bar">
             <h3 class="filter-section-title">Unreplied Emails ({{ getFilteredUnrepliedEmails().length }})</h3>
+            <div class="refresh-controls">
+                <span class="auto-refresh-indicator" *ngIf="autoRefreshEnabled">
+                 Auto-refreshing every {{ refreshIntervalMinutes }}min
+                </span>
+            </div>
         </div>
 
         <!-- Email Code Filter for Unreplied -->
@@ -140,8 +145,7 @@
                     </div>
                 </div>
                 <div class="row-right">
-                    <span class="staff">{{ email.assignedToName || email.assignedTo || 'Staff Member' }}</span>
-                    <span class="direction">📥</span>
+                    <span class="staff">{{ email.assignedToName || email.assignedTo || 'Recipient Staff' }}</span>
                     <span class="date">{{ getRelativeTime(email.createdOn) }}</span>
                 </div>
             </div>
@@ -150,6 +154,11 @@
             <div *ngIf="loadingMoreUnreplied" class="loading-more">
                 <div class="spinner"></div>
                 <p>Loading more emails...</p>
+            </div>
+
+            <!-- End of List Indicator -->
+            <div *ngIf="!loadingMoreUnreplied && !hasMoreUnreplied && unrepliedEmails.length > 0" class="end-of-list">
+                <p>✓ All unreplied emails loaded ({{ unrepliedEmails.length }} total)</p>
             </div>
         </div>
     </div>
@@ -248,7 +257,6 @@
                 </div>
                 <div class="row-right">
                     <span class="staff">{{ activity.staffName }}</span>
-                    <span class="direction">{{ activity.direction === 'outgoing' ? '📤' : '📥' }}</span>
                     <span class="date">{{ getRelativeTime(activity.createdOn) }}</span>
                 </div>
             </div>
@@ -273,9 +281,7 @@
                     <h2 class="modal-title">{{ selectedActivity.subject }}</h2>
                     <div class="modal-badges">
                         <span class="type-badge">{{ selectedActivity.activityType }}</span>
-                        <span class="direction-badge" [class]="selectedActivity.direction">
-                            {{ selectedActivity.direction === 'outgoing' ? '📤 Sent' : '📥 Received' }}
-                        </span>
+
                     </div>
                 </div>
                 <button class="close-button" (click)="closeModal()">✕</button>

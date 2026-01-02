@@ -77,7 +77,11 @@ public class ActivityController {
                         .data(activity.get())
                         .build());
             } else {
-                return ResponseEntity.notFound().build();
+                return ResponseEntity.status(404)
+                        .body(ApiResponse.<Activity>builder()
+                                .success(false)
+                                .message("Activity not found with ID: " + id)
+                                .build());
             }
 
         } catch (Exception e) {
@@ -379,15 +383,14 @@ public class ActivityController {
      * Get unreplied incoming emails for reminder system
      * Helps track emails that haven't been responded to yet
      * 
-     * @param maxHoursOld Optional maximum age in hours (default: 168 hours / 7
-     *                    days)
+     * @param maxHoursOld Optional maximum age in hours (null = all time)
      * @return List of unreplied emails with urgency levels and aging metadata
      */
     @GetMapping("/unreplied")
     public ResponseEntity<ApiResponse<List<com.example.backend.model.UnrepliedEmail>>> getUnrepliedEmails(
-            @RequestParam(required = false, defaultValue = "168") Integer maxHoursOld) {
+            @RequestParam(required = false) Integer maxHoursOld) {
         try {
-            log.info("GET /api/activities/unreplied - maxHoursOld: {}", maxHoursOld);
+            log.info("GET /api/activities/unreplied - maxHoursOld: {} (null = all time)", maxHoursOld);
 
             List<com.example.backend.model.UnrepliedEmail> unrepliedEmails = unrepliedEmailService
                     .getUnrepliedEmails(maxHoursOld);
