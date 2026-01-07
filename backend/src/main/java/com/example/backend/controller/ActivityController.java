@@ -318,16 +318,20 @@ public class ActivityController {
     /**
      * Get email statistics (incoming/outgoing counts) for a staff member
      * 
-     * @param email Staff member's email
+     * @param email    Staff member's email
+     * @param fromDate Optional start date filter (YYYY-MM-DD)
+     * @param toDate   Optional end date filter (YYYY-MM-DD)
      * @return Email statistics with counts
      */
     @GetMapping("/emails/stats/{email}")
     public ResponseEntity<ApiResponse<com.example.backend.model.EmailStats>> getEmailStats(
-            @PathVariable String email) {
+            @PathVariable String email,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate) {
         try {
-            log.info("GET /api/activities/emails/stats/{}", email);
+            log.info("GET /api/activities/emails/stats/{} - FromDate: {}, ToDate: {}", email, fromDate, toDate);
 
-            com.example.backend.model.EmailStats stats = activityService.getEmailStatsByStaff(email);
+            com.example.backend.model.EmailStats stats = activityService.getEmailStatsByStaff(email, fromDate, toDate);
 
             return ResponseEntity.ok(ApiResponse.<com.example.backend.model.EmailStats>builder()
                     .success(true)
@@ -407,6 +411,38 @@ public class ActivityController {
                     .body(ApiResponse.<List<com.example.backend.model.UnrepliedEmail>>builder()
                             .success(false)
                             .message("Failed to retrieve unreplied emails: " + e.getMessage())
+                            .build());
+        }
+    }
+
+    /**
+     * Get overall email statistics for all Bintara staff
+     * 
+     * @param fromDate Optional start date filter (YYYY-MM-DD)
+     * @param toDate   Optional end date filter (YYYY-MM-DD)
+     * @return Overall email statistics
+     */
+    @GetMapping("/emails/overall-stats")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getOverallEmailStats(
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate) {
+        try {
+            log.info("GET /api/activities/emails/overall-stats - FromDate: {}, ToDate: {}", fromDate, toDate);
+
+            java.util.Map<String, Object> stats = activityService.getOverallEmailStats(fromDate, toDate);
+
+            return ResponseEntity.ok(ApiResponse.<java.util.Map<String, Object>>builder()
+                    .success(true)
+                    .message("Successfully retrieved overall email statistics")
+                    .data(stats)
+                    .build());
+
+        } catch (Exception e) {
+            log.error("Error retrieving overall email statistics", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.<java.util.Map<String, Object>>builder()
+                            .success(false)
+                            .message("Failed to retrieve overall statistics: " + e.getMessage())
                             .build());
         }
     }

@@ -3,6 +3,7 @@ package com.example.backend.service;
 import com.example.backend.config.D365Config;
 import com.example.backend.model.Activity;
 import com.example.backend.model.D365Response;
+import com.example.backend.model.EmailActivityParty;
 import com.example.backend.model.UnrepliedEmail;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -261,11 +262,15 @@ public class UnrepliedEmailService {
     /**
      * Determine if email is incoming (received from external clients)
      * Uses participationTypeMask from email_activity_parties:
-     * - participationTypeMask = 2: To/Recipient (incoming to Bintara staff)
-     * - participationTypeMask = 3: From/Sender (outgoing from Bintara staff)
+     * - participationTypeMask = 1: From/Sender
+     * - participationTypeMask = 2: To/Recipient
      * 
-     * An email is incoming if it has participants with typeMask=2 AND addresses
-     * are @bintara.com.my
+     * An email is INCOMING if:
+     * 1. Has external company email in FROM (typeMask=1, NOT @bintara.com.my, NOT
+     * personal email)
+     * 2. Has @bintara.com.my in TO (typeMask=2)
+     * 
+     * Personal email domains (Gmail, Yahoo, Hotmail, etc.) are excluded.
      * 
      * FALLBACK: If emailActivityParties is missing, check fromEmail/toEmail fields
      */
@@ -278,114 +283,135 @@ public class UnrepliedEmailService {
 
             String fromEmail = email.getFromEmail();
             String toEmail = email.getToEmail();
-            String staffEmail = email.getStaffEmail();
 
             // If we have fromEmail/toEmail data, use it
-            if (fromEmail != null || toEmail != null) {
-                // Incoming: FROM is external AND TO contains @bintara.com.my
-                boolean hasExternalFrom = fromEmail != null && !fromEmail.toLowerCase().contains("@bintara.com.my");
+            if (fromEmail != null && toEmail != null) {
+                // Incoming: FROM is external company (not Bintara, not personal) AND TO
+                // contains @bintara.com.my
+                boolean hasExternalCompanyFrom = fromEmail != null
+                        && !fromEmail.toLowerCase().contains("@bintara.com.my")
+                        && !isPersonalEmailDomain(fromEmail);
                 boolean hasBintaraTo = toEmail != null && toEmail.toLowerCase().contains("@bintara.com.my");
 
-                boolean isIncoming = hasExternalFrom && hasBintaraTo;
+                boolean isIncoming = hasExternalCompanyFrom && hasBintaraTo;
 
                 if (isIncoming) {
-                    log.info("✓ FALLBACK INCOMING: '{}' | FROM: {} | TO: {}",
+                    log.info("✓ FALLBACK INCOMING: '{}' | FROM: {} (external company) | TO: {} (Bintara)",
                             email.getSubject() != null ? email.getSubject() : "No Subject",
                             fromEmail, toEmail);
                 } else {
                     log.debug("✗ FALLBACK OUTGOING: '{}' | FROM: {} | TO: {} | Reason: {} {}",
                             email.getSubject() != null ? email.getSubject() : "No Subject",
                             fromEmail, toEmail,
-                            !hasExternalFrom ? "FROM is Bintara or null" : "",
+                            !hasExternalCompanyFrom ? "FROM is Bintara/personal/null" : "",
                             !hasBintaraTo ? "TO is external or null" : "");
                 }
 
                 return isIncoming;
             }
 
-            // LAST RESORT: No participant data AND no fromEmail/toEmail
-            // If owned by Bintara staff, treat as incoming (assigned to them)
-            if (staffEmail != null && staffEmail.toLowerCase().contains("@bintara.com.my")) {
-                log.info("✓ FALLBACK INCOMING (orphaned email): '{}' | Assigned to owner: {}",
-                        email.getSubject() != null ? email.getSubject() : "No Subject",
-                        staffEmail);
-                return true;
-            }
-
-            // No data at all - default to outgoing
+            // No data at all - default to outgoing (don't show in unreplied list)
             log.debug("✗ FALLBACK OUTGOING: '{}' | No participant or direction data available",
                     email.getSubject() != null ? email.getSubject() : "No Subject");
             return false;
         }
 
-        // Check if any participant is a TO recipient (@bintara.com.my receiving the
-        // email)
-        boolean hasIncomingToRecipient = email.getEmailActivityParties().stream()
-                .anyMatch(party -> {
-                    Integer typeMask = party.getParticipationTypeMask();
-                    String address = party.getAddressUsed();
+        // Analyze all participants to determine email direction
+        boolean hasBintaraInTO = false;
+        boolean hasExternalCompanyInFROM = false;
+        String bintaraRecipient = null;
+        String externalSender = null;
 
-                    // typeMask = 2 means TO/Recipient
-                    boolean isToRecipient = typeMask != null && typeMask == 2;
-                    boolean isBintaraAddress = address != null && address.toLowerCase().contains("@bintara.com.my");
+        for (EmailActivityParty party : email.getEmailActivityParties()) {
+            Integer participationType = party.getParticipationTypeMask();
+            String address = party.getAddressUsed();
 
-                    if (isToRecipient && isBintaraAddress) {
-                        log.debug("Found incoming TO recipient: {} with typeMask: {}", address, typeMask);
-                        return true;
+            if (address == null || address.isEmpty() || participationType == null) {
+                continue;
+            }
+
+            String lowerAddress = address.toLowerCase();
+
+            // Check for Bintara recipient (TO = participationType 2)
+            if (participationType == 2 && lowerAddress.contains("@bintara.com.my")) {
+                hasBintaraInTO = true;
+                if (bintaraRecipient == null) {
+                    bintaraRecipient = address;
+                }
+                log.debug("Found Bintara in TO: {} (participationType=2)", address);
+            }
+
+            // Check for external company sender (FROM = participationType 1)
+            if (participationType == 1) {
+                boolean isExternal = !lowerAddress.contains("@bintara.com.my");
+                boolean isCompany = !isPersonalEmailDomain(address);
+
+                if (isExternal && isCompany) {
+                    hasExternalCompanyInFROM = true;
+                    if (externalSender == null) {
+                        externalSender = address;
                     }
-                    return false;
-                });
-
-        // Check if FROM is external (typeMask = 3 but NOT @bintara.com.my)
-        boolean hasExternalSender = email.getEmailActivityParties().stream()
-                .anyMatch(party -> {
-                    Integer typeMask = party.getParticipationTypeMask();
-                    String address = party.getAddressUsed();
-
-                    // typeMask = 3 means FROM/Sender
-                    boolean isFromSender = typeMask != null && typeMask == 3;
-                    boolean isExternalAddress = address != null && !address.toLowerCase().contains("@bintara.com.my");
-
-                    return isFromSender && isExternalAddress;
-                });
-
-        // Special case: If email has TO recipient (@bintara.com.my) but FROM is
-        // internal (or missing),
-        // treat as incoming. This handles:
-        // 1. Personal emails sent to work address (test emails)
-        // 2. Emails with incomplete participant data
-        // 3. Self-assigned tasks
-        boolean isSelfAssignedTask = hasIncomingToRecipient && !hasExternalSender;
-
-        if (isSelfAssignedTask) {
-            log.debug("Email '{}' treated as incoming (has @bintara TO recipient, FROM is internal/missing)",
-                    email.getSubject());
+                    log.debug("Found external company in FROM: {} (participationType=1)", address);
+                }
+            }
         }
 
-        boolean isIncoming = (hasIncomingToRecipient && hasExternalSender) || isSelfAssignedTask;
+        // Email is INCOMING only if it has BOTH:
+        // 1. External company sender in FROM (participationType=1)
+        // 2. Bintara recipient in TO (participationType=2)
+        boolean isIncoming = hasBintaraInTO && hasExternalCompanyInFROM;
 
         // Enhanced logging with subject and classification reason
         String subject = email.getSubject() != null ? email.getSubject() : "No Subject";
         if (isIncoming) {
-            String reason = isSelfAssignedTask ? "Self-assigned task (internal/test email to Bintara staff)"
-                    : "Has @bintara TO recipient + external FROM";
-            log.info("✓ INCOMING: '{}' | ActivityID: {} | Reason: {}",
+            log.info("✓ INCOMING: '{}' | FROM: {} → TO: {} | ActivityID: {}",
                     subject.length() > 50 ? subject.substring(0, 50) + "..." : subject,
-                    email.getActivityId(), reason);
+                    externalSender != null ? externalSender : "unknown",
+                    bintaraRecipient != null ? bintaraRecipient : "unknown",
+                    email.getActivityId());
         } else {
             String reason = "";
-            if (!hasIncomingToRecipient) {
-                reason = "No @bintara TO recipient (typeMask=2)";
-            } else if (!hasExternalSender && !isSelfAssignedTask) {
-                reason = "No external FROM sender (typeMask=3)";
+            if (!hasBintaraInTO) {
+                reason = "No @bintara in TO (participationType=2)";
+            } else if (!hasExternalCompanyInFROM) {
+                reason = "No external company in FROM (participationType=1) - may be Bintara sender or personal email";
             }
-            log.debug("✗ OUTGOING: '{}' | ActivityID: {} | Reason: {}",
+            log.debug("✗ OUTGOING/FILTERED: '{}' | ActivityID: {} | Reason: {}",
                     subject.length() > 50 ? subject.substring(0, 50) + "..." : subject,
                     email.getActivityId(),
                     reason);
         }
 
         return isIncoming;
+    }
+
+    /**
+     * Check if an email address is from a personal email provider
+     * (Gmail, Yahoo, Hotmail, etc.)
+     */
+    private boolean isPersonalEmailDomain(String email) {
+        if (email == null) {
+            return false;
+        }
+
+        String lowerEmail = email.toLowerCase();
+
+        // Common personal email domains
+        String[] personalDomains = {
+                "@gmail.com", "@yahoo.com", "@hotmail.com", "@outlook.com",
+                "@live.com", "@icloud.com", "@me.com", "@mac.com",
+                "@aol.com", "@protonmail.com", "@mail.com", "@zoho.com",
+                "@yandex.com", "@gmx.com", "@fastmail.com",
+                "@qq.com", "@163.com", "@126.com", "@sina.com"
+        };
+
+        for (String domain : personalDomains) {
+            if (lowerEmail.contains(domain)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

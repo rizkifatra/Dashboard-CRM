@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 
 import java.time.Duration;
 import java.util.List;
@@ -30,8 +31,15 @@ public class D365AccountService {
         this.d365Config = d365Config;
         this.authService = authService;
         this.objectMapper = new ObjectMapper();
+
+        // Configure exchange strategies to allow larger buffer size (10MB)
+        ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
+                .build();
+
         this.webClient = WebClient.builder()
                 .baseUrl(d365Config.getBaseUrl())
+                .exchangeStrategies(strategies)
                 .defaultHeader("Accept", "application/json")
                 .defaultHeader("OData-MaxVersion", "4.0")
                 .defaultHeader("OData-Version", "4.0")
@@ -42,13 +50,20 @@ public class D365AccountService {
     /**
      * Get all accounts from Dynamics 365
      * 
-     * @param top    Maximum number of records to return (optional)
-     * @param select Comma-separated list of fields to return (optional)
+     * @param top     Maximum number of records to return (optional)
+     * @param skip    Number of records to skip (optional)
+     * @param search  Search term for filtering (optional)
+     * @param ownerId Owner ID filter (optional)
+     * @param status  Status filter (active/inactive) (optional)
+     * @param select  Comma-separated list of fields to return (optional)
      * @return List of accounts
      */
-    public List<Account> getAllAccounts(Integer top, String select) {
+    public List<Account> getAllAccounts(Integer top, Integer skip, String search, String ownerId, String status,
+            String select) {
         try {
-            log.info("Fetching accounts from Dynamics 365. Top: {}, Select: {}", top, select);
+            log.info(
+                    "Fetching accounts from Dynamics 365. Top: {}, Skip: {}, Search: {}, OwnerId: {}, Status: {}, Select: {}",
+                    top, skip, search, ownerId, status, select);
 
             String token = authService.getAccessToken();
 
@@ -56,6 +71,9 @@ public class D365AccountService {
             String uri = "/accounts";
             StringBuilder queryParams = new StringBuilder("?");
 
+            // Note: D365 API doesn't support $skip parameter - it returns 400 Bad Request
+            // We ignore the skip parameter and only use $top to load batches of data
+            // This matches the behavior of the activities endpoint
             if (top != null && top > 0) {
                 queryParams.append("$top=").append(top).append("&");
             }
@@ -63,11 +81,42 @@ public class D365AccountService {
             if (select != null && !select.isEmpty()) {
                 queryParams.append("$select=").append(select).append("&");
             } else {
-                // Default fields to select including owner and creator fields
-                queryParams.append("$select=accountid,name,accountnumber,emailaddress1,telephone1,")
+                // Default fields to select including owner, creator, and primary contact fields
+                queryParams.append(
+                        "$select=accountid,name,accountnumber,emailaddress1,emailaddress2,emailaddress3,telephone1,")
                         .append("websiteurl,address1_city,address1_country,revenue,")
                         .append("numberofemployees,createdon,modifiedon,")
-                        .append("_ownerid_value,_createdby_value,_modifiedby_value&");
+                        .append("_ownerid_value,_createdby_value,_modifiedby_value,_primarycontactid_value&");
+                // Expand primary contact to get the formatted name
+                queryParams.append("$expand=primarycontactid($select=fullname)&");
+            }
+
+            // Build filter conditions
+            StringBuilder filterBuilder = new StringBuilder();
+
+            // Search filter (name, email, phone, city)
+            if (search != null && !search.trim().isEmpty()) {
+                String searchTerm = search.trim().replace("'", "''"); // Escape single quotes
+                filterBuilder.append("(contains(name, '" + searchTerm + "')")
+                        .append(" or contains(emailaddress1, '" + searchTerm + "')")
+                        .append(" or contains(telephone1, '" + searchTerm + "')")
+                        .append(" or contains(address1_city, '" + searchTerm + "'))");
+            }
+
+            // Owner filter
+            if (ownerId != null && !ownerId.trim().isEmpty() && !"all".equals(ownerId)) {
+                if (filterBuilder.length() > 0) {
+                    filterBuilder.append(" and ");
+                }
+                filterBuilder.append("_ownerid_value eq '" + ownerId.trim() + "'");
+            }
+
+            // Status filter - Note: This is client-side filtering since D365 doesn't have a
+            // simple status field
+            // We'll apply this filter after receiving data from D365
+
+            if (filterBuilder.length() > 0) {
+                queryParams.append("$filter=").append(filterBuilder.toString()).append("&");
             }
 
             // Sort by creation date (newest first)

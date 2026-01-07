@@ -26,31 +26,42 @@ public class AccountController {
     }
 
     /**
-     * Get all accounts with pagination
+     * Get all accounts with pagination and filtering
      * 
-     * @param top    Maximum number of records to return (default: 50, max: 1000)
-     * @param skip   Number of records to skip for pagination (default: 0)
-     * @param select Comma-separated list of fields to return
+     * @param top     Maximum number of records to return (default: 50, max: 1000)
+     * @param skip    Number of records to skip for pagination (default: 0)
+     * @param search  Search term to filter accounts (searches name, email, phone,
+     *                city)
+     * @param ownerId Owner ID to filter accounts
+     * @param status  Status filter (active/inactive)
+     * @param select  Comma-separated list of fields to return
      * @return List of accounts
      */
     @GetMapping
     public ApiResponse<List<Account>> getAllAccounts(
             @RequestParam(required = false, defaultValue = "50") Integer top,
             @RequestParam(required = false, defaultValue = "0") Integer skip,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String ownerId,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String select) {
 
-        log.info("GET /api/accounts - Top: {}, Skip: {}, Select: {}", top, skip, select);
+        log.info("GET /api/accounts - Top: {}, Skip: {}, Search: {}, OwnerId: {}, Status: {}, Select: {}",
+                top, skip, search, ownerId, status, select);
 
         try {
             // Validate input
-            if (top != null && top > 1000) {
-                return ApiResponse.error("Top parameter cannot exceed 1000");
+            // Increased limit to 10000 for fetching all accounts for stats
+            // Frontend loads cumulatively (50, 100, 150, ...) for table pagination
+            // and separately fetches all accounts for accurate statistics
+            if (top != null && top > 10000) {
+                return ApiResponse.error("Top parameter cannot exceed 10000");
             }
             if (skip != null && skip < 0) {
                 return ApiResponse.error("Skip parameter cannot be negative");
             }
 
-            List<Account> accounts = accountService.getAllAccounts(top, select);
+            List<Account> accounts = accountService.getAllAccounts(top, skip, search, ownerId, status, select);
 
             String message = String.format("Successfully retrieved %d accounts", accounts.size());
             return ApiResponse.success(message, accounts);

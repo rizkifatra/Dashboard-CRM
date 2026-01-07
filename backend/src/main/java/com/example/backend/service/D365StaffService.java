@@ -365,19 +365,21 @@ public class D365StaffService {
                 log.info("Getting email statistics for staff: {}", staff.getEmail());
 
                 com.example.backend.model.EmailStats emailStats = activityService
-                        .getEmailStatsByStaff(staff.getEmail());
+                        .getEmailStatsByStaff(staff.getEmail(), fromDate, toDate);
 
                 log.info("Email counts for {}: Incoming={}, Outgoing={}", staff.getEmail(),
                         emailStats.getIncomingEmailCount(), emailStats.getOutgoingEmailCount());
 
                 staff.setIncomingEmailCount(emailStats.getIncomingEmailCount());
                 staff.setOutgoingEmailCount(emailStats.getOutgoingEmailCount());
-                staff.setTotalEmailCount(emailStats.getTotalEmailCount());
+                staff.setTotalEmailCount(emailStats.getTotalEmailCount()); // Removed for
+                // performance
 
-                // Calculate response time statistics for emails owned by this user
-                log.info("Calculating response time for staff: {}", staff.getEmail());
+                // Calculate response time statistics using accurate method (RE:, RFP, RFQ, FW:,
+                // TENDER)
+                log.info("Calculating accurate response time for staff: {}", staff.getEmail());
                 java.util.Map<String, Object> responseTimeStats = activityService
-                        .calculateResponseTimeForUser(userId, fromDate, toDate);
+                        .calculateAccurateResponseTime(userId, staff.getEmail());
 
                 staff.setAverageResponseTimeMinutes(
                         responseTimeStats.get("averageResponseTimeMinutes") != null
@@ -430,7 +432,7 @@ public class D365StaffService {
             // Set to 0 if there's an error
             staff.setIncomingEmailCount(0);
             staff.setOutgoingEmailCount(0);
-            staff.setTotalEmailCount(0);
+            // staff.setTotalEmailCount(0); // Removed for performance
             staff.setAverageResponseTimeMinutes(null);
             staff.setFastestResponseTimeMinutes(null);
             staff.setSlowestResponseTimeMinutes(null);

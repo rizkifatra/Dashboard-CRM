@@ -74,13 +74,39 @@ public class Account {
     @JsonProperty("_ownerid_value")
     private String ownerId;
 
+    @JsonProperty("ownerid")
+    private Owner ownerDetails;
+
     @JsonProperty("_createdby_value")
     private String createdById;
 
     @JsonProperty("_modifiedby_value")
     private String modifiedById;
 
+    // Primary Contact information
+    @JsonProperty("_primarycontactid_value")
+    private String primaryContactId;
+
+    @JsonProperty("primarycontactid@OData.Community.Display.V1.FormattedValue")
+    private String primaryContactName;
+
+    @JsonProperty("emailaddress2")
+    private String emailAddress2;
+
+    @JsonProperty("emailaddress3")
+    private String emailAddress3;
+
     // OData metadata
     @JsonProperty("@odata.etag")
     private String etag;
+
+    /**
+     * Nested class for owner details from expanded ownerid
+     */
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Owner {
+        @JsonProperty("fullname")
+        private String fullName;
+    }
 }

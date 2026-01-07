@@ -827,11 +827,15 @@ public class D365ActivityService {
      * Get email statistics (incoming/outgoing counts) for a staff member
      * 
      * @param staffEmail Staff member's email
+     * @param fromDate   Optional start date filter (YYYY-MM-DD)
+     * @param toDate     Optional end date filter (YYYY-MM-DD)
      * @return Email statistics with incoming and outgoing counts
      */
-    public com.example.backend.model.EmailStats getEmailStatsByStaff(String staffEmail) {
+    public com.example.backend.model.EmailStats getEmailStatsByStaff(String staffEmail, String fromDate,
+            String toDate) {
         try {
-            log.info("Fetching email statistics for staff: {}", staffEmail);
+            log.info("Fetching email statistics for staff: {} (FromDate: {}, ToDate: {})", staffEmail, fromDate,
+                    toDate);
 
             String token = authService.getAccessToken();
 
@@ -864,7 +868,7 @@ public class D365ActivityService {
             log.info("Found staff: {} with ID: {}", userName, userId);
 
             // Use new method that checks email participants and excludes CC'd emails
-            int[] emailCounts = countEmailsByParticipants(userId, staffEmail);
+            int[] emailCounts = countEmailsByParticipants(userId, staffEmail, fromDate, toDate);
             int incomingCount = emailCounts[0];
             int outgoingCount = emailCounts[1];
 
@@ -885,27 +889,41 @@ public class D365ActivityService {
     }
 
     /**
-     * Count emails by checking participants (To/From) and excluding CC'd emails
-     * This method fetches emails and checks the email_activity_parties to determine
-     * if the user is the sender (From) or recipient (To), excluding CC.
+     * Count individual emails by direction (not conversations) with optional date
+     * filtering.
+     * - Incoming: Each email FROM external company TO staff (staff received)
+     * - Outgoing: Each email FROM staff TO external company (staff sent)
+     * Only counts emails with external COMPANY accounts (excludes personal emails
+     * like Gmail, Yahoo, etc.)
      * 
      * @param userId    User's system ID
      * @param userEmail User's email address
+     * @param fromDate  Optional start date filter (YYYY-MM-DD)
+     * @param toDate    Optional end date filter (YYYY-MM-DD)
      * @return Array with [incomingCount, outgoingCount]
      */
-    private int[] countEmailsByParticipants(String userId, String userEmail) {
+    private int[] countEmailsByParticipants(String userId, String userEmail, String fromDate, String toDate) {
         try {
             String token = authService.getAccessToken();
-            int incomingCount = 0;
-            int outgoingCount = 0;
 
-            // Fetch all emails for this user (both directions)
-            String uri = "/emails?$filter=_owninguser_value eq " + userId
-                    + "&$select=activityid,directioncode"
+            // Build filter with user ID and optional date range
+            StringBuilder filter = new StringBuilder("_owninguser_value eq " + userId);
+
+            if (fromDate != null && !fromDate.isEmpty()) {
+                filter.append(" and createdon ge ").append(fromDate);
+            }
+            if (toDate != null && !toDate.isEmpty()) {
+                filter.append(" and createdon le ").append(toDate);
+            }
+
+            // Fetch all emails for this user
+            String uri = "/emails?$filter=" + filter.toString()
+                    + "&$select=activityid,subject,createdon"
                     + "&$expand=email_activity_parties($select=participationtypemask,addressused)"
+                    + "&$orderby=createdon asc"
                     + "&$top=500";
 
-            log.debug("Fetching emails with participants: {}", uri);
+            log.debug("Fetching emails for individual email direction counting: {}", uri);
 
             String response = webClient.get()
                     .uri(uri)
@@ -918,15 +936,26 @@ public class D365ActivityService {
             JsonNode root = objectMapper.readTree(response);
             JsonNode emailsArray = root.get("value");
 
+            // Count each email individually:
+            // - incoming = each email FROM external TO staff (staff received from external)
+            // - outgoing = each email FROM staff TO external (staff sent to external)
+            int incomingCount = 0;
+            int outgoingCount = 0;
+
             if (emailsArray != null && emailsArray.isArray()) {
                 for (JsonNode email : emailsArray) {
+                    String subject = email.has("subject") ? email.get("subject").asText() : "No Subject";
                     JsonNode parties = email.get("email_activity_parties");
                     if (parties == null || !parties.isArray()) {
                         continue;
                     }
 
-                    boolean isInTo = false;
-                    boolean isInFrom = false;
+                    boolean isStaffInTo = false;
+                    boolean isStaffInFrom = false;
+                    boolean hasExternalFrom = false;
+                    boolean hasExternalTo = false;
+                    boolean hasExternalParty = false;
+                    java.util.List<String> externalAddresses = new java.util.ArrayList<>();
 
                     for (JsonNode party : parties) {
                         String address = party.has("addressused") ? party.get("addressused").asText().toLowerCase()
@@ -935,48 +964,57 @@ public class D365ActivityService {
                                 ? party.get("participationtypemask").asInt()
                                 : 0;
 
-                        // Check if this party is our user
-                        if (address.equals(userEmail.toLowerCase())) {
-                            // participationtypemask values:
-                            // 1 = Sender/From
-                            // 2 = To Recipient
-                            // 3 = CC Recipient
-                            // 4 = BCC Recipient
-                            // 5 = Required Attendee
-                            // 6 = Optional Attendee
-                            // 7 = Organizer
-                            // 8 = Regarding
-                            // 9 = Owner
-                            // 10 = Resource
-                            // 11 = Customer
+                        // Check if external COMPANY party (not @bintara.com.my and not personal email)
+                        boolean isExternal = !address.isEmpty() && !address.contains("@bintara.com.my");
+                        boolean isCompanyEmail = isExternal && !isPersonalEmailDomain(address);
 
-                            log.debug("Email {} - User {} has participationType: {}",
-                                    email.has("activityid") ? email.get("activityid").asText() : "unknown",
-                                    userEmail, participationType);
-
+                        if (isCompanyEmail) {
+                            hasExternalParty = true;
+                            externalAddresses.add(address);
                             if (participationType == 1) {
-                                isInFrom = true;
+                                hasExternalFrom = true; // External company sent the email
                             } else if (participationType == 2) {
-                                isInTo = true;
+                                hasExternalTo = true; // External company received the email
                             }
-                            // Ignore types 3 (CC) and 4 (BCC)
+                        }
+
+                        // Check if this party is our staff user
+                        if (address.equals(userEmail.toLowerCase())) {
+                            if (participationType == 1) {
+                                isStaffInFrom = true; // Staff sent the email
+                            } else if (participationType == 2) {
+                                isStaffInTo = true; // Staff received the email
+                            }
                         }
                     }
 
-                    // Count as outgoing if user is in From (and not just CC)
-                    if (isInFrom) {
-                        outgoingCount++;
-                    }
-                    // Count as incoming if user is in To (and not just CC)
-                    else if (isInTo) {
-                        incomingCount++;
+                    // Only count emails with external parties
+                    if (hasExternalParty) {
+                        // Incoming = external FROM sends TO staff (staff received from external)
+                        if (isStaffInTo && hasExternalFrom) {
+                            incomingCount++;
+                            log.debug("INCOMING email for {}: Subject='{}', External parties={}",
+                                    userEmail, subject, externalAddresses);
+                        }
+                        // Outgoing = staff FROM sends TO external (staff sent to external)
+                        else if (isStaffInFrom && hasExternalTo) {
+                            outgoingCount++;
+                            log.debug("OUTGOING email for {}: Subject='{}', External parties={}",
+                                    userEmail, subject, externalAddresses);
+                        }
+                        // Check if email meets neither condition
+                        else {
+                            log.debug(
+                                    "SKIPPED email for {}: Subject='{}', staffInFrom={}, staffInTo={}, extFrom={}, extTo={}",
+                                    userEmail, subject, isStaffInFrom, isStaffInTo, hasExternalFrom, hasExternalTo);
+                        }
                     }
                 }
             }
 
             log.info(
-                    "Counted emails by participants for {}: Incoming={} (To only), Outgoing={} (From only), Total emails checked={}",
-                    userEmail, incomingCount, outgoingCount, emailsArray != null ? emailsArray.size() : 0);
+                    "Counted INDIVIDUAL emails (COMPANY DOMAINS ONLY) for {}: Incoming (company→staff)={}, Outgoing (staff→company)={}, Total={}",
+                    userEmail, incomingCount, outgoingCount, incomingCount + outgoingCount);
             return new int[] { incomingCount, outgoingCount };
 
         } catch (Exception e) {
@@ -1347,6 +1385,304 @@ public class D365ActivityService {
     }
 
     /**
+     * Calculate accurate response time for staff using email_activity_parties
+     * Only counts relevant business emails (RE:, RFP, RFQ, FW:, TENDER in subject)
+     * 
+     * @param userId    System user ID
+     * @param userEmail User's email address
+     * @return Map with response time statistics
+     */
+    public java.util.Map<String, Object> calculateAccurateResponseTime(String userId, String userEmail) {
+        try {
+            log.info("Calculating accurate response time for user: {} ({})", userId, userEmail);
+            String token = authService.getAccessToken();
+
+            // Fetch emails with participants - filter for relevant subjects
+            String uri = "/emails?$filter=_owninguser_value eq " + userId
+                    + " and statecode eq 0"
+                    + "&$select=activityid,subject,createdon"
+                    + "&$expand=email_activity_parties($select=participationtypemask,addressused)"
+                    + "&$orderby=createdon desc"
+                    + "&$top=500";
+
+            log.debug("Fetching emails for response time: {}", uri);
+
+            String response = webClient.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            JsonNode root = objectMapper.readTree(response);
+            JsonNode emailsArray = root.get("value");
+
+            if (emailsArray == null || emailsArray.size() == 0) {
+                log.info("No emails found for response time calculation");
+                return createEmptyResponseTimeStats();
+            }
+
+            // Separate incoming and outgoing emails by checking participants
+            // Only include relevant business emails (RE:, RFP, RFQ, FW:, TENDER)
+            java.util.List<EmailWithTime> incomingEmails = new java.util.ArrayList<>();
+            java.util.List<EmailWithTime> outgoingEmails = new java.util.ArrayList<>();
+
+            for (JsonNode email : emailsArray) {
+                String subject = email.has("subject") ? email.get("subject").asText() : "";
+                String createdOn = email.has("createdon") ? email.get("createdon").asText() : null;
+                JsonNode parties = email.get("email_activity_parties");
+
+                if (createdOn == null || parties == null || !parties.isArray()) {
+                    continue;
+                }
+
+                // Check if subject is relevant (RE:, RFP, RFQ, FW:, TENDER)
+                String subjectUpper = subject.toUpperCase();
+                boolean isRelevant = subjectUpper.contains("RE:") ||
+                        subjectUpper.contains("RFP") ||
+                        subjectUpper.contains("RFQ") ||
+                        subjectUpper.contains("FW:") ||
+                        subjectUpper.contains("TENDER");
+
+                if (!isRelevant) {
+                    continue;
+                }
+
+                // Determine if incoming or outgoing based on participationTypeMask
+                boolean isFromStaff = false;
+                boolean isToStaff = false;
+                boolean hasExternalParty = false;
+
+                for (JsonNode party : parties) {
+                    String address = party.has("addressused") ? party.get("addressused").asText().toLowerCase() : "";
+                    int participationType = party.has("participationtypemask")
+                            ? party.get("participationtypemask").asInt()
+                            : 0;
+
+                    // Check if party is external (not @bintara.com.my)
+                    if (!address.contains("@bintara.com.my") && !address.isEmpty()) {
+                        hasExternalParty = true;
+                    }
+
+                    // Check if our staff is involved
+                    if (address.equals(userEmail.toLowerCase())) {
+                        if (participationType == 1) { // From/Sender
+                            isFromStaff = true;
+                        } else if (participationType == 2) { // To/Recipient
+                            isToStaff = true;
+                        }
+                    }
+                }
+
+                // Only count emails with external parties (client emails)
+                if (!hasExternalParty) {
+                    continue;
+                }
+
+                EmailWithTime emailData = new EmailWithTime();
+                emailData.subject = subject;
+                emailData.createdOn = createdOn;
+
+                // Incoming: Staff is in TO, has external party
+                if (isToStaff && hasExternalParty) {
+                    incomingEmails.add(emailData);
+                    log.debug("Incoming relevant email: {}", subject);
+                }
+                // Outgoing: Staff is in FROM, has external party
+                else if (isFromStaff && hasExternalParty) {
+                    outgoingEmails.add(emailData);
+                    log.debug("Outgoing relevant email: {}", subject);
+                }
+            }
+
+            log.info("Found {} relevant incoming, {} relevant outgoing emails for response time",
+                    incomingEmails.size(), outgoingEmails.size());
+
+            if (incomingEmails.isEmpty() || outgoingEmails.isEmpty()) {
+                return createEmptyResponseTimeStats();
+            }
+
+            // Calculate response times by matching incoming with subsequent outgoing
+            java.util.List<Double> responseTimes = new java.util.ArrayList<>();
+
+            // Log first few subjects for debugging
+            if (!incomingEmails.isEmpty()) {
+                log.debug("Sample incoming normalized: {}", normalizeSubject(incomingEmails.get(0).subject));
+            }
+            if (!outgoingEmails.isEmpty()) {
+                log.debug("Sample outgoing normalized: {}", normalizeSubject(outgoingEmails.get(0).subject));
+            }
+
+            for (EmailWithTime incoming : incomingEmails) {
+                String normalizedIncomingSubject = normalizeSubject(incoming.subject);
+
+                for (EmailWithTime outgoing : outgoingEmails) {
+                    String normalizedOutgoingSubject = normalizeSubject(outgoing.subject);
+
+                    // Match by normalized subject
+                    if (normalizedIncomingSubject.equals(normalizedOutgoingSubject)) {
+                        try {
+                            java.time.Instant incomingTime = java.time.Instant.parse(incoming.createdOn);
+                            java.time.Instant outgoingTime = java.time.Instant.parse(outgoing.createdOn);
+
+                            // Only count if outgoing is after incoming (response)
+                            if (outgoingTime.isAfter(incomingTime)) {
+                                long workingMinutes = calculateWorkingMinutes(incoming.createdOn, outgoing.createdOn);
+                                if (workingMinutes > 0 && workingMinutes < 10080) { // < 1 week
+                                    responseTimes.add((double) workingMinutes);
+                                    log.debug("Response time: {} minutes for subject: {}", workingMinutes,
+                                            incoming.subject);
+                                    break; // Found match, move to next incoming
+                                }
+                            }
+                        } catch (Exception e) {
+                            log.warn("Error parsing timestamps: {}", e.getMessage());
+                        }
+                    }
+                }
+            }
+
+            return calculateResponseTimeStats(responseTimes, 1);
+
+        } catch (Exception e) {
+            log.error("Error calculating accurate response time for {}: {}", userEmail, e.getMessage(), e);
+            return createEmptyResponseTimeStats();
+        }
+    }
+
+    /**
+     * Normalize email subject for matching (remove RE:, FW:, etc.)
+     */
+    private String normalizeSubject(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return "";
+        }
+        return subject.trim()
+                .replaceAll("(?i)^(RE:|FW:|FWD:)\\s*", "")
+                .replaceAll("\\s+", " ")
+                .toLowerCase();
+    }
+
+    /**
+     * Get overall email statistics for all Bintara staff
+     * 
+     * @param fromDate Optional start date filter (YYYY-MM-DD)
+     * @param toDate   Optional end date filter (YYYY-MM-DD)
+     * @return Map with overall statistics
+     */
+    public java.util.Map<String, Object> getOverallEmailStats(String fromDate, String toDate) {
+        try {
+            log.info("Fetching overall email statistics for all staff. FromDate: {}, ToDate: {}", fromDate, toDate);
+
+            String token = authService.getAccessToken();
+
+            // Get all active staff
+            String staffUri = "/systemusers?$filter=isdisabled eq false&$select=systemuserid,fullname,internalemailaddress&$top=200";
+            String staffResponse = webClient.get()
+                    .uri(staffUri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            JsonNode staffRoot = objectMapper.readTree(staffResponse);
+            JsonNode staffArray = staffRoot.get("value");
+
+            int totalStaff = 0;
+            int totalIncoming = 0;
+            int totalOutgoing = 0;
+            int staffWithEmails = 0;
+
+            if (staffArray != null && staffArray.isArray()) {
+                for (JsonNode staff : staffArray) {
+                    String email = staff.has("internalemailaddress") ? staff.get("internalemailaddress").asText()
+                            : null;
+
+                    if (email != null && email.contains("@bintara.com.my")) {
+                        String userId = staff.get("systemuserid").asText();
+                        totalStaff++;
+
+                        int[] emailCounts = countEmailsByParticipants(userId, email, fromDate, toDate);
+                        int incoming = emailCounts[0];
+                        int outgoing = emailCounts[1];
+
+                        if (incoming > 0 || outgoing > 0) {
+                            staffWithEmails++;
+                        }
+
+                        totalIncoming += incoming;
+                        totalOutgoing += outgoing;
+                    }
+                }
+            }
+
+            java.util.Map<String, Object> stats = new java.util.HashMap<>();
+            stats.put("totalStaffMembers", totalStaff);
+            stats.put("staffWithEmails", staffWithEmails);
+            stats.put("totalIncomingEmails", totalIncoming);
+            stats.put("totalOutgoingEmails", totalOutgoing);
+            stats.put("totalEmails", totalIncoming + totalOutgoing);
+            stats.put("averageIncomingPerStaff", totalStaff > 0 ? (double) totalIncoming / totalStaff : 0.0);
+            stats.put("averageOutgoingPerStaff", totalStaff > 0 ? (double) totalOutgoing / totalStaff : 0.0);
+            stats.put("fromDate", fromDate);
+            stats.put("toDate", toDate);
+
+            log.info("Overall stats: {} staff, {} incoming, {} outgoing, {} total emails",
+                    totalStaff, totalIncoming, totalOutgoing, (totalIncoming + totalOutgoing));
+
+            return stats;
+
+        } catch (Exception e) {
+            log.error("Error fetching overall email statistics", e);
+            java.util.Map<String, Object> emptyStats = new java.util.HashMap<>();
+            emptyStats.put("error", e.getMessage());
+            return emptyStats;
+        }
+    }
+
+    /**
+     * Check if an email address is from a personal email provider
+     * (not a company domain)
+     */
+    private boolean isPersonalEmailDomain(String email) {
+        if (email == null || email.isEmpty()) {
+            return false;
+        }
+
+        String lowerEmail = email.toLowerCase();
+
+        // List of common personal email domains
+        String[] personalDomains = {
+                "@gmail.com", "@googlemail.com",
+                "@yahoo.com", "@yahoo.co.uk", "@yahoo.co.in",
+                "@hotmail.com", "@hotmail.co.uk", "@hotmail.fr",
+                "@outlook.com", "@live.com", "@msn.com",
+                "@icloud.com", "@me.com", "@mac.com",
+                "@aol.com", "@protonmail.com", "@mail.com",
+                "@zoho.com", "@yandex.com", "@gmx.com",
+                "@163.com", "@qq.com", "@126.com"
+        };
+
+        for (String domain : personalDomains) {
+            if (lowerEmail.contains(domain)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Helper class to store email data for response time calculation
+     */
+    private static class EmailWithTime {
+        String subject;
+        String createdOn;
+    }
+
+    /**
      * Create empty response time statistics
      */
     private java.util.Map<String, Object> createEmptyResponseTimeStats() {
@@ -1546,24 +1882,6 @@ public class D365ActivityService {
             log.error("Error calculating conversation stats for user: {}", userId, e);
             return createEmptyConversationStats();
         }
-    }
-
-    /**
-     * Normalize email subject to identify conversation threads
-     * Removes Re:, Fw:, FW:, RE: prefixes and extra whitespace
-     */
-    private String normalizeSubject(String subject) {
-        if (subject == null || subject.isBlank()) {
-            return "";
-        }
-
-        // Remove Re:, Fw:, FW:, RE: (case insensitive) and trim
-        String normalized = subject.replaceAll("(?i)^(re:|fw:|fwd:)\\s*", "").trim();
-
-        // Remove extra whitespace
-        normalized = normalized.replaceAll("\\s+", " ");
-
-        return normalized.toLowerCase();
     }
 
     /**
