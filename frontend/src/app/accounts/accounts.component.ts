@@ -422,10 +422,33 @@ export class AccountsComponent implements OnInit, AfterViewInit {
     this.searchTerm = '';
     this.showingIncompleteOnly = true;
 
-    // Filter to show only incomplete accounts for this staff
-    this.filteredAccounts = this.accounts.filter(
-      (acc) => acc._ownerid_value === staffId && this.isAccountIncomplete(acc)
-    );
+    // Reset pagination and reload with staff filter
+    this.currentPage = 0;
+    this.hasMore = true;
+    this.accounts = [];
+    this.filteredAccounts = [];
+
+    // Load accounts for this specific staff
+    this.loading = true;
+    this.accountService.getAccounts(10000, 0, '', staffId, 'all').subscribe({
+      next: (response) => {
+        if (response.success) {
+          // Filter to show only incomplete accounts
+          const incompleteAccounts = response.data.filter((acc) =>
+            this.isAccountIncomplete(acc)
+          );
+          this.accounts = incompleteAccounts;
+          this.filteredAccounts = incompleteAccounts;
+          this.hasMore = false; // No pagination for filtered view
+        }
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('Error loading incomplete accounts for staff:', err);
+        this.error = 'Failed to load incomplete accounts';
+        this.loading = false;
+      },
+    });
   }
 
   clearIncompleteFilter() {
