@@ -101,21 +101,29 @@ public class D365OpportunityService {
      * Get all opportunities from Dynamics 365
      * 
      * @param top      Maximum number of records to return (optional)
+     * @param skip     Number of records to skip for pagination (optional)
+     * @param search   Search term for filtering (optional)
      * @param select   Comma-separated list of fields to return (optional)
      * @param fromDate Optional start date filter (YYYY-MM-DD)
      * @param toDate   Optional end date filter (YYYY-MM-DD)
      * @return List of opportunities
      */
-    public List<Opportunity> getAllOpportunities(Integer top, String select, String fromDate, String toDate) {
+    public List<Opportunity> getAllOpportunities(Integer top, Integer skip, String search, String select,
+            String fromDate,
+            String toDate) {
         try {
-            log.info("Fetching opportunities from Dynamics 365. Top: {}, Select: {}, FromDate: {}, ToDate: {}",
-                    top, select, fromDate, toDate);
+            log.info(
+                    "Fetching opportunities from Dynamics 365. Top: {}, Skip: {}, Search: {}, Select: {}, FromDate: {}, ToDate: {}",
+                    top, skip, search, select, fromDate, toDate);
 
             String token = authService.getAccessToken();
 
-            // Build query parameters
+            // Build query parameters - Use $top to limit batch size, ignore $skip (same as
+            // AccountService)
+            // Fetch limited records from D365 and do pagination in-memory
             StringBuilder uri = new StringBuilder("/opportunities?");
 
+            // Use $top to limit the batch size fetched from D365
             if (top != null && top > 0) {
                 uri.append("$top=").append(top).append("&");
             }
@@ -123,7 +131,7 @@ public class D365OpportunityService {
             if (select != null && !select.isEmpty()) {
                 uri.append("$select=").append(select).append("&");
             } else {
-                // Default fields to select
+                // Default fields to select - D365 automatically provides formatted values
                 uri.append("$select=opportunityid,name,description,estimatedvalue,estimatedclosedate,")
                         .append("actualvalue,actualclosedate,closeprobability,salesstage,stepname,")
                         .append("createdon,modifiedon,statecode,statuscode,")
@@ -133,6 +141,13 @@ public class D365OpportunityService {
 
             // Add filters
             StringBuilder filter = new StringBuilder();
+
+            // Search filter (name, description, customer name)
+            if (search != null && !search.trim().isEmpty()) {
+                String searchTerm = search.trim().replace("'", "''"); // Escape single quotes
+                filter.append("(contains(name, '" + searchTerm + "')");
+                filter.append(" or contains(description, '" + searchTerm + "'))");
+            }
 
             if (fromDate != null && !fromDate.isEmpty()) {
                 filter.append(filter.length() > 0 ? " and " : "")
@@ -148,6 +163,9 @@ public class D365OpportunityService {
                 uri.append("$filter=").append(filter.toString()).append("&");
             }
 
+            // Add ordering
+            uri.append("$orderby=createdon desc&");
+
             // Add count
             uri.append("$count=true");
 
@@ -158,6 +176,9 @@ public class D365OpportunityService {
                     .bodyToMono(String.class)
                     .timeout(Duration.ofMillis(d365Config.getTimeout()))
                     .block();
+
+            log.debug("D365 Opportunities Response (first 500 chars): {}",
+                    response != null && response.length() > 500 ? response.substring(0, 500) : response);
 
             D365Response<Opportunity> d365Response = objectMapper.readValue(
                     response,
@@ -170,7 +191,7 @@ public class D365OpportunityService {
                 return new java.util.ArrayList<>();
             }
 
-            log.info("Successfully fetched {} opportunities", opportunities.size());
+            log.info("Successfully fetched {} opportunities from D365", opportunities.size());
             return opportunities;
 
         } catch (WebClientResponseException e) {
@@ -178,7 +199,8 @@ public class D365OpportunityService {
                     e.getStatusCode(), e.getResponseBodyAsString());
             return new java.util.ArrayList<>();
         } catch (Exception e) {
-            log.error("Error fetching opportunities", e);
+            log.error("Error fetching opportunities. Exception: {}, Message: {}",
+                    e.getClass().getName(), e.getMessage(), e);
             return new java.util.ArrayList<>();
         }
     }
@@ -230,7 +252,7 @@ public class D365OpportunityService {
         try {
             log.info("Calculating opportunity statistics. FromDate: {}, ToDate: {}", fromDate, toDate);
 
-            List<Opportunity> allOpportunities = getAllOpportunities(null, null, fromDate, toDate);
+            List<Opportunity> allOpportunities = getAllOpportunities(null, null, null, null, fromDate, toDate);
 
             int totalOpportunities = allOpportunities.size();
             int openOpportunities = 0;
@@ -310,7 +332,7 @@ public class D365OpportunityService {
         try {
             log.info("Fetching opportunities by staff. FromDate: {}, ToDate: {}", fromDate, toDate);
 
-            List<Opportunity> allOpportunities = getAllOpportunities(null, null, fromDate, toDate);
+            List<Opportunity> allOpportunities = getAllOpportunities(null, null, null, null, fromDate, toDate);
 
             java.util.Map<String, java.util.Map<String, Object>> staffStats = new java.util.HashMap<>();
 
@@ -419,7 +441,7 @@ public class D365OpportunityService {
         try {
             log.info("Fetching top {} opportunities. FromDate: {}, ToDate: {}", top, fromDate, toDate);
 
-            List<Opportunity> opportunities = getAllOpportunities(null, null, fromDate, toDate);
+            List<Opportunity> opportunities = getAllOpportunities(null, null, null, null, fromDate, toDate);
 
             // Sort by estimated value (descending) and filter open opportunities
             return opportunities.stream()
@@ -459,7 +481,7 @@ public class D365OpportunityService {
                 String toDate = monthEnd.toString();
 
                 // Fetch opportunities for this month
-                List<Opportunity> opportunities = getAllOpportunities(null, null, fromDate, toDate);
+                List<Opportunity> opportunities = getAllOpportunities(null, null, null, null, fromDate, toDate);
 
                 // Calculate statistics
                 long totalCount = opportunities.size();

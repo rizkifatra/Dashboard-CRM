@@ -18,6 +18,7 @@ export interface Opportunity {
   stateCode: number; // 0=Open, 1=Won, 2=Lost
   statusCode: number;
   ownerId: string;
+  ownerName?: string;
   customerId?: string;
   accountId?: string;
 }
@@ -62,15 +63,24 @@ export class OpportunityService {
   constructor(private http: HttpClient) {}
 
   /**
-   * Get all opportunities
+   * Get all opportunities with pagination support
+   * @param skip Number of records to skip (for pagination)
+   * @param top Maximum number of records to return (default: 50)
+   * @param search Search term for filtering opportunities
+   * @param fromDate Optional start date filter
+   * @param toDate Optional end date filter
    */
   getAllOpportunities(
-    top?: number,
+    skip: number = 0,
+    top: number = 50,
+    search: string = '',
     fromDate?: string,
     toDate?: string
   ): Observable<ApiResponse<Opportunity[]>> {
-    let params = new HttpParams();
-    if (top) params = params.set('top', top.toString());
+    let params = new HttpParams()
+      .set('top', top.toString())
+      .set('skip', skip.toString());
+    if (search) params = params.set('search', search);
     if (fromDate) params = params.set('fromDate', fromDate);
     if (toDate) params = params.set('toDate', toDate);
 

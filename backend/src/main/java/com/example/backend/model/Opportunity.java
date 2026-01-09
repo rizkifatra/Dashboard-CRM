@@ -62,6 +62,9 @@ public class Opportunity {
     @JsonAlias("_ownerid_value")
     private String ownerId;
 
+    @JsonAlias("_ownerid_value@OData.Community.Display.V1.FormattedValue")
+    private String ownerName;
+
     @JsonAlias("_createdby_value")
     private String createdById;
 
@@ -72,12 +75,10 @@ public class Opportunity {
     @JsonAlias("_customerid_value")
     private String customerId;
 
-    @JsonProperty("_accountid_value")
     @JsonAlias("_accountid_value")
     private String accountId;
 
     // OData metadata
-    @JsonProperty("@odata.etag")
     @JsonAlias({ "@odata.etag", "odata.etag" })
     private String etag;
 }

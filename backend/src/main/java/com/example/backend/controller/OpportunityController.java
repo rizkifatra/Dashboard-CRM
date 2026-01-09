@@ -28,20 +28,28 @@ public class OpportunityController {
     /**
      * Get all opportunities
      * 
-     * @param top      Maximum number of records (optional)
+     * @param top      Maximum number of records (optional, default: 50)
+     * @param skip     Number of records to skip for pagination (optional, default:
+     *                 0)
+     * @param search   Search term for filtering (optional)
      * @param fromDate Start date filter YYYY-MM-DD (optional)
      * @param toDate   End date filter YYYY-MM-DD (optional)
      * @return List of opportunities
      */
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<Opportunity>>> getAllOpportunities(
-            @RequestParam(required = false) Integer top,
+            @RequestParam(required = false, defaultValue = "50") Integer top,
+            @RequestParam(required = false, defaultValue = "0") Integer skip,
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) String fromDate,
             @RequestParam(required = false) String toDate) {
         try {
-            log.info("GET /api/opportunities/all - Top: {}, FromDate: {}, ToDate: {}", top, fromDate, toDate);
+            log.info("GET /api/opportunities/all - Top: {}, Skip: {}, Search: {}, FromDate: {}, ToDate: {}", top, skip,
+                    search, fromDate,
+                    toDate);
 
-            List<Opportunity> opportunities = opportunityService.getAllOpportunities(top, null, fromDate, toDate);
+            List<Opportunity> opportunities = opportunityService.getAllOpportunities(top, skip, search, null, fromDate,
+                    toDate);
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Opportunities fetched successfully",
