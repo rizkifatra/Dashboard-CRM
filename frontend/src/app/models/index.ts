@@ -38,12 +38,14 @@ export interface Activity {
   subject: string;
   description: string;
   activityType: string;
+  activityTypeCode: string; // e.g., 'email', 'phonecall', 'appointment', 'task'
   direction: string;
   createdOn: string;
   modifiedOn: string;
   staffName: string;
   staffEmail: string;
   staffTitle: string;
+  owningUserId?: string;
   // Email-specific fields (populated via expanded queries)
   sender?: string;
   fromEmail?: string;
@@ -56,8 +58,36 @@ export interface Activity {
   scheduledStart?: string;
   scheduledEnd?: string;
   priorityCode?: number;
-  stateCode?: number;
+  stateCode: number; // 0=Open, 1=Completed, 2=Cancelled
   statusCode?: number;
+}
+
+/**
+ * Email Reminder for tracking emails that need follow-up
+ */
+export interface EmailReminder {
+  activityId: string;
+  subject: string;
+  toEmail: string;
+  accountId?: string;
+  accountName?: string;
+  staffName: string;
+  staffEmail?: string;
+  sentDate: string;
+  daysOverdue: number;
+  urgencyLevel: string; // 'low', 'medium', 'critical'
+  urgencyColor: string; // 'yellow', 'orange', 'red'
+  urgencyBadge: string; // '3 Days', '7 Days', '14+ Days'
+}
+
+/**
+ * Email Reminder Counts
+ */
+export interface EmailReminderCounts {
+  total: number;
+  critical: number;
+  medium: number;
+  low: number;
 }
 
 /**

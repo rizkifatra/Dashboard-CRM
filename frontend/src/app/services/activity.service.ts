@@ -1,7 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Activity, ApiResponse, UnrepliedEmail } from '../models';
+import {
+  Activity,
+  ApiResponse,
+  UnrepliedEmail,
+  EmailReminder,
+  EmailReminderCounts,
+} from '../models';
 
 export interface EmailStats {
   staffEmail: string;
@@ -229,6 +235,24 @@ export class ActivityService {
     return this.http.get<ApiResponse<UnrepliedEmail[]>>(
       `${this.apiUrl}/unreplied`,
       { params }
+    );
+  }
+
+  /**
+   * Get email follow-up reminders
+   */
+  getEmailReminders(): Observable<ApiResponse<EmailReminder[]>> {
+    return this.http.get<ApiResponse<EmailReminder[]>>(
+      'http://localhost:8080/api/email-reminders'
+    );
+  }
+
+  /**
+   * Get email reminder counts by urgency
+   */
+  getEmailReminderCounts(): Observable<ApiResponse<EmailReminderCounts>> {
+    return this.http.get<ApiResponse<EmailReminderCounts>>(
+      'http://localhost:8080/api/email-reminders/counts'
     );
   }
 

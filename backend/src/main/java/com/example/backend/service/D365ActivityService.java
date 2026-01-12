@@ -272,6 +272,184 @@ public class D365ActivityService {
     }
 
     /**
+     * Get email activities with full email addresses (from activity parties)
+     * This method queries the /emails endpoint directly and expands
+     * email_activity_parties
+     * to get actual email addresses which are not available in activitypointers
+     * 
+     * @param top Optional limit for number of results
+     * @return List of email activities with fromEmail and toEmail populated
+     */
+    /**
+     * Get emails with addresses (from/to/cc extracted from activity parties)
+     * Supports pagination with skip parameter
+     * 
+     * @param top  Number of emails to fetch
+     * @param skip Number of emails to skip (for pagination)
+     * @return List of emails with populated email addresses
+     */
+    public List<Activity> getEmailsWithAddresses(Integer top, Integer skip) {
+        try {
+            log.info("Fetching emails with addresses from Dynamics 365 (top: {}, skip: {})", top, skip);
+
+            String token = authService.getAccessToken();
+
+            // Query /emails endpoint with activity parties expansion
+            StringBuilder queryParams = new StringBuilder("?");
+            queryParams.append("$select=activityid,subject,description,statecode,statuscode,")
+                    .append("directioncode,_owninguser_value,_regardingobjectid_value,")
+                    .append("createdon,modifiedon&");
+            queryParams.append("$expand=email_activity_parties($select=participationtypemask,addressused),")
+                    .append("regardingobjectid_account($select=name),")
+                    .append("regardingobjectid_contact($select=fullname),")
+                    .append("owninguser($select=fullname,internalemailaddress,title)&");
+            queryParams.append("$orderby=createdon desc&");
+            queryParams.append("$top=").append(top != null ? top : 50);
+
+            // Add skip parameter for pagination
+            if (skip != null && skip > 0) {
+                queryParams.append("&$skip=").append(skip);
+            }
+
+            String uri = "/emails" + queryParams.toString();
+            log.info("Querying D365 emails with addresses - URI: {}", uri);
+
+            String response = webClient.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            JsonNode root = objectMapper.readTree(response);
+            JsonNode emailsNode = root.get("value");
+
+            List<Activity> emails = new ArrayList<>();
+            if (emailsNode != null && emailsNode.isArray()) {
+                for (JsonNode emailNode : emailsNode) {
+                    Activity email = parseEmailWithParties(emailNode);
+                    emails.add(email);
+                }
+            }
+
+            log.info("Fetched {} emails with addresses", emails.size());
+            return emails;
+
+        } catch (Exception e) {
+            log.error("Error fetching emails with addresses", e);
+            throw new RuntimeException("Failed to fetch emails with addresses: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Get emails with addresses (from/to/cc extracted from activity parties)
+     * 
+     * @param top Number of emails to fetch
+     * @return List of emails with populated email addresses
+     */
+    public List<Activity> getEmailsWithAddresses(Integer top) {
+        return getEmailsWithAddresses(top, null);
+    }
+
+    /**
+     * Parse email JSON with activity parties to extract email addresses
+     */
+    private Activity parseEmailWithParties(JsonNode emailNode) {
+        Activity email = new Activity();
+
+        // Basic fields
+        email.setActivityId(getStringValue(emailNode, "activityid"));
+        email.setSubject(getStringValue(emailNode, "subject"));
+        email.setDescription(getStringValue(emailNode, "description"));
+        email.setActivityTypeCode("email");
+        email.setStateCode(emailNode.has("statecode") ? emailNode.get("statecode").asInt() : null);
+        email.setStatusCode(emailNode.has("statuscode") ? emailNode.get("statuscode").asInt() : null);
+        email.setCreatedOn(getStringValue(emailNode, "createdon"));
+        email.setModifiedOn(getStringValue(emailNode, "modifiedon"));
+
+        // Direction code: true = outgoing, false = incoming
+        if (emailNode.has("directioncode")) {
+            boolean directionCode = emailNode.get("directioncode").asBoolean();
+            email.setDirectionCode(directionCode);
+            email.setDirection(directionCode ? "outgoing" : "incoming");
+        }
+
+        // Owner (staff)
+        email.setOwningUserId(getStringValue(emailNode, "_owninguser_value"));
+        if (emailNode.has("owninguser")) {
+            JsonNode ownerNode = emailNode.get("owninguser");
+            email.setOwningUserName(getStringValue(ownerNode, "fullname"));
+            email.setStaffName(getStringValue(ownerNode, "fullname"));
+            email.setStaffEmail(getStringValue(ownerNode, "internalemailaddress"));
+        } else {
+            email.setOwningUserName(
+                    getStringValue(emailNode, "_owninguser_value@OData.Community.Display.V1.FormattedValue"));
+            email.setStaffName(
+                    getStringValue(emailNode, "_owninguser_value@OData.Community.Display.V1.FormattedValue"));
+        }
+
+        // Regarding (account/contact)
+        email.setRegardingObjectId(getStringValue(emailNode, "_regardingobjectid_value"));
+        if (emailNode.has("regardingobjectid_account")) {
+            JsonNode accountNode = emailNode.get("regardingobjectid_account");
+            email.setRegardingObjectName(getStringValue(accountNode, "name"));
+        } else if (emailNode.has("regardingobjectid_contact")) {
+            JsonNode contactNode = emailNode.get("regardingobjectid_contact");
+            email.setRegardingObjectName(getStringValue(contactNode, "fullname"));
+        } else {
+            email.setRegardingObjectName(
+                    getStringValue(emailNode, "_regardingobjectid_value@OData.Community.Display.V1.FormattedValue"));
+        }
+
+        // Parse email_activity_parties to get from/to addresses
+        if (emailNode.has("email_activity_parties")) {
+            JsonNode parties = emailNode.get("email_activity_parties");
+            if (parties.isArray()) {
+                for (JsonNode party : parties) {
+                    int participationType = party.has("participationtypemask")
+                            ? party.get("participationtypemask").asInt()
+                            : 0;
+                    String address = getStringValue(party, "addressused");
+
+                    if (address != null && !address.isEmpty()) {
+                        // participationtypemask: 1=From, 2=To, 3=CC, 4=BCC
+                        if (participationType == 1) {
+                            email.setFromEmail(address);
+                        } else if (participationType == 2) {
+                            // For To, concatenate if multiple recipients
+                            if (email.getToEmail() == null || email.getToEmail().isEmpty()) {
+                                email.setToEmail(address);
+                            } else {
+                                email.setToEmail(email.getToEmail() + "; " + address);
+                            }
+                        } else if (participationType == 3) {
+                            // For CC
+                            if (email.getCcEmail() == null || email.getCcEmail().isEmpty()) {
+                                email.setCcEmail(address);
+                            } else {
+                                email.setCcEmail(email.getCcEmail() + "; " + address);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return email;
+    }
+
+    /**
+     * Helper method to safely get string value from JsonNode
+     */
+    private String getStringValue(JsonNode node, String fieldName) {
+        if (node.has(fieldName) && !node.get(fieldName).isNull()) {
+            return node.get(fieldName).asText();
+        }
+        return null;
+    }
+
+    /**
      * Get email details for specific activity IDs
      * This is a standalone method that queries the emails table directly
      * without any enrichment dependencies

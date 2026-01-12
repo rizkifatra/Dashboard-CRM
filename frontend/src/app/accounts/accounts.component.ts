@@ -8,8 +8,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AccountService, Account } from '../services/account.service';
 import { StaffService, Staff } from '../services/staff.service';
+import { ActivityService, Activity } from '../services/activity.service';
 import { DateUtilsService } from '../services/date-utils.service';
 import { TableSkeletonComponent } from '../shared/table-skeleton.component';
+import { EmailReminder } from '../models';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
@@ -45,6 +47,18 @@ export class AccountsComponent implements OnInit, AfterViewInit {
   selectedAccount: Account | null = null;
   showAccountDetail = false;
 
+  // Follow-ups (Activities)
+  accountFollowUps: Activity[] = [];
+  loadingFollowUps = false;
+  followUpError: string | null = null;
+
+  // Email Reminders
+  emailReminders: EmailReminder[] = [];
+  emailReminderCount = 0;
+  criticalRemindersCount = 0;
+  showEmailReminders = false;
+  loadingReminders = false;
+
   // Search debounce subject
   private searchSubject = new Subject<string>();
 
@@ -58,6 +72,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
   constructor(
     private accountService: AccountService,
     private staffService: StaffService,
+    private activityService: ActivityService,
     private dateUtils: DateUtilsService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -65,6 +80,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
   ngOnInit() {
     this.loadStaff();
     this.loadCount();
+    this.loadEmailReminders();
 
     // Setup search debounce - wait 500ms after user stops typing
     this.searchSubject
@@ -308,12 +324,94 @@ export class AccountsComponent implements OnInit, AfterViewInit {
   openAccountDetails(account: Account) {
     this.selectedAccount = account;
     this.showAccountDetail = true;
+    this.loadFollowUps(account.accountid);
     this.cdr.detectChanges();
   }
 
   closeAccountDetail() {
     this.showAccountDetail = false;
     this.selectedAccount = null;
+    this.accountFollowUps = [];
+    this.followUpError = null;
+  }
+
+  loadFollowUps(accountId: string) {
+    console.log('Loading follow-ups for account:', accountId);
+    this.loadingFollowUps = true;
+    this.followUpError = null;
+    this.accountFollowUps = [];
+
+    this.activityService.getActivitiesByAccount(accountId, 50).subscribe({
+      next: (response) => {
+        console.log('Follow-ups response:', response);
+        if (response.success) {
+          // Filter to show only phone calls
+          this.accountFollowUps = response.data.filter(
+            (activity) =>
+              activity.activityTypeCode?.toLowerCase() === 'phonecall'
+          );
+          console.log(
+            'Phone calls loaded:',
+            this.accountFollowUps.length,
+            'phone calls'
+          );
+        } else {
+          this.followUpError = response.message;
+          console.error(
+            'Follow-ups API returned success=false:',
+            response.message
+          );
+        }
+        this.loadingFollowUps = false;
+      },
+      error: (err) => {
+        console.error('Error loading follow-ups:', err);
+        this.followUpError = 'Failed to load follow-ups';
+        this.loadingFollowUps = false;
+      },
+    });
+  }
+
+  getActivityIcon(activityType: string): string {
+    const types: { [key: string]: string } = {
+      email: '📧',
+      phonecall: '📞',
+      appointment: '📅',
+      task: '✅',
+      fax: '📠',
+      letter: '✉️',
+    };
+    return types[activityType?.toLowerCase()] || '📝';
+  }
+
+  getActivityTypeLabel(activityType: string): string {
+    const labels: { [key: string]: string } = {
+      email: 'Email',
+      phonecall: 'Phone Call',
+      appointment: 'Meeting',
+      task: 'Task',
+      fax: 'Fax',
+      letter: 'Letter',
+    };
+    return labels[activityType?.toLowerCase()] || activityType || 'Activity';
+  }
+
+  getActivityStatusLabel(stateCode: number): string {
+    const statuses: { [key: number]: string } = {
+      0: 'Open',
+      1: 'Completed',
+      2: 'Cancelled',
+    };
+    return statuses[stateCode] || 'Unknown';
+  }
+
+  getActivityStatusClass(stateCode: number): string {
+    const classes: { [key: number]: string } = {
+      0: 'status-open',
+      1: 'status-completed',
+      2: 'status-canceled',
+    };
+    return classes[stateCode] || '';
   }
 
   getLastUpdatedText(): string {
@@ -571,5 +669,43 @@ export class AccountsComponent implements OnInit, AfterViewInit {
         }
       });
     });
+  }
+
+  // Email Reminder Methods
+  loadEmailReminders() {
+    this.loadingReminders = true;
+    this.activityService.getEmailReminders().subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.emailReminders = response.data;
+          this.emailReminderCount = this.emailReminders.length;
+          this.criticalRemindersCount = this.emailReminders.filter(
+            (r) => r.urgencyLevel === 'critical'
+          ).length;
+          console.log('Email reminders loaded:', this.emailReminderCount);
+        }
+        this.loadingReminders = false;
+      },
+      error: (err) => {
+        console.error('Error loading email reminders:', err);
+        this.loadingReminders = false;
+      },
+    });
+  }
+
+  toggleEmailReminders() {
+    this.showEmailReminders = !this.showEmailReminders;
+    if (this.showEmailReminders && this.emailReminders.length === 0) {
+      this.loadEmailReminders();
+    }
+  }
+
+  getUrgencyColor(color: string): string {
+    const colors: { [key: string]: string } = {
+      yellow: '#F59E0B',
+      orange: '#F97316',
+      red: '#EF4444',
+    };
+    return colors[color] || '#6B7280';
   }
 }

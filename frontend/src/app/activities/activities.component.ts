@@ -8,6 +8,7 @@ import {
   Activity,
   UnrepliedEmail,
 } from '../services/activity.service';
+import { EmailReminder, EmailReminderCounts } from '../models';
 import { DateUtilsService } from '../services/date-utils.service';
 
 @Component({
@@ -24,6 +25,15 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   selectedActivity: Activity | null = null;
   showModal = false;
 
+  // Email reminders
+  emailReminders: EmailReminder[] = [];
+  emailReminderCount: number = 0;
+  criticalRemindersCount: number = 0;
+  showEmailReminders: boolean = false;
+  loadingReminders: boolean = false;
+  reminderEmailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' =
+    'all';
+
   // Pagination for infinite scroll
   currentPage = 0;
   pageSize = 50;
@@ -32,7 +42,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
 
   // Filter options
   // prettier-ignore
-  filterType: 'all' | 'recent' | 'emails' | 'staff' | 'account' | 'unreplied' = 'all';
+  filterType: 'all' | 'recent' | 'emails' | 'staff' | 'account' | 'unreplied' | 'followup' = 'all';
   staffEmail = '';
   accountId = '';
   activityCount = 0;
@@ -85,6 +95,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
     this.loadActivities();
     this.loadActivityCount();
     this.loadUnrepliedCount(); // Load unreplied count for the card
+    this.loadEmailReminders(); // Load email reminders
     this.startAutoRefresh(); // Start auto-refresh for unreplied emails
   }
 
@@ -462,6 +473,16 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
     });
   }
 
+  formatSentDate(dateString: string): string {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+
   getPercentage(value: number, total: number): number {
     if (total === 0) return 0;
     return Math.round((value / total) * 100);
@@ -814,10 +835,136 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Error loading email details:', err);
-        const errorMessage =
-          err.error?.message || err.message || 'Please try again.';
-        alert('Error loading email details: ' + errorMessage);
+        alert('Error loading email details');
       },
     });
+  }
+
+  /**
+   * View email reminder details
+   */
+  viewReminderDetails(reminder: EmailReminder): void {
+    console.log('Clicked email reminder:', reminder);
+    console.log('Fetching activity details for ID:', reminder.activityId);
+
+    // Fetch full activity details and open modal
+    this.activityService.getActivityById(reminder.activityId).subscribe({
+      next: (response) => {
+        console.log('Activity details response:', response);
+        if (response.success && response.data) {
+          this.selectedActivity = response.data;
+          this.showModal = true;
+          console.log('Modal opened with activity:', this.selectedActivity);
+        } else {
+          console.warn('Failed to load activity details:', response.message);
+          alert(
+            'Failed to load email details: ' +
+              (response.message || 'Unknown error')
+          );
+        }
+      },
+      error: (err) => {
+        console.error('Error loading email details:', err);
+        alert('Error loading email details');
+      },
+    });
+  }
+
+  /**
+   * Load email reminders
+   */
+  loadEmailReminders(): void {
+    this.loadingReminders = true;
+    console.log('Loading email follow-up reminders...');
+
+    this.activityService.getEmailReminders().subscribe({
+      next: (response) => {
+        console.log('Email reminders response:', response);
+        if (response.success && response.data) {
+          this.emailReminders = response.data;
+          this.emailReminderCount = this.emailReminders.length;
+          this.criticalRemindersCount = this.emailReminders.filter(
+            (r) => r.urgencyLevel === 'critical'
+          ).length;
+          console.log(
+            `Loaded ${this.emailReminderCount} reminders (${this.criticalRemindersCount} critical)`
+          );
+        }
+        this.loadingReminders = false;
+      },
+      error: (err) => {
+        console.error('Error loading email reminders:', err);
+        this.loadingReminders = false;
+      },
+    });
+  }
+
+  /**
+   * Toggle email reminders section
+   */
+  toggleEmailReminders(): void {
+    this.showEmailReminders = !this.showEmailReminders;
+    console.log('Email reminders section toggled:', this.showEmailReminders);
+
+    // If opening for the first time and no data, load it
+    if (
+      this.showEmailReminders &&
+      this.emailReminders.length === 0 &&
+      !this.loadingReminders
+    ) {
+      this.loadEmailReminders();
+    }
+  }
+
+  /**
+   * Show email follow-up reminders (from metric card click)
+   */
+  openEmailReminders(): void {
+    this.filterType = 'followup';
+    console.log('Showing follow-up email reminders');
+
+    // Load reminders if not already loaded
+    if (this.emailReminders.length === 0 && !this.loadingReminders) {
+      this.loadEmailReminders();
+    }
+  }
+
+  /**
+   * Get urgency color as hex value
+   */
+  getUrgencyColor(color: string): string {
+    const colorMap: Record<string, string> = {
+      yellow: '#F59E0B',
+      orange: '#F97316',
+      red: '#EF4444',
+    };
+    return colorMap[color] || '#6B7280';
+  }
+
+  /**
+   * Get filtered email reminders based on email code filter
+   */
+  getFilteredReminders(): EmailReminder[] {
+    if (this.reminderEmailCodeFilter === 'all') {
+      return this.emailReminders;
+    }
+
+    return this.emailReminders.filter((reminder) => {
+      const code = this.getEmailCode(reminder.subject);
+      return code === this.reminderEmailCodeFilter;
+    });
+  }
+
+  /**
+   * Get count of reminders for each email code category
+   */
+  getReminderEmailCodeCount(code: string): number {
+    if (code === 'all') {
+      return this.emailReminders.length;
+    }
+
+    return this.emailReminders.filter((reminder) => {
+      return this.getEmailCode(reminder.subject) === code;
+    }).length;
   }
 }

@@ -38,17 +38,20 @@
                 </div>
             </div>
 
-            <div class="metric-card red">
+            <!-- Follow-Up Email Reminders Card -->
+            <div class="metric-card blue" (click)="openEmailReminders()" style="cursor: pointer;">
                 <div class="metric-left">
-                    <div class="metric-label">Received</div>
-                    <div class="metric-value">{{ getIncomingCount() }}</div>
+                    <div class="metric-label">Follow-Up Email</div>
+                    <div class="metric-value">{{ emailReminderCount }}</div>
+                    <div class="metric-sublabel" *ngIf="criticalRemindersCount > 0"
+                        style="font-size: 0.7rem; color: #dc2626; margin-top: 4px;">{{ criticalRemindersCount }}
+                        Critical!</div>
                 </div>
                 <div class="metric-circle">
                     <svg viewBox="0 0 36 36" class="circular-chart">
                         <path class="circle-bg"
                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle"
-                            [attr.stroke-dasharray]="getPercentage(getIncomingCount(), activityCount) + ', 100'"
+                        <path class="circle" [attr.stroke-dasharray]="'65, 100'"
                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                     </svg>
                 </div>
@@ -89,7 +92,7 @@
             <h3 class="filter-section-title">Unreplied Emails ({{ getFilteredUnrepliedEmails().length }})</h3>
             <div class="refresh-controls">
                 <span class="auto-refresh-indicator ms-2" *ngIf="autoRefreshEnabled">
-                 Auto-refreshing every {{ refreshIntervalMinutes }}min
+                    Auto-refreshing every {{ refreshIntervalMinutes }}min
                 </span>
             </div>
         </div>
@@ -163,8 +166,80 @@
         </div>
     </div>
 
+    <!-- Follow-Up Email Reminders Section -->
+    <div class="email-code-section" *ngIf="filterType === 'followup'">
+        <div class="section-title-bar">
+            <h3 class="filter-section-title">Email Follow-Up Reminders ({{ emailReminderCount }})</h3>
+        </div>
+
+        <!-- Email Code Filter for Follow-Up -->
+        <div class="code-tabs" *ngIf="!loadingReminders">
+            <button class="code-tab" [class.active]="reminderEmailCodeFilter === 'all'"
+                (click)="reminderEmailCodeFilter = 'all'">
+                All ({{ getReminderEmailCodeCount('all') }})
+            </button>
+            <button class="code-tab" [class.active]="reminderEmailCodeFilter === 'RE'"
+                (click)="reminderEmailCodeFilter = 'RE'">
+                RE ({{ getReminderEmailCodeCount('RE') }})
+            </button>
+            <button class="code-tab" [class.active]="reminderEmailCodeFilter === 'FW'"
+                (click)="reminderEmailCodeFilter = 'FW'">
+                FW ({{ getReminderEmailCodeCount('FW') }})
+            </button>
+            <button class="code-tab" [class.active]="reminderEmailCodeFilter === 'RFQ'"
+                (click)="reminderEmailCodeFilter = 'RFQ'">
+                RFQ ({{ getReminderEmailCodeCount('RFQ') }})
+            </button>
+            <button class="code-tab" [class.active]="reminderEmailCodeFilter === 'RFP'"
+                (click)="reminderEmailCodeFilter = 'RFP'">
+                RFP ({{ getReminderEmailCodeCount('RFP') }})
+            </button>
+            <button class="code-tab" [class.active]="reminderEmailCodeFilter === 'OTHER'"
+                (click)="reminderEmailCodeFilter = 'OTHER'">
+                Other ({{ getReminderEmailCodeCount('OTHER') }})
+            </button>
+        </div>
+
+        <!-- Loading State for Reminders -->
+        <app-table-skeleton *ngIf="loadingReminders"></app-table-skeleton>
+
+        <!-- Follow-Up Reminders Table -->
+        <div class="simple-table" *ngIf="!loadingReminders && getFilteredReminders().length > 0"
+            style="max-height: 600px; overflow-y: auto;">
+            <div *ngFor="let reminder of getFilteredReminders()" class="simple-row clickable-row"
+                (click)="viewReminderDetails(reminder)">
+                <div class="row-left">
+                    <span class="code-badge" [ngClass]="'badge-' + getEmailCode(reminder.subject).toLowerCase()">
+                        {{ getEmailCode(reminder.subject) }}
+                    </span>
+                    <span class="status-type-badge" [ngClass]="reminder.urgencyLevel === 'critical' ? 'status-type-tender' : 
+                                   reminder.urgencyLevel === 'medium' ? 'status-type-quote' : 'status-type-update'">
+                        {{ reminder.urgencyLevel === 'critical' ? '14' :
+                        reminder.urgencyLevel === 'medium' ? '7' : '3' }} • {{ reminder.daysOverdue }}d
+                    </span>
+
+                    <div class="subject-area">
+                        <span class="subject">
+                            {{ reminder.subject }}
+                        </span>
+                    </div>
+                </div>
+                <div class="row-right">
+                    <span class="staff">{{ reminder.staffName }}</span>
+                    <span class="date">{{ formatSentDate(reminder.sentDate) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div *ngIf="!loadingReminders && emailReminders.length === 0" class="empty-state">
+            <p>✅ All caught up! No emails pending follow-up.</p>
+        </div>
+    </div>
+
     <!-- Email Code Filter Section -->
-    <div class="email-code-section" *ngIf="!loading && !error && filterType !== 'unreplied'">
+    <div class="email-code-section"
+        *ngIf="!loading && !error && filterType !== 'unreplied' && filterType !== 'followup'">
         <div class="section-title-bar">
             <h3 class="filter-section-title">Filter by Email Code</h3>
         </div>
@@ -229,7 +304,7 @@
         </div>
 
         <!-- Email Code Activities Table -->
-        <div class="simple-table" *ngIf="!loading && !error && filterType !== 'unreplied'"
+        <div class="simple-table" *ngIf="!loading && !error && filterType !== 'unreplied' && filterType !== 'followup'"
             (scroll)="onTableScroll($event)">
             <div *ngFor="let activity of getDoubleFilteredActivities()" class="simple-row"
                 (click)="openActivityDetails(activity)">

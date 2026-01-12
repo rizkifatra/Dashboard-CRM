@@ -1,4 +1,4 @@
-:host {
+ :host {
     display: block;
     height: 100vh;
     overflow: hidden;
@@ -1891,4 +1891,329 @@
 
 .view-btn:hover {
     background: #E5E7EB;
+}
+
+/* Email Reminders Section */
+.reminder-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin: 24px 0;
+    overflow: hidden;
+}
+
+.reminder-section.email-reminders {
+    cursor: pointer;
+}
+
+.reminder-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    transition: background-color 0.2s;
+}
+
+.reminder-section.email-reminders .reminder-header:hover {
+    background: #F9FAFB;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+}
+
+.reminder-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+}
+
+.header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.reminder-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.reminder-subtitle {
+    font-size: 13px;
+    color: #6B7280;
+    margin: 0;
+}
+
+.reminder-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 8px;
+    background: #EF4444;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 12px;
+}
+
+.toggle-icon {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s;
+    color: #6B7280;
+}
+
+.toggle-icon.expanded {
+    transform: rotate(180deg);
+}
+
+.critical-text {
+    color: #EF4444;
+    font-weight: 600;
+}
+
+/* Email Reminders List */
+.email-reminders-list {
+    padding: 0 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.email-reminder-card {
+    display: flex;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.email-reminder-card:hover {
+    border-color: #D1D5DB;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.reminder-urgency-indicator {
+    width: 4px;
+    flex-shrink: 0;
+}
+
+.reminder-content {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    padding: 16px;
+    gap: 16px;
+}
+
+.reminder-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.reminder-subject {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.urgency-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.badge-yellow {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.badge-orange {
+    background: #FFEDD5;
+    color: #9A3412;
+}
+
+.badge-red {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.subject-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+    line-height: 1.4;
+}
+
+.reminder-details {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: #6B7280;
+}
+
+.detail-item svg {
+    color: #9CA3AF;
+}
+
+.reminder-staff {
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.reminder-staff strong {
+    color: #374151;
+}
+
+.reminder-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: flex-start;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid #E5E7EB;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: #F9FAFB;
+    border-color: #D1D5DB;
+}
+
+.view-btn:hover {
+    background: #EFF6FF;
+    border-color: #BFDBFE;
+}
+
+.view-btn:hover svg {
+    color: #2563EB;
+}
+
+/* Loading State */
+.reminders-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    color: #6B7280;
+    font-size: 14px;
+}
+
+.spinner-small {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #E5E7EB;
+    border-top-color: #6366F1;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .email-reminder-card {
+        flex-direction: column;
+    }
+
+    .reminder-content {
+        flex-direction: column;
+    }
+
+    .reminder-details {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .reminder-actions {
+        align-self: flex-start;
+    }
+}
+
+/* Blue metric card for Follow-Up Email */
+.metric-card.blue {
+    border: 2px solid #DBEAFE;
+}
+
+.metric-card.blue:hover {
+    border-color: #93C5FD;
+}
+
+.metric-card.blue .circular-chart .circle {
+    stroke: #3B82F6;
+}
+
+/* Remove cursor pointer from reminder header since metric card handles toggle */
+.reminder-section.email-reminders {
+    cursor: default;
+}
+
+.reminder-section.email-reminders .reminder-header:hover {
+    background: white;
+}
+
+/* Remove cursor pointer from reminder header since metric card handles toggle */
+.reminder-section.email-reminders {
+    cursor: default;
+}
+
+.reminder-section.email-reminders .reminder-header:hover {
+    background: white;
 }
