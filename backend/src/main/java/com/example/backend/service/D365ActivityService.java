@@ -298,7 +298,7 @@ public class D365ActivityService {
             StringBuilder queryParams = new StringBuilder("?");
             queryParams.append("$select=activityid,subject,description,statecode,statuscode,")
                     .append("directioncode,_owninguser_value,_regardingobjectid_value,")
-                    .append("createdon,modifiedon&");
+                    .append("createdon,modifiedon,actualend,actualstart,senton&");
             queryParams.append("$expand=email_activity_parties($select=participationtypemask,addressused),")
                     .append("regardingobjectid_account($select=name),")
                     .append("regardingobjectid_contact($select=fullname),")

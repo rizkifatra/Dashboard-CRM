@@ -138,9 +138,6 @@
             <div *ngFor="let item of incompleteAccountsByStaff" class="staff-reminder-item"
                 [class.active]="showingIncompleteOnly && selectedStaffId === item.staff.systemUserId"
                 (click)="filterByIncompleteStaff(item.staff.systemUserId, item.staff.fullName)">
-                <div class="staff-avatar">
-                    {{ getStaffInitials(item.staff.fullName) }}
-                </div>
                 <div class="staff-details">
                     <div class="staff-name">{{ item.staff.fullName }}</div>
                 </div>
@@ -151,97 +148,6 @@
         </div>
     </div>
 
-    <!-- Email Follow-Up Reminders Card -->
-    <div class="reminder-section email-reminders" *ngIf="!loading && !error">
-        <div class="reminder-header" (click)="toggleEmailReminders()">
-            <div class="reminder-title-row">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="margin-right: 8px;">
-                    <rect x="3" y="5" width="18" height="14" rx="2" stroke="#6366F1" stroke-width="2" fill="none" />
-                    <path d="M3 7l9 6 9-6" stroke="#6366F1" stroke-width="2" stroke-linecap="round" />
-                </svg>
-                <h3 class="reminder-title">📧 Email Follow-Up Reminders</h3>
-                <span class="reminder-count-badge" *ngIf="emailReminderCount > 0">
-                    {{ emailReminderCount }}
-                </span>
-                <span class="toggle-icon" [class.expanded]="showEmailReminders">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path
-                            d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z" />
-                    </svg>
-                </span>
-            </div>
-            <p class="reminder-subtitle" *ngIf="emailReminderCount > 0">
-                {{ emailReminderCount }} emails need follow-up
-                <span *ngIf="criticalRemindersCount > 0" class="critical-text"> · {{ criticalRemindersCount }}
-                    critical</span>
-            </p>
-            <p class="reminder-subtitle" *ngIf="emailReminderCount === 0">
-                ✅ All caught up! No emails pending follow-up.
-            </p>
-        </div>
-
-        <!-- Expanded Reminder List -->
-        <div class="email-reminders-list" *ngIf="showEmailReminders && emailReminders.length > 0">
-            <div *ngFor="let reminder of emailReminders" class="email-reminder-card"
-                [class]="'urgency-' + reminder.urgencyLevel">
-                <div class="reminder-urgency-indicator"
-                    [style.background-color]="getUrgencyColor(reminder.urgencyColor)"></div>
-                <div class="reminder-content">
-                    <div class="reminder-main">
-                        <div class="reminder-subject">
-                            <span class="urgency-badge" [class]="'badge-' + reminder.urgencyColor">
-                                {{ reminder.urgencyBadge }}
-                            </span>
-                            <span class="subject-text">{{ reminder.subject }}</span>
-                        </div>
-                        <div class="reminder-details">
-                            <span class="detail-item">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <path
-                                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                                        stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                                </svg>
-                                {{ reminder.toEmail }}
-                            </span>
-                            <span class="detail-item" *ngIf="reminder.accountName">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <path d="M19 21v-2a4 4 0 00-4-4H9a4 4 0 00-4 4v2M16 7a4 4 0 11-8 0 4 4 0 018 0z"
-                                        stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                                </svg>
-                                {{ reminder.accountName }}
-                            </span>
-                            <span class="detail-item">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
-                                    <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2"
-                                        stroke-linecap="round" />
-                                </svg>
-                                {{ reminder.daysOverdue }} days ago
-                            </span>
-                        </div>
-                        <div class="reminder-staff">
-                            Sent by: <strong>{{ reminder.staffName }}</strong>
-                        </div>
-                    </div>
-                    <div class="reminder-actions">
-                        <button class="action-btn view-btn" title="View in D365">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor"
-                                    stroke-width="2" />
-                                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Loading State -->
-        <div class="reminders-loading" *ngIf="loadingReminders && showEmailReminders">
-            <div class="spinner-small"></div>
-            <span>Loading reminders...</span>
-        </div>
-    </div>
 
     <!-- Search Section -->
     <div class="search-section" *ngIf="!loading && !error">
@@ -478,7 +384,7 @@
                             <a *ngIf="selectedAccount?.telephone1" [href]="'tel:' + selectedAccount?.telephone1"
                                 class="phone-link">
                                 {{ selectedAccount?.telephone1 }}
-                            </a>
+                            </a>x
                             <span *ngIf="!selectedAccount?.telephone1">N/A</span>
                         </div>
                     </div>

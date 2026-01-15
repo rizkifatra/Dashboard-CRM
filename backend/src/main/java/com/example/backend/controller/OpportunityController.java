@@ -51,6 +51,17 @@ public class OpportunityController {
             List<Opportunity> opportunities = opportunityService.getAllOpportunities(top, skip, search, null, fromDate,
                     toDate);
 
+            // Populate accountId from expanded entities (ownerName comes from
+            // _ownerid_value formatted value)
+            opportunities.forEach(opp -> {
+                // Set account ID from parent account or customer account
+                if (opp.getParentAccount() != null && opp.getParentAccount().getAccountid() != null) {
+                    opp.setAccountId(opp.getParentAccount().getAccountid());
+                } else if (opp.getCustomerAccount() != null && opp.getCustomerAccount().getAccountid() != null) {
+                    opp.setAccountId(opp.getCustomerAccount().getAccountid());
+                }
+            });
+
             return ResponseEntity.ok(ApiResponse.success(
                     "Opportunities fetched successfully",
                     opportunities));

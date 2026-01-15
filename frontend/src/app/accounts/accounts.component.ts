@@ -217,9 +217,15 @@ export class AccountsComponent implements OnInit, AfterViewInit {
 
   loadCount() {
     this.accountService.getAccountCount().subscribe({
-      next: (response) => {
+      next: (response: any) => {
         if (response.success) {
-          this.totalCount = response.data || 0;
+          // API returns { count: number } in data field
+          this.totalCount = response.data?.count || response.data || 0;
+          console.log('Total account count from API:', this.totalCount);
+          // Recalculate stats if already loaded
+          if (this.allAccounts.length > 0) {
+            this.calculateStats();
+          }
         }
       },
       error: (err) => {
@@ -450,11 +456,13 @@ export class AccountsComponent implements OnInit, AfterViewInit {
   }
 
   calculateStats() {
-    const total = this.allAccounts.length;
+    const loadedCount = this.allAccounts.length;
+    // Use totalCount from API for accurate total, fall back to loaded count
+    const total = this.totalCount > 0 ? this.totalCount : loadedCount;
     const incomplete = this.allAccounts.filter((acc) =>
       this.isAccountIncomplete(acc)
     ).length;
-    const active = total - incomplete;
+    const active = loadedCount - incomplete;
 
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();

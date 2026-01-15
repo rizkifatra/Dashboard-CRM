@@ -188,6 +188,19 @@
     letter-spacing: 0.3px;
 }
 
+.metric-remaining {
+    font-size: 11px;
+    color: #EF4444;
+    font-weight: 500;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(0, 0, 0, 0.1);
+}
+
+.metric-remaining.success {
+    color: #10B981;
+}
+
 /* Staff Performance */
 .staff-performance {
     background: white;

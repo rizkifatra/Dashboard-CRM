@@ -88,6 +88,9 @@ public class Activity {
     @JsonAlias("scheduledend")
     private String scheduledEnd;
 
+    @JsonAlias("senton")
+    private String sentOn;
+
     // Duration in minutes
     @JsonAlias("actualdurationminutes")
     private Integer actualDurationMinutes;

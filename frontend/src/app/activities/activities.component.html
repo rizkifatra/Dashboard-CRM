@@ -126,7 +126,7 @@
 
         <!-- Unreplied Email Activities Table -->
         <div class="simple-table" *ngIf="!loading && getFilteredUnrepliedEmails().length > 0"
-            (scroll)="onTableScroll($event)" style="max-height: 600px; overflow-y: auto;">
+            (scroll)="onTableScroll($event)">
             <div *ngFor="let email of getFilteredUnrepliedEmails()" class="simple-row"
                 (click)="viewEmailDetails(email)">
                 <div class="row-left">
@@ -205,7 +205,7 @@
 
         <!-- Follow-Up Reminders Table -->
         <div class="simple-table" *ngIf="!loadingReminders && getFilteredReminders().length > 0"
-            style="max-height: 600px; overflow-y: auto;">
+            (scroll)="onTableScroll($event)" style="max-height: 600px; overflow-y: auto;">
             <div *ngFor="let reminder of getFilteredReminders()" class="simple-row clickable-row"
                 (click)="viewReminderDetails(reminder)">
                 <div class="row-left">
@@ -228,6 +228,12 @@
                     <span class="staff">{{ reminder.staffName }}</span>
                     <span class="date">{{ formatSentDate(reminder.sentDate) }}</span>
                 </div>
+            </div>
+
+            <!-- Loading More Indicator -->
+            <div *ngIf="loadingMoreReminders" class="loading-more">
+                <div class="spinner"></div>
+                <span>Loading more reminders...</span>
             </div>
         </div>
 

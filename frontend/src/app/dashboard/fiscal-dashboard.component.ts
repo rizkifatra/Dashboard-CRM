@@ -112,6 +112,30 @@ export class FiscalDashboardComponent implements OnInit {
     return Math.round((achieved / target) * 100);
   }
 
+  // Helper method to calculate remaining amount to reach target
+  getRemainingToTarget(
+    target: number | undefined,
+    achieved: number | undefined
+  ): number {
+    if (!target) return 0;
+    if (!achieved) return target;
+    const remaining = target - achieved;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  // Helper method to get CSS class based on remaining amount
+  getRemainingToTargetClass(
+    target: number | undefined,
+    achieved: number | undefined
+  ): string {
+    const remaining = this.getRemainingToTarget(target, achieved);
+    if (remaining <= 0) return 'green'; // Target achieved
+    const percentage = this.calculatePercentage(achieved, target);
+    if (percentage >= 75) return 'teal'; // Close to target
+    if (percentage >= 50) return 'orange'; // Halfway there
+    return 'red'; // Still far from target
+  }
+
   ngOnInit() {
     this.loadAllData();
     this.loadUnrepliedEmails();

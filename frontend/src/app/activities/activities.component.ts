@@ -27,12 +27,17 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
 
   // Email reminders
   emailReminders: EmailReminder[] = [];
+  private allEmailReminders: EmailReminder[] = []; // Store all reminders for pagination
   emailReminderCount: number = 0;
   criticalRemindersCount: number = 0;
   showEmailReminders: boolean = false;
   loadingReminders: boolean = false;
   reminderEmailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' =
     'all';
+  reminderPage = 0;
+  reminderPageSize = 20; // Show 20 reminders at a time
+  hasMoreReminders = true;
+  loadingMoreReminders = false;
 
   // Pagination for infinite scroll
   currentPage = 0;
@@ -768,6 +773,13 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
       ) {
         console.log('🔄 Triggering load more unreplied emails...');
         this.loadMoreUnrepliedEmails();
+      } else if (
+        this.filterType === 'followup' &&
+        !this.loadingMoreReminders &&
+        this.hasMoreReminders
+      ) {
+        console.log('🔄 Triggering load more follow-up reminders...');
+        this.loadMoreReminders();
       } else if (!this.loadingMore && this.hasMoreActivities) {
         console.log('🔄 Triggering load more activities...');
         this.loadMoreActivities();
@@ -881,13 +893,26 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
       next: (response) => {
         console.log('Email reminders response:', response);
         if (response.success && response.data) {
-          this.emailReminders = response.data;
-          this.emailReminderCount = this.emailReminders.length;
-          this.criticalRemindersCount = this.emailReminders.filter(
+          // Store all reminders
+          this.allEmailReminders = response.data;
+          this.emailReminderCount = this.allEmailReminders.length;
+          this.criticalRemindersCount = this.allEmailReminders.filter(
             (r) => r.urgencyLevel === 'critical'
           ).length;
+
+          // Reset pagination
+          this.reminderPage = 0;
+          this.hasMoreReminders =
+            this.allEmailReminders.length > this.reminderPageSize;
+
+          // Show first page
+          this.emailReminders = this.allEmailReminders.slice(
+            0,
+            this.reminderPageSize
+          );
+
           console.log(
-            `Loaded ${this.emailReminderCount} reminders (${this.criticalRemindersCount} critical)`
+            `Loaded ${this.emailReminderCount} reminders (${this.criticalRemindersCount} critical), showing first ${this.emailReminders.length}`
           );
         }
         this.loadingReminders = false;
@@ -897,6 +922,41 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
         this.loadingReminders = false;
       },
     });
+  }
+
+  /**
+   * Load more email reminders for infinite scroll
+   */
+  loadMoreReminders(): void {
+    if (this.loadingMoreReminders || !this.hasMoreReminders) {
+      return;
+    }
+
+    console.log(`📄 Loading more reminders page ${this.reminderPage + 1}...`);
+    this.loadingMoreReminders = true;
+
+    setTimeout(() => {
+      this.reminderPage++;
+      const skip = this.reminderPage * this.reminderPageSize;
+      const pageReminders = this.allEmailReminders.slice(
+        skip,
+        skip + this.reminderPageSize
+      );
+
+      if (pageReminders.length > 0) {
+        this.emailReminders = [...this.emailReminders, ...pageReminders];
+        this.hasMoreReminders =
+          skip + pageReminders.length < this.allEmailReminders.length;
+        console.log(
+          `✓ Loaded ${pageReminders.length} more reminders. Total displayed: ${this.emailReminders.length}`
+        );
+      } else {
+        this.hasMoreReminders = false;
+        console.log('✓ All reminders loaded');
+      }
+
+      this.loadingMoreReminders = false;
+    }, 300);
   }
 
   /**

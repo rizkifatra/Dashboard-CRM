@@ -33,7 +33,7 @@ public class EmailReminderService {
         try {
             log.info("Fetching email follow-up reminders");
 
-            // Fetch ALL emails in batches to avoid timeout (50 emails per batch)
+            // Fetch ALL emails in batches to scan entire history
             List<Activity> allEmails = fetchAllEmailsInBatches();
             log.info("Found {} total emails across all batches", allEmails.size());
 
@@ -72,11 +72,19 @@ public class EmailReminderService {
                 }
 
                 // Calculate days since sent
-                int daysOverdue = calculateDaysOverdue(email.getCreatedOn(), now);
+                // Try to parse actual sent date from email body first, then fallback to D365
+                // fields
+                String sentDate = extractSentDateFromDescription(email);
+                if (sentDate == null) {
+                    sentDate = email.getSentOn() != null ? email.getSentOn()
+                            : (email.getActualEnd() != null ? email.getActualEnd() : email.getCreatedOn());
+                }
+                int daysOverdue = calculateDaysOverdue(sentDate, now);
 
-                // Show all unreplied emails regardless of age
+                // Show all unreplied emails (badges: 3 for 0-6 days, 7 for 7-13 days, 14 for
+                // 14+ days)
                 if (daysOverdue >= 0) {
-                    EmailReminder reminder = createReminder(email, daysOverdue);
+                    EmailReminder reminder = createReminder(email, daysOverdue, sentDate);
                     reminders.add(reminder);
                 }
             }
@@ -95,20 +103,24 @@ public class EmailReminderService {
 
     /**
      * Fetch all emails in batches to avoid timeout
-     * Fetches 200 emails at a time until no more emails are returned
+     * Optimized batch size for reliability and performance
      * 
      * @return List of all emails
      */
     private List<Activity> fetchAllEmailsInBatches() {
         List<Activity> allEmails = new ArrayList<>();
-        int batchSize = 200; // Increased batch size to fetch more emails per request
+        int batchSize = 100; // Balanced batch size for reliability
         int skip = 0;
         int totalFetched = 0;
+        int maxBatches = 50; // Maximum 50 batches = 5000 emails total
+        int batchCount = 0;
 
-        log.info("Starting batch fetch of all emails (batch size: {})", batchSize);
+        log.info("Starting optimized batch fetch (batch size: {}, max batches: {})", batchSize, maxBatches);
 
-        while (true) {
+        while (batchCount < maxBatches) {
             try {
+                log.info("Fetching batch {} (skip: {})", batchCount + 1, skip);
+
                 // Fetch next batch
                 List<Activity> batch = activityService.getEmailsWithAddresses(batchSize, skip);
 
@@ -120,20 +132,26 @@ public class EmailReminderService {
                 allEmails.addAll(batch);
                 totalFetched += batch.size();
                 skip += batchSize;
+                batchCount++;
 
-                log.info("Fetched batch: {} emails (total so far: {})", batch.size(), totalFetched);
+                log.info("✓ Batch {} complete: {} emails (total: {})", batchCount, batch.size(), totalFetched);
 
                 // If batch returned less than batchSize, we've reached the end
                 if (batch.size() < batchSize) {
-                    log.info("Last batch received. Total emails fetched: {}", totalFetched);
+                    log.info("✓ All emails fetched. Total: {} emails in {} batches", totalFetched, batchCount);
                     break;
                 }
 
             } catch (Exception e) {
-                log.error("Error fetching batch at skip={}", skip, e);
-                // Continue with what we have so far
+                log.error("✗ Error fetching batch {} at skip={}: {}", batchCount + 1, skip, e.getMessage(), e);
+                log.warn("Continuing with {} emails already fetched", totalFetched);
                 break;
             }
+        }
+
+        if (batchCount >= maxBatches) {
+            log.warn("Reached maximum batch limit. Fetched {} emails. Consider increasing maxBatches if needed.",
+                    totalFetched);
         }
 
         return allEmails;
@@ -198,7 +216,7 @@ public class EmailReminderService {
     /**
      * Create EmailReminder from Activity
      */
-    private EmailReminder createReminder(Activity email, int daysOverdue) {
+    private EmailReminder createReminder(Activity email, int daysOverdue, String sentDate) {
         EmailReminder reminder = new EmailReminder();
         reminder.setActivityId(email.getActivityId());
         reminder.setSubject(email.getSubject() != null ? email.getSubject() : "No subject");
@@ -207,7 +225,7 @@ public class EmailReminderService {
         reminder.setAccountName(email.getRegardingObjectName());
         reminder.setStaffName(email.getStaffName());
         reminder.setStaffEmail(email.getStaffEmail());
-        reminder.setSentDate(email.getCreatedOn());
+        reminder.setSentDate(sentDate);
         reminder.setDaysOverdue(daysOverdue);
 
         // Set urgency level based on days overdue
@@ -224,6 +242,89 @@ public class EmailReminderService {
         }
 
         return reminder;
+    }
+
+    /**
+     * Extract actual sent date from email description/body
+     * Parses patterns like "Sent: Tuesday, December 30, 2025 2:50 PM"
+     * 
+     * @param email Email activity containing description
+     * @return ISO 8601 formatted date string or null if not found
+     */
+    private String extractSentDateFromDescription(Activity email) {
+        if (email.getDescription() == null || email.getDescription().isEmpty()) {
+            return null;
+        }
+
+        try {
+            // Strip HTML tags from description since D365 stores emails as HTML
+            // This converts "<b>Sent:</b>&nbsp;Tuesday, December 30, 2025 2:50 PM"
+            // to "Sent: Tuesday, December 30, 2025 2:50 PM"
+            String plainText = email.getDescription()
+                    .replaceAll("<[^>]*>", " ") // Remove all HTML tags
+                    .replaceAll("&nbsp;", " ") // Replace HTML spaces
+                    .replaceAll("&amp;", "&") // Replace HTML ampersands
+                    .replaceAll("\\s+", " ") // Normalize whitespace
+                    .trim();
+
+            log.debug("Searching for sent date in email: {}", email.getSubject());
+            log.debug("Plain text length: {} chars", plainText.length());
+
+            // Pattern 1: "Sent: Tuesday, December 30, 2025 2:50 PM" or "Sent: Monday,
+            // December 30, 2025, 2:50 PM"
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                    "Sent:\\s+(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\\s+" +
+                            "([A-Za-z]+)\\s+(\\d{1,2}),\\s+(\\d{4})[,\\s]+(\\d{1,2}):(\\d{2})\\s+(AM|PM)",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+            java.util.regex.Matcher matcher = pattern.matcher(plainText);
+
+            if (matcher.find()) {
+                log.info("MATCH FOUND in email: {}", email.getSubject());
+                log.info("Matched text: {}", matcher.group(0));
+
+                String month = matcher.group(1);
+                String day = matcher.group(2);
+                String year = matcher.group(3);
+                String hour = matcher.group(4);
+                String minute = matcher.group(5);
+                String ampm = matcher.group(6);
+
+                // Convert month name to number
+                Map<String, String> monthMap = Map.ofEntries(
+                        Map.entry("january", "01"), Map.entry("february", "02"), Map.entry("march", "03"),
+                        Map.entry("april", "04"), Map.entry("may", "05"), Map.entry("june", "06"),
+                        Map.entry("july", "07"), Map.entry("august", "08"), Map.entry("september", "09"),
+                        Map.entry("october", "10"), Map.entry("november", "11"), Map.entry("december", "12"));
+
+                String monthNum = monthMap.get(month.toLowerCase());
+                if (monthNum == null) {
+                    log.warn("Unknown month name: {}", month);
+                    return null;
+                }
+
+                // Convert 12-hour to 24-hour format
+                int hourInt = Integer.parseInt(hour);
+                if ("PM".equalsIgnoreCase(ampm) && hourInt != 12) {
+                    hourInt += 12;
+                } else if ("AM".equalsIgnoreCase(ampm) && hourInt == 12) {
+                    hourInt = 0;
+                }
+
+                // Build ISO 8601 format: 2025-12-30T14:50:00Z
+                String isoDate = String.format("%s-%s-%02dT%02d:%s:00Z",
+                        year, monthNum, Integer.parseInt(day), hourInt, minute);
+
+                log.info("Successfully extracted sent date: {} -> {}", matcher.group(0), isoDate);
+                return isoDate;
+            } else {
+                log.warn("No regex match found in email: {}", email.getSubject());
+            }
+        } catch (Exception e) {
+            log.error("Failed to parse sent date from email description: {}", e.getMessage(), e);
+        }
+
+        return null;
     }
 
     /**

@@ -35,6 +35,9 @@ public class Opportunity {
     @JsonAlias("actualclosedate")
     private String actualCloseDate;
 
+    @JsonAlias("budgetamount")
+    private BigDecimal budgetAmount;
+
     @JsonAlias("closeprobability")
     private Integer closeProbability;
 
@@ -65,20 +68,72 @@ public class Opportunity {
     @JsonAlias("_ownerid_value@OData.Community.Display.V1.FormattedValue")
     private String ownerName;
 
+    // Expanded owner entity (from $expand=ownerid_systemuser) - using type-specific
+    // expansion
+    @JsonProperty("ownerid_systemuser")
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private OwnerDetails ownerDetails;
+
     @JsonAlias("_createdby_value")
     private String createdById;
 
     @JsonAlias("_modifiedby_value")
     private String modifiedById;
 
-    // Related Account (Customer)
+    // Related Account (Customer) - can be account or contact
     @JsonAlias("_customerid_value")
     private String customerId;
 
-    @JsonAlias("_accountid_value")
+    @JsonAlias("_parentaccountid_value")
     private String accountId;
+
+    // Expanded customer account entity (from $expand=customerid_account)
+    @JsonProperty("customerid_account")
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private AccountDetails customerAccount;
+
+    // Expanded customer contact entity (from $expand=customerid_contact)
+    @JsonProperty("customerid_contact")
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private ContactDetails customerContact;
+
+    // Expanded parent account entity (from $expand=parentaccountid)
+    @JsonProperty("parentaccountid")
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private AccountDetails parentAccount;
 
     // OData metadata
     @JsonAlias({ "@odata.etag", "odata.etag" })
     private String etag;
+
+    // Nested classes for expanded entities
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class OwnerDetails {
+        @JsonAlias("fullname")
+        private String fullname;
+
+        @JsonAlias("systemuserid")
+        private String systemuserid;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class AccountDetails {
+        @JsonAlias("name")
+        private String name;
+
+        @JsonAlias("accountid")
+        private String accountid;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ContactDetails {
+        @JsonAlias("fullname")
+        private String fullname;
+
+        @JsonAlias("contactid")
+        private String contactid;
+    }
 }

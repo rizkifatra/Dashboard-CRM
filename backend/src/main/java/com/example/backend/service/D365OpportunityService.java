@@ -122,6 +122,7 @@ public class D365OpportunityService {
             // AccountService)
             // Fetch limited records from D365 and do pagination in-memory
             StringBuilder uri = new StringBuilder("/opportunities?");
+            StringBuilder filter = new StringBuilder();
 
             // Use $top to limit the batch size fetched from D365
             if (top != null && top > 0) {
@@ -131,22 +132,24 @@ public class D365OpportunityService {
             if (select != null && !select.isEmpty()) {
                 uri.append("$select=").append(select).append("&");
             } else {
-                // Default fields to select - D365 automatically provides formatted values
+                // Default fields to select with expanded navigation properties
                 uri.append("$select=opportunityid,name,description,estimatedvalue,estimatedclosedate,")
-                        .append("actualvalue,actualclosedate,closeprobability,salesstage,stepname,")
+                        .append("actualvalue,actualclosedate,closeprobability,salesstage,stepname,budgetamount,")
                         .append("createdon,modifiedon,statecode,statuscode,")
-                        .append("_ownerid_value,_createdby_value,_modifiedby_value,")
-                        .append("_customerid_value&");
+                        .append("_ownerid_value,_createdby_value,_modifiedby_value,_customerid_value,_parentaccountid_value&");
+
+                // Expand navigation properties to get related entity details
+                // Note: ownerid navigation property is not directly expandable for opportunity
+                uri.append("$expand=customerid_account($select=name,accountid),")
+                        .append("customerid_contact($select=fullname,contactid),")
+                        .append("parentaccountid($select=name,accountid)&");
             }
 
-            // Add filters
-            StringBuilder filter = new StringBuilder();
-
-            // Search filter (name, description, customer name)
-            if (search != null && !search.trim().isEmpty()) {
+            // Add search filter
+            if (search != null && !search.isEmpty()) {
                 String searchTerm = search.trim().replace("'", "''"); // Escape single quotes
-                filter.append("(contains(name, '" + searchTerm + "')");
-                filter.append(" or contains(description, '" + searchTerm + "'))");
+                filter.append("(contains(name, '").append(searchTerm).append("')");
+                filter.append(" or contains(description, '").append(searchTerm).append("'))");
             }
 
             if (fromDate != null && !fromDate.isEmpty()) {

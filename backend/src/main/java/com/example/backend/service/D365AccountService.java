@@ -208,14 +208,21 @@ public class D365AccountService {
                     .timeout(Duration.ofMillis(d365Config.getTimeout()))
                     .block();
 
-            // Remove any quotes, whitespace and parse
-            String cleanResponse = response.trim().replace("\"", "");
+            log.info("Raw count response: {}", response);
+
+            // Remove any quotes (regular and escaped), whitespace and non-digit characters
+            String cleanResponse = response.trim()
+                    .replace("\\\"", "")
+                    .replace("\"", "")
+                    .replaceAll("[^0-9]", "");
+
+            log.info("Cleaned count response: {}", cleanResponse);
             int count = Integer.parseInt(cleanResponse);
             log.info("Total account count: {}", count);
             return count;
 
         } catch (Exception e) {
-            log.error("Error fetching account count. Response was: {}", e);
+            log.error("Error fetching account count: {}", e.getMessage());
             throw new RuntimeException("Failed to fetch account count: " + e.getMessage(), e);
         }
     }

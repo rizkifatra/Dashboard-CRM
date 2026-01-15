@@ -43,6 +43,15 @@
                     <div class="metric-value">RM {{fiscalYearMetrics?.targetRevenue | number:'1.0-0'}}</div>
                     <div class="metric-subtitle">{{calculatePercentage(fiscalYearMetrics?.wonRevenue,
                         fiscalYearMetrics?.targetRevenue)}}% Achievement</div>
+                    <div class="metric-remaining"
+                        *ngIf="getRemainingToTarget(fiscalYearMetrics?.targetRevenue, fiscalYearMetrics?.wonRevenue) > 0">
+                        Remaining: RM {{getRemainingToTarget(fiscalYearMetrics?.targetRevenue,
+                        fiscalYearMetrics?.wonRevenue) | number:'1.0-0'}}
+                    </div>
+                    <div class="metric-remaining success"
+                        *ngIf="getRemainingToTarget(fiscalYearMetrics?.targetRevenue, fiscalYearMetrics?.wonRevenue) <= 0">
+                        🎉 Target Achieved!
+                    </div>
                 </div>
 
                 <div class="metric-card orange">
@@ -52,7 +61,10 @@
                 </div>
             </div>
 
-            <div class="staff-performance">
+
+
+
+            <!-- <div class="staff-performance">
                 <h3>TOP STAFF PERFORMANCE</h3>
                 <div class="staff-list">
                     <div *ngFor="let staff of fiscalYearTopStaff; let i = index" class="staff-item">
@@ -62,6 +74,7 @@
                     </div>
                 </div>
             </div>
+            -->
         </div>
 
         <!-- Current Quarter Section -->
@@ -83,6 +96,15 @@
                     <div class="metric-value">RM {{quarterMetrics?.targetRevenue | number:'1.0-0'}}</div>
                     <div class="metric-subtitle">{{calculatePercentage(quarterMetrics?.wonRevenue,
                         quarterMetrics?.targetRevenue)}}% Achievement</div>
+                    <div class="metric-remaining"
+                        *ngIf="getRemainingToTarget(quarterMetrics?.targetRevenue, quarterMetrics?.wonRevenue) > 0">
+                        Remaining: RM {{getRemainingToTarget(quarterMetrics?.targetRevenue, quarterMetrics?.wonRevenue)
+                        | number:'1.0-0'}}
+                    </div>
+                    <div class="metric-remaining success"
+                        *ngIf="getRemainingToTarget(quarterMetrics?.targetRevenue, quarterMetrics?.wonRevenue) <= 0">
+                        🎉 Target Achieved!
+                    </div>
                 </div>
 
                 <div class="metric-card teal">
@@ -92,7 +114,7 @@
                 </div>
             </div>
 
-            <div class="staff-performance">
+            <!-- <div class="staff-performance">
                 <h3>TOP STAFF PERFORMANCE </h3>
                 <div class="staff-list">
                     <div *ngFor="let staff of quarterTopStaff; let i = index" class="staff-item">
@@ -102,6 +124,7 @@
                     </div>
                 </div>
             </div>
+            -->
         </div>
 
         <!-- Opportunities Monthly Section -->
