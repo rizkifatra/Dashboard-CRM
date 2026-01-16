@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TableSkeletonComponent } from '../shared/table-skeleton.component';
+import { ActivitySkeletonComponent } from '../shared/activity-skeleton.component';
 import {
   ActivityService,
   Activity,
@@ -14,7 +15,12 @@ import { DateUtilsService } from '../services/date-utils.service';
 @Component({
   selector: 'app-activities',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableSkeletonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    TableSkeletonComponent,
+    ActivitySkeletonComponent,
+  ],
   templateUrl: './activities.component.html',
   styleUrls: ['./activities.component.css'],
 })
@@ -24,6 +30,9 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   error: string | null = null;
   selectedActivity: Activity | null = null;
   showModal = false;
+
+  // Email activity count
+  emailActivityCount = 0;
 
   // Email reminders
   emailReminders: EmailReminder[] = [];
@@ -35,7 +44,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   reminderEmailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' =
     'all';
   reminderPage = 0;
-  reminderPageSize = 20; // Show 20 reminders at a time
+  reminderPageSize = 50; // Show 20 reminders at a time
   hasMoreReminders = true;
   loadingMoreReminders = false;
 
@@ -59,14 +68,14 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   unrepliedCount = 0;
   maxHoursOld: number | null = null; // null = all time, or specify hours
   unrepliedPage = 0;
-  unrepliedPageSize = 20; // Reduced for better infinite scroll experience
+  unrepliedPageSize = 50; // Load 50 emails per scroll
   hasMoreUnreplied = true;
   loadingMoreUnreplied = false;
 
   // Auto-refresh settings
   private refreshInterval: any = null;
   autoRefreshEnabled = true;
-  refreshIntervalMinutes = 2; // Refresh every 2 minutes
+  refreshIntervalMinutes = 1; // Refresh every 1 minute for real-time updates
 
   // Email code filter
   emailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' = 'all';
@@ -110,7 +119,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Start auto-refresh timer for unreplied emails
+   * Start auto-refresh timer for all metric cards
    */
   startAutoRefresh() {
     if (!this.autoRefreshEnabled) return;
@@ -119,12 +128,12 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
 
     const intervalMs = this.refreshIntervalMinutes * 60 * 1000;
     console.log(
-      `🔄 Auto-refresh enabled: checking for unreplied emails every ${this.refreshIntervalMinutes} minutes`
+      `🔄 Auto-refresh enabled: updating all metrics every ${this.refreshIntervalMinutes} minute(s)`
     );
 
     this.refreshInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing unreplied emails...');
-      this.refreshUnrepliedEmails();
+      console.log('🔄 Auto-refreshing all metrics...');
+      this.refreshAllMetrics();
     }, intervalMs);
   }
 
@@ -137,6 +146,65 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
       this.refreshInterval = null;
       console.log('⏸️ Auto-refresh stopped');
     }
+  }
+
+  /**
+   * Refresh all metric cards in background (without showing loading state)
+   */
+  refreshAllMetrics() {
+    // Refresh activity count
+    this.loadActivityCount();
+
+    // Refresh email activities count
+    this.refreshEmailCount();
+
+    // Refresh unreplied emails
+    this.refreshUnrepliedEmails();
+
+    // Refresh follow-up reminders
+    this.refreshFollowUpReminders();
+
+    console.log('✅ All metrics refreshed');
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Refresh email activities count
+   */
+  refreshEmailCount() {
+    this.activityService.getEmailActivities(100, 0).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.emailActivityCount = response.data.length;
+        }
+      },
+      error: (err: Error) => {
+        console.error('❌ Email count refresh failed:', err);
+      },
+    });
+  }
+
+  /**
+   * Refresh follow-up reminders count
+   */
+  refreshFollowUpReminders() {
+    this.activityService.getEmailReminderCounts().subscribe({
+      next: (response: { success: boolean; data: { total: number } }) => {
+        if (response.success) {
+          const previousCount = this.emailReminderCount;
+          this.emailReminderCount = response.data.total;
+
+          if (previousCount !== this.emailReminderCount) {
+            console.log(
+              `📬 Follow-up count updated: ${previousCount} → ${this.emailReminderCount}`
+            );
+          }
+        }
+      },
+      error: (err: Error) => {
+        console.error('❌ Follow-up refresh failed:', err);
+      },
+    });
   }
 
   /**
@@ -168,7 +236,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
         }
       },
       error: (err) => {
-        console.error('❌ Auto-refresh failed:', err);
+        console.error('❌ Unreplied refresh failed:', err);
       },
     });
   }
@@ -358,25 +426,36 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
     this.allUnrepliedEmails = [];
     this.hasMoreUnreplied = true;
     this.loading = true;
+    this.cdr.detectChanges();
 
     // Fetch all unreplied emails from backend
     this.activityService.getUnrepliedEmails(this.maxHoursOld).subscribe({
       next: (response) => {
-        console.log('✅ Unreplied emails response:', response);
-        if (response.success) {
+        console.log('✅ Unreplied emails API response:', response);
+        console.log('✅ Response success:', response.success);
+        console.log('✅ Response data length:', response.data?.length);
+
+        if (response.success && response.data && response.data.length > 0) {
           this.allUnrepliedEmails = response.data;
           this.unrepliedCount = this.allUnrepliedEmails.length;
-          console.log(`📧 Total unreplied emails: ${this.unrepliedCount}`);
+          console.log(
+            `📧 Total unreplied emails stored: ${this.unrepliedCount}`
+          );
+          console.log(`📧 First email:`, this.allUnrepliedEmails[0]);
 
-          // Load first page
+          // Load first page - loading will be set to false after first page loads
           this.loadMoreUnrepliedEmails();
+        } else {
+          console.log('⚠️ No unreplied emails or response not successful');
+          this.loading = false;
+          this.cdr.detectChanges();
         }
-        this.loading = false;
       },
       error: (err) => {
         console.error('❌ Error loading unreplied emails:', err);
         this.handleError('Failed to load unreplied emails', err);
         this.loading = false;
+        this.cdr.detectChanges();
       },
     });
   }
@@ -390,39 +469,47 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log(`📄 Loading page ${this.unrepliedPage}...`);
+    const isInitialLoad = this.unrepliedPage === 0;
+    console.log(
+      `📄 Loading page ${this.unrepliedPage}... (initial: ${isInitialLoad})`
+    );
     this.loadingMoreUnreplied = true;
 
-    // Simulate async operation with setTimeout to show loading state
-    setTimeout(() => {
-      const skip = this.unrepliedPage * this.unrepliedPageSize;
-      const pageEmails = this.allUnrepliedEmails.slice(
-        skip,
-        skip + this.unrepliedPageSize
-      );
+    const skip = this.unrepliedPage * this.unrepliedPageSize;
+    const pageEmails = this.allUnrepliedEmails.slice(
+      skip,
+      skip + this.unrepliedPageSize
+    );
 
-      console.log('📊 Pagination details:', {
-        totalEmails: this.allUnrepliedEmails.length,
-        currentPage: this.unrepliedPage,
-        skip: skip,
-        pageSize: this.unrepliedPageSize,
-        loadedInThisPage: pageEmails.length,
-        currentTotal: this.unrepliedEmails.length,
-      });
+    console.log('📊 Pagination details:', {
+      totalEmails: this.allUnrepliedEmails.length,
+      currentPage: this.unrepliedPage,
+      skip: skip,
+      pageSize: this.unrepliedPageSize,
+      loadedInThisPage: pageEmails.length,
+      currentTotal: this.unrepliedEmails.length,
+    });
 
-      this.unrepliedEmails = [...this.unrepliedEmails, ...pageEmails];
-      this.hasMoreUnreplied =
-        skip + this.unrepliedPageSize < this.allUnrepliedEmails.length;
-      this.unrepliedPage++;
+    this.unrepliedEmails = [...this.unrepliedEmails, ...pageEmails];
+    this.hasMoreUnreplied =
+      skip + this.unrepliedPageSize < this.allUnrepliedEmails.length;
+    this.unrepliedPage++;
 
-      console.log(
-        `✅ Loaded ${pageEmails.length} emails. Total displayed: ${this.unrepliedEmails.length}/${this.unrepliedCount}`
-      );
-      console.log(`📌 Has more: ${this.hasMoreUnreplied}`);
+    console.log(
+      `✅ Loaded ${pageEmails.length} emails. Total displayed: ${this.unrepliedEmails.length}/${this.unrepliedCount}`
+    );
+    console.log(`📌 Has more: ${this.hasMoreUnreplied}`);
+    console.log(`📌 unrepliedEmails array:`, this.unrepliedEmails);
 
-      this.loadingMoreUnreplied = false;
-      this.cdr.detectChanges();
-    }, 300); // Small delay to show loading indicator
+    this.loadingMoreUnreplied = false;
+
+    // Set loading to false after initial page load
+    if (isInitialLoad) {
+      this.loading = false;
+      console.log('✅ Initial load complete, loading set to false');
+    }
+
+    this.cdr.detectChanges();
   }
 
   /**
@@ -743,6 +830,15 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
     const threshold = 200; // pixels from bottom to trigger load (increased for better UX)
     const position = element.scrollTop + element.clientHeight;
     const height = element.scrollHeight;
+
+    // Debug log every scroll event
+    console.log('🔄 Scroll event:', {
+      scrollTop: element.scrollTop,
+      clientHeight: element.clientHeight,
+      scrollHeight: height,
+      position,
+      filterType: this.filterType,
+    });
 
     const nearBottom = position > height - threshold;
 

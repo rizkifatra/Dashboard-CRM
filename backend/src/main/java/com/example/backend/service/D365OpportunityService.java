@@ -145,11 +145,13 @@ public class D365OpportunityService {
                         .append("parentaccountid($select=name,accountid)&");
             }
 
-            // Add search filter
+            // Add search filter - search across opportunity name, description, and step
+            // name
             if (search != null && !search.isEmpty()) {
                 String searchTerm = search.trim().replace("'", "''"); // Escape single quotes
                 filter.append("(contains(name, '").append(searchTerm).append("')");
-                filter.append(" or contains(description, '").append(searchTerm).append("'))");
+                filter.append(" or contains(description, '").append(searchTerm).append("')");
+                filter.append(" or contains(stepname, '").append(searchTerm).append("'))");
             }
 
             if (fromDate != null && !fromDate.isEmpty()) {

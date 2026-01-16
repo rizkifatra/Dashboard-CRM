@@ -1,8 +1,19 @@
 <div class="page-container">
     <div class="page-header">
         <div class="header-content">
-            <h2 class="page-title">Activity Management</h2>
-            <p class="page-subtitle">Track and monitor all CRM activities</p>
+            <div class="header-top">
+                <div>
+                    <h2 class="page-title">Activity Management</h2>
+                    <p class="page-subtitle">Track and monitor all CRM activities</p>
+                </div>
+                <div class="auto-refresh-indicator" *ngIf="autoRefreshEnabled">
+                    <span class="refresh-dot"></span>
+                    <span class="refresh-text">Auto-updating every {{ refreshIntervalMinutes }} min</span>
+                    <button class="refresh-now-btn" (click)="refreshAllMetrics()" title="Refresh now">
+                        ↻
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Metric Cards Row -->
@@ -77,8 +88,8 @@
         </div>
     </div>
 
-    <!-- Loading State -->
-    <app-table-skeleton *ngIf="loading && filterType !== 'unreplied'"></app-table-skeleton>
+    <!-- Loading State - Activity Skeleton matches page layout -->
+    <app-activity-skeleton *ngIf="loading && filterType !== 'unreplied'"></app-activity-skeleton>
 
     <!-- Error State -->
     <div *ngIf="error && !loading" class="error-state">
@@ -90,11 +101,6 @@
     <div class="email-code-section" *ngIf="filterType === 'unreplied'">
         <div class="section-title-bar">
             <h3 class="filter-section-title">Unreplied Emails ({{ getFilteredUnrepliedEmails().length }})</h3>
-            <div class="refresh-controls">
-                <span class="auto-refresh-indicator ms-2" *ngIf="autoRefreshEnabled">
-                    Auto-refreshing every {{ refreshIntervalMinutes }}min
-                </span>
-            </div>
         </div>
 
         <!-- Email Code Filter for Unreplied -->
@@ -205,7 +211,7 @@
 
         <!-- Follow-Up Reminders Table -->
         <div class="simple-table" *ngIf="!loadingReminders && getFilteredReminders().length > 0"
-            (scroll)="onTableScroll($event)" style="max-height: 600px; overflow-y: auto;">
+            (scroll)="onTableScroll($event)">
             <div *ngFor="let reminder of getFilteredReminders()" class="simple-row clickable-row"
                 (click)="viewReminderDetails(reminder)">
                 <div class="row-left">
@@ -238,8 +244,10 @@
         </div>
 
         <!-- Empty State -->
-        <div *ngIf="!loadingReminders && emailReminders.length === 0" class="empty-state">
-            <p>✅ All caught up! No emails pending follow-up.</p>
+        <div *ngIf="!loadingReminders && emailReminders.length === 0" class="empty-state-container">
+            <h3 class="empty-state-title">All caught up!</h3>
+            <p class="empty-state-text">No emails pending follow-up. Great job staying on top of your communications!
+            </p>
         </div>
     </div>
 

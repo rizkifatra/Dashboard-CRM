@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TableSkeletonComponent } from '../shared/table-skeleton.component';
+import { OpportunitiesSkeletonComponent } from '../shared/opportunities-skeleton.component';
 import {
   OpportunityService,
   OpportunityStats,
@@ -14,7 +14,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 @Component({
   selector: 'app-opportunities',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableSkeletonComponent],
+  imports: [CommonModule, FormsModule, OpportunitiesSkeletonComponent],
   templateUrl: './opportunities.component.html',
   styleUrls: ['./opportunities.component.css'],
 })

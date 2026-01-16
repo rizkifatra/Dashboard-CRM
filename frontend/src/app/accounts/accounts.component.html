@@ -77,7 +77,7 @@
     </div>
 
     <!-- Loading State -->
-    <app-table-skeleton *ngIf="loading"></app-table-skeleton>
+    <app-accounts-skeleton *ngIf="loading"></app-accounts-skeleton>
 
     <!-- Error State -->
     <div *ngIf="error" class="error-state">
@@ -161,7 +161,8 @@
                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
                 <input type="text" [(ngModel)]="searchTerm" (input)="onSearchChange()"
-                    placeholder="Search by account name, email, phone, or city..." class="search-input" />
+                    placeholder="Search by name, account number, email, phone, website, city, or country..."
+                    class="search-input" />
                 <button *ngIf="searchTerm" (click)="clearSearch()" class="clear-search">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <path
@@ -193,51 +194,33 @@
                     <tr>
                         <th class="sortable">
                             <span class="header-content">Account Name</span>
-                            <svg class="sort-icon" width="10" height="10" viewBox="0 0 10 10">
-                                <path d="M5 0L0 5h10L5 0z" fill="currentColor" />
-                            </svg>
+
                         </th>
                         <th class="sortable">
                             <span class="header-content">Owner</span>
-                            <svg class="sort-icon" width="10" height="10" viewBox="0 0 10 10">
-                                <path d="M5 0L0 5h10L5 0z" fill="currentColor" />
-                            </svg>
+
                         </th>
                         <th class="sortable">
                             <span class="header-content">Created On</span>
-                            <svg class="sort-icon" width="10" height="10" viewBox="0 0 10 10">
-                                <path d="M5 0L0 5h10L5 0z" fill="currentColor" />
-                            </svg>
+
                         </th>
                         <th class="sortable">
                             <span class="header-content">Main Phone</span>
-                            <svg class="sort-icon" width="10" height="10" viewBox="0 0 10 10">
-                                <path d="M5 0L0 5h10L5 0z" fill="currentColor" />
-                            </svg>
+
                         </th>
                         <th class="sortable">
                             <span class="header-content">Address 1: City</span>
-                            <svg class="sort-icon" width="10" height="10" viewBox="0 0 10 10">
-                                <path d="M5 0L0 5h10L5 0z" fill="currentColor" />
-                            </svg>
+
                         </th>
                         <th class="sortable primary-column">
                             <span class="header-content">Primary Contact</span>
-                            <svg class="sort-icon" width="10" height="10" viewBox="0 0 10 10">
-                                <path d="M5 0L0 5h10L5 0z" fill="currentColor" />
-                            </svg>
+
                         </th>
                         <th class="sortable">
                             <span class="header-content">Email (Primary Contact...)</span>
-                            <svg class="sort-icon" width="10" height="10" viewBox="0 0 10 10">
-                                <path d="M5 0L0 5h10L5 0z" fill="currentColor" />
-                            </svg>
                         </th>
                         <th class="sortable status-column">
                             <span class="header-content">Status</span>
-                            <svg class="dropdown-icon" width="10" height="6" viewBox="0 0 10 6">
-                                <path d="M0 0l5 6 5-6z" fill="currentColor" />
-                            </svg>
                         </th>
                     </tr>
                 </thead>
@@ -260,7 +243,7 @@
                         <td class="city-cell">{{ account.address1_city || '' }}</td>
                         <td class="contact-cell primary-column">{{ account.primarycontactid_formatted || '' }}</td>
                         <td class="email-cell">{{ getPrimaryContactEmail(account) }}</td>
-                        <td class="status-cell">
+                        <td class="status-cell" style="align-items:flex-start;">
                             <span class="status-text" [class.inactive]="isAccountIncomplete(account)">
                                 {{ isAccountIncomplete(account) ? 'Inactive' : 'Active' }}
                             </span>

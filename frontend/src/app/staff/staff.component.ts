@@ -3,12 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StaffService, Staff } from '../services/staff.service';
 import { DateUtilsService } from '../services/date-utils.service';
-import { TableSkeletonComponent } from '../shared/table-skeleton.component';
+import { StaffSkeletonComponent } from '../shared/staff-skeleton.component';
 
 @Component({
   selector: 'app-staff',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableSkeletonComponent],
+  imports: [CommonModule, FormsModule, StaffSkeletonComponent],
   templateUrl: './staff.component.html',
   styleUrls: ['./staff.component.css'],
 })

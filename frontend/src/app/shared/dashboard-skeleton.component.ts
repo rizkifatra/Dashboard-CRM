@@ -1,105 +1,120 @@
-import { Component, Input } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { SkeletonLoaderComponent } from './skeleton-loader.component';
 
+/**
+ * Dashboard Page Skeleton
+ * Matches the exact layout of CRM Dashboard (Fiscal Dashboard):
+ * - Fiscal Year section with 2 metric cards
+ * - Current Quarter section with 2 metric cards
+ * - Opportunities Monthly section with grid cards
+ */
 @Component({
   selector: 'app-dashboard-skeleton',
   standalone: true,
-  imports: [CommonModule, SkeletonLoaderComponent],
+  imports: [CommonModule],
   template: `
-    <div class="skeleton-container">
-      <!-- Header Skeleton -->
-      <div class="skeleton-header">
-        <div class="header-left">
-          <app-skeleton-loader type="title" width="200px"></app-skeleton-loader>
-          <app-skeleton-loader
-            type="text"
-            width="150px"
-            height="14px"
-          ></app-skeleton-loader>
+    <div class="dashboard-skeleton">
+      <!-- Fiscal Year Section -->
+      <div class="fiscal-section">
+        <div class="section-header">
+          <div class="skeleton section-title"></div>
+          <div class="skeleton period-select"></div>
         </div>
-        <div class="header-right">
-          <app-skeleton-loader type="button"></app-skeleton-loader>
-        </div>
-      </div>
-
-      <!-- Metrics Section -->
-      <div class="skeleton-section">
-        <div class="section-header-skeleton">
-          <app-skeleton-loader type="text" width="180px"></app-skeleton-loader>
-          <app-skeleton-loader
-            type="button"
-            width="150px"
-          ></app-skeleton-loader>
-        </div>
-        <div class="metrics-grid">
-          <app-skeleton-loader
-            type="metric-card"
-            *ngFor="let i of [1, 2]"
-          ></app-skeleton-loader>
-        </div>
-        <div class="staff-skeleton">
-          <app-skeleton-loader
-            type="text"
-            width="140px"
-            height="18px"
-          ></app-skeleton-loader>
-          <div class="staff-items">
-            <app-skeleton-loader
-              type="table-row"
-              *ngFor="let i of [1, 2, 3]"
-            ></app-skeleton-loader>
+        <div class="metrics-row two-col">
+          <div class="metric-card large">
+            <div class="skeleton metric-label"></div>
+            <div class="skeleton metric-value-large"></div>
+            <div class="skeleton metric-subtitle"></div>
+            <div class="skeleton metric-remaining"></div>
+          </div>
+          <div class="metric-card large">
+            <div class="skeleton metric-label"></div>
+            <div class="skeleton metric-value-large"></div>
+            <div class="skeleton metric-subtitle"></div>
           </div>
         </div>
       </div>
 
-      <!-- Second Section -->
-      <div class="skeleton-section">
-        <div class="section-header-skeleton">
-          <app-skeleton-loader type="text" width="160px"></app-skeleton-loader>
-          <app-skeleton-loader
-            type="button"
-            width="150px"
-          ></app-skeleton-loader>
+      <!-- Current Quarter Section -->
+      <div class="fiscal-section">
+        <div class="section-header">
+          <div class="skeleton section-title"></div>
+          <div class="skeleton period-select"></div>
         </div>
-        <div class="metrics-grid">
-          <app-skeleton-loader
-            type="metric-card"
-            *ngFor="let i of [1, 2]"
-          ></app-skeleton-loader>
+        <div class="metrics-row two-col">
+          <div class="metric-card large">
+            <div class="skeleton metric-label"></div>
+            <div class="skeleton metric-value-large"></div>
+            <div class="skeleton metric-subtitle"></div>
+            <div class="skeleton metric-remaining"></div>
+          </div>
+          <div class="metric-card large">
+            <div class="skeleton metric-label"></div>
+            <div class="skeleton metric-value-large"></div>
+            <div class="skeleton metric-subtitle"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Opportunities Monthly Section -->
+      <div class="fiscal-section">
+        <div class="section-header">
+          <div class="skeleton section-title"></div>
+          <div class="skeleton period-select"></div>
+        </div>
+        <div class="opportunities-grid">
+          <div class="opp-card" *ngFor="let i of [1, 2, 3, 4, 5, 6]">
+            <div class="skeleton opp-label"></div>
+            <div class="skeleton opp-value"></div>
+            <div class="skeleton opp-subtitle"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Staff Rankings Section -->
+      <div class="fiscal-section">
+        <div class="section-header">
+          <div class="skeleton section-title"></div>
+        </div>
+        <div class="ranking-list">
+          <div class="ranking-item" *ngFor="let i of [1, 2, 3, 4, 5]">
+            <div class="skeleton rank-number"></div>
+            <div class="skeleton rank-name"></div>
+            <div class="skeleton rank-value"></div>
+          </div>
         </div>
       </div>
     </div>
   `,
   styles: [
     `
-      .skeleton-container {
-        padding: 28px 36px 36px 36px;
-        background: #f5f5f7;
-        min-height: 100vh;
+      .dashboard-skeleton {
+        padding: 0;
       }
 
-      .skeleton-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0 0 16px 0;
-        border-bottom: 1px solid #e5e7eb;
-        margin-bottom: 24px;
+      .skeleton {
+        background: linear-gradient(
+          90deg,
+          #e8e8e8 25%,
+          #f5f5f5 50%,
+          #e8e8e8 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite ease-in-out;
+        border-radius: 6px;
       }
 
-      .header-left {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
       }
 
-      .header-right {
-        display: flex;
-        gap: 15px;
-      }
-
-      .skeleton-section {
+      /* Fiscal Section */
+      .fiscal-section {
         background: white;
         border-radius: 16px;
         padding: 24px;
@@ -107,29 +122,148 @@ import { SkeletonLoaderComponent } from './skeleton-loader.component';
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       }
 
-      .section-header-skeleton {
+      .section-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 24px;
+        margin-bottom: 20px;
       }
 
-      .metrics-grid {
+      .section-title {
+        width: 180px;
+        height: 24px;
+      }
+
+      .period-select {
+        width: 140px;
+        height: 36px;
+        border-radius: 8px;
+      }
+
+      /* Metrics Row */
+      .metrics-row {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 16px;
-        margin-bottom: 24px;
       }
 
-      .staff-skeleton {
-        margin-top: 24px;
+      .metrics-row.two-col {
+        grid-template-columns: repeat(2, 1fr);
       }
 
-      .staff-items {
-        margin-top: 16px;
+      .metric-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+      }
+
+      .metric-card.large {
+        padding: 24px;
+      }
+
+      .metric-label {
+        width: 120px;
+        height: 14px;
+        margin-bottom: 12px;
+      }
+
+      .metric-value-large {
+        width: 180px;
+        height: 36px;
+        margin-bottom: 10px;
+      }
+
+      .metric-subtitle {
+        width: 140px;
+        height: 14px;
+        margin-bottom: 8px;
+      }
+
+      .metric-remaining {
+        width: 200px;
+        height: 14px;
+      }
+
+      /* Opportunities Grid */
+      .opportunities-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .opp-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+      }
+
+      .opp-label {
+        width: 140px;
+        height: 14px;
+        margin-bottom: 12px;
+      }
+
+      .opp-value {
+        width: 80px;
+        height: 32px;
+        margin-bottom: 8px;
+      }
+
+      .opp-subtitle {
+        width: 120px;
+        height: 12px;
+      }
+
+      /* Ranking List */
+      .ranking-list {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 12px;
+      }
+
+      .ranking-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 16px;
+        background: #f8f9fa;
+        border-radius: 10px;
+      }
+
+      .rank-number {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+      }
+
+      .rank-name {
+        flex: 1;
+        height: 16px;
+      }
+
+      .rank-value {
+        width: 100px;
+        height: 16px;
+      }
+
+      /* Responsive */
+      @media (max-width: 1024px) {
+        .opportunities-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 768px) {
+        .metrics-row.two-col {
+          grid-template-columns: 1fr;
+        }
+        .opportunities-grid {
+          grid-template-columns: 1fr;
+        }
+        .section-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 12px;
+        }
       }
     `,
   ],

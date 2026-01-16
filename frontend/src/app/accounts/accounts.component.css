@@ -422,7 +422,6 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     overflow-x: hidden;
     overflow-y: auto;
-    max-height: 600px;
     flex: 1;
     position: relative;
 }
@@ -460,14 +459,14 @@
     white-space: nowrap;
 }
 
-/* Column widths */
+/* Column widths - optimized for data density */
 .data-table th:nth-child(1) {
-    width: 18%;
+    width: 22%;
 }
 
 /* Account Name */
 .data-table th:nth-child(2) {
-    width: 14%;
+    width: 16%;
 }
 
 /* Owner */
@@ -487,17 +486,18 @@
 
 /* City */
 .data-table th:nth-child(6) {
-    width: 8%;
+    width: 10%;
 }
 
 /* Primary Contact */
 .data-table th:nth-child(7) {
-    width: 20%;
+    width: 12%;
 }
 
 /* Email */
 .data-table th:nth-child(8) {
     width: 8%;
+    text-align: right;
 }
 
 /* Status */
@@ -527,7 +527,9 @@
 
 
 .data-table th.status-column {
-    min-width: 100px;
+    min-width: 80px;
+    text-align: right;
+    padding-right: 16px !important;
 }
 
 .data-table tbody tr.data-row {
@@ -551,14 +553,14 @@
     white-space: nowrap;
 }
 
-/* Column widths for cells */
+/* Column widths for cells - matching header widths */
 .data-table td:nth-child(1) {
-    width: 18%;
+    width: 22%;
 }
 
 /* Account Name */
 .data-table td:nth-child(2) {
-    width: 14%;
+    width: 16%;
 }
 
 /* Owner */
@@ -578,12 +580,12 @@
 
 /* City */
 .data-table td:nth-child(6) {
-    width: 8%;
+    width: 10%;
 }
 
 /* Primary Contact */
 .data-table td:nth-child(7) {
-    width: 20%;
+    width: 12%;
 }
 
 /* Email */
@@ -673,7 +675,8 @@
 
 /* Status Cell */
 .status-cell {
-    text-align: center;
+    text-align: right;
+    padding-right: 16px !important;
 }
 
 .status-text {
@@ -1377,6 +1380,7 @@ textarea.form-control {
         margin-left: 0;
     }
 }
+
 /* Follow-Up Timeline Styles */
 .followup-loading,
 .followup-error,
@@ -1541,12 +1545,12 @@ textarea.form-control {
     .followup-card {
         flex-direction: column;
     }
-    
+
     .followup-header {
         flex-direction: column;
         align-items: start;
     }
-    
+
     .followup-status {
         align-self: start;
     }
@@ -1610,6 +1614,7 @@ textarea.form-control {
         opacity: 0;
         transform: translateY(-10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1776,17 +1781,17 @@ textarea.form-control {
     .email-reminder-card {
         flex-direction: column;
     }
-    
+
     .reminder-content {
         flex-direction: column;
     }
-    
+
     .reminder-details {
         flex-direction: column;
         align-items: flex-start;
         gap: 8px;
     }
-    
+
     .reminder-actions {
         align-self: flex-start;
     }

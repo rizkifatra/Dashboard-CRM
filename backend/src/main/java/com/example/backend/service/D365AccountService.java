@@ -94,13 +94,18 @@ public class D365AccountService {
             // Build filter conditions
             StringBuilder filterBuilder = new StringBuilder();
 
-            // Search filter (name, email, phone, city)
+            // Search filter - search across multiple relevant fields
             if (search != null && !search.trim().isEmpty()) {
                 String searchTerm = search.trim().replace("'", "''"); // Escape single quotes
                 filterBuilder.append("(contains(name, '" + searchTerm + "')")
+                        .append(" or contains(accountnumber, '" + searchTerm + "')")
                         .append(" or contains(emailaddress1, '" + searchTerm + "')")
+                        .append(" or contains(emailaddress2, '" + searchTerm + "')")
+                        .append(" or contains(emailaddress3, '" + searchTerm + "')")
                         .append(" or contains(telephone1, '" + searchTerm + "')")
-                        .append(" or contains(address1_city, '" + searchTerm + "'))");
+                        .append(" or contains(websiteurl, '" + searchTerm + "')")
+                        .append(" or contains(address1_city, '" + searchTerm + "')")
+                        .append(" or contains(address1_country, '" + searchTerm + "'))");
             }
 
             // Owner filter

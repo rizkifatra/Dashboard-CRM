@@ -90,7 +90,7 @@
                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
                 <input type="text" [(ngModel)]="searchTerm" (input)="onSearchChange()"
-                    placeholder="Search by opportunity name or description..." class="search-input" />
+                    placeholder="Search by opportunity name, description, or sales stage..." class="search-input" />
                 <button *ngIf="searchTerm" (click)="clearSearch()" class="clear-search">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                         <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -101,7 +101,7 @@
     </div>
 
     <!-- Loading State -->
-    <app-table-skeleton *ngIf="loading"></app-table-skeleton>
+    <app-opportunities-skeleton *ngIf="loading"></app-opportunities-skeleton>
 
     <!-- Error State -->
     <div *ngIf="error && !loading" class="error-state">

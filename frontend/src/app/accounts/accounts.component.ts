@@ -10,7 +10,7 @@ import { AccountService, Account } from '../services/account.service';
 import { StaffService, Staff } from '../services/staff.service';
 import { ActivityService, Activity } from '../services/activity.service';
 import { DateUtilsService } from '../services/date-utils.service';
-import { TableSkeletonComponent } from '../shared/table-skeleton.component';
+import { AccountsSkeletonComponent } from '../shared/accounts-skeleton.component';
 import { EmailReminder } from '../models';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
@@ -18,7 +18,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 @Component({
   selector: 'app-accounts',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableSkeletonComponent],
+  imports: [CommonModule, FormsModule, AccountsSkeletonComponent],
   templateUrl: './accounts.component.html',
   styleUrls: ['./accounts.component.css'],
 })
