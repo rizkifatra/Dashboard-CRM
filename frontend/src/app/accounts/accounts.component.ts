@@ -46,6 +46,9 @@ export class AccountsComponent implements OnInit, AfterViewInit {
   // Account detail modal
   selectedAccount: Account | null = null;
   showAccountDetail = false;
+  isEditMode = false;
+  editedAccount: Account | null = null;
+  savingAccount = false;
 
   // Follow-ups (Activities)
   accountFollowUps: Activity[] = [];
@@ -329,7 +332,9 @@ export class AccountsComponent implements OnInit, AfterViewInit {
 
   openAccountDetails(account: Account) {
     this.selectedAccount = account;
+    this.editedAccount = { ...account }; // Create a copy for editing
     this.showAccountDetail = true;
+    this.isEditMode = false;
     this.loadFollowUps(account.accountid);
     this.cdr.detectChanges();
   }
@@ -337,8 +342,120 @@ export class AccountsComponent implements OnInit, AfterViewInit {
   closeAccountDetail() {
     this.showAccountDetail = false;
     this.selectedAccount = null;
+    this.editedAccount = null;
+    this.isEditMode = false;
     this.accountFollowUps = [];
     this.followUpError = null;
+  }
+
+  enableEditMode() {
+    this.isEditMode = true;
+    this.editedAccount = { ...this.selectedAccount! }; // Create fresh copy for editing
+  }
+
+  cancelEdit() {
+    this.isEditMode = false;
+    this.editedAccount = { ...this.selectedAccount! }; // Reset to original
+  }
+
+  saveAccountChanges() {
+    if (!this.editedAccount) return;
+
+    this.savingAccount = true;
+    this.accountService.updateAccount(this.editedAccount).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          // Update the selectedAccount with values from the server response
+          this.selectedAccount = { ...response.data };
+
+          // Update in the accounts list
+          const index = this.accounts.findIndex(
+            (a) => a.accountid === this.editedAccount!.accountid
+          );
+          if (index !== -1) {
+            this.accounts[index] = { ...response.data };
+          }
+
+          // Update in filteredAccounts
+          const filteredIndex = this.filteredAccounts.findIndex(
+            (a) => a.accountid === this.editedAccount!.accountid
+          );
+          if (filteredIndex !== -1) {
+            this.filteredAccounts[filteredIndex] = { ...response.data };
+          }
+
+          // Update in allAccounts for stats
+          const allIndex = this.allAccounts.findIndex(
+            (a) => a.accountid === this.editedAccount!.accountid
+          );
+          if (allIndex !== -1) {
+            this.allAccounts[allIndex] = { ...response.data };
+          }
+
+          this.isEditMode = false;
+          this.savingAccount = false;
+          this.cdr.detectChanges();
+
+          // Show success message
+          this.showSuccessMessage('Account updated successfully!');
+          console.log('✅ Account updated successfully');
+        } else {
+          throw new Error(response.message || 'Update failed');
+        }
+      },
+      error: (err) => {
+        console.error('❌ Error updating account:', err);
+        this.savingAccount = false;
+
+        // Provide specific error messages
+        let errorMessage = 'Failed to update account. ';
+        if (err.status === 0) {
+          errorMessage +=
+            'Unable to connect to server. Please check your connection.';
+        } else if (err.status === 400) {
+          errorMessage += 'Invalid data provided. Please check your inputs.';
+        } else if (err.status === 404) {
+          errorMessage += 'Account not found.';
+        } else if (err.status === 500) {
+          errorMessage += 'Server error. Please try again later.';
+        } else if (err.error?.error) {
+          errorMessage += err.error.error;
+        } else {
+          errorMessage += 'Please try again.';
+        }
+
+        alert(errorMessage);
+      },
+    });
+  }
+
+  showSuccessMessage(message: string) {
+    // Create a temporary success notification
+    const notification = document.createElement('div');
+    notification.className = 'success-notification';
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #10B981;
+      color: white;
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 10000;
+      font-size: 14px;
+      font-weight: 500;
+      animation: slideIn 0.3s ease-out;
+    `;
+
+    document.body.appendChild(notification);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+      notification.style.animation = 'slideOut 0.3s ease-out';
+      setTimeout(() => document.body.removeChild(notification), 300);
+    }, 3000);
   }
 
   loadFollowUps(accountId: string) {

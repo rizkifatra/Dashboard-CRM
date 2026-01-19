@@ -277,11 +277,32 @@
         <!-- Modal Header -->
         <div class="modal-header">
             <h2 class="modal-title">{{ selectedAccount?.name }}</h2>
-            <button class="modal-close" (click)="closeAccountDetail()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-            </button>
+            <div class="modal-header-actions">
+                <button *ngIf="!isEditMode" class="edit-btn" (click)="enableEditMode()" title="Edit account">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Edit
+                </button>
+                <button *ngIf="isEditMode" class="save-btn" (click)="saveAccountChanges()" [disabled]="savingAccount">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <polyline points="17 21 17 13 7 13 7 21" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <polyline points="7 3 7 8 15 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                    {{ savingAccount ? 'Saving...' : 'Save' }}
+                </button>
+                <button *ngIf="isEditMode" class="cancel-btn" (click)="cancelEdit()">
+                    Cancel
+                </button>
+
+            </div>
         </div>
 
         <!-- Modal Content -->
@@ -334,53 +355,67 @@
 
                     <div class="detail-item">
                         <label class="detail-label">Primary Email</label>
-                        <div class="detail-value">
+                        <div class="detail-value" *ngIf="!isEditMode">
                             <a *ngIf="selectedAccount?.emailaddress1"
                                 [href]="'mailto:' + selectedAccount?.emailaddress1" class="email-link">
                                 {{ selectedAccount?.emailaddress1 }}
                             </a>
                             <span *ngIf="!selectedAccount?.emailaddress1">N/A</span>
                         </div>
+                        <input *ngIf="isEditMode" type="email" class="edit-input"
+                            [(ngModel)]="editedAccount!.emailaddress1" placeholder="email@example.com" />
                     </div>
 
-                    <div class="detail-item" *ngIf="selectedAccount?.emailaddress2">
+                    <div class="detail-item">
                         <label class="detail-label">Email 2</label>
-                        <div class="detail-value">
-                            <a [href]="'mailto:' + selectedAccount?.emailaddress2" class="email-link">
+                        <div class="detail-value" *ngIf="!isEditMode">
+                            <a *ngIf="selectedAccount?.emailaddress2"
+                                [href]="'mailto:' + selectedAccount?.emailaddress2" class="email-link">
                                 {{ selectedAccount?.emailaddress2 }}
                             </a>
+                            <span *ngIf="!selectedAccount?.emailaddress2">N/A</span>
                         </div>
+                        <input *ngIf="isEditMode" type="email" class="edit-input"
+                            [(ngModel)]="editedAccount!.emailaddress2" placeholder="email@example.com" />
                     </div>
 
-                    <div class="detail-item" *ngIf="selectedAccount?.emailaddress3">
+                    <div class="detail-item">
                         <label class="detail-label">Email 3</label>
-                        <div class="detail-value">
-                            <a [href]="'mailto:' + selectedAccount?.emailaddress3" class="email-link">
+                        <div class="detail-value" *ngIf="!isEditMode">
+                            <a *ngIf="selectedAccount?.emailaddress3"
+                                [href]="'mailto:' + selectedAccount?.emailaddress3" class="email-link">
                                 {{ selectedAccount?.emailaddress3 }}
                             </a>
+                            <span *ngIf="!selectedAccount?.emailaddress3">N/A</span>
                         </div>
+                        <input *ngIf="isEditMode" type="email" class="edit-input"
+                            [(ngModel)]="editedAccount!.emailaddress3" placeholder="email@example.com" />
                     </div>
 
                     <div class="detail-item">
                         <label class="detail-label">Phone</label>
-                        <div class="detail-value">
+                        <div class="detail-value" *ngIf="!isEditMode">
                             <a *ngIf="selectedAccount?.telephone1" [href]="'tel:' + selectedAccount?.telephone1"
                                 class="phone-link">
                                 {{ selectedAccount?.telephone1 }}
-                            </a>x
+                            </a>
                             <span *ngIf="!selectedAccount?.telephone1">N/A</span>
                         </div>
+                        <input *ngIf="isEditMode" type="tel" class="edit-input" [(ngModel)]="editedAccount!.telephone1"
+                            placeholder="+1234567890" />
                     </div>
 
                     <div class="detail-item">
                         <label class="detail-label">Website</label>
-                        <div class="detail-value">
+                        <div class="detail-value" *ngIf="!isEditMode">
                             <a *ngIf="selectedAccount?.websiteurl" [href]="selectedAccount?.websiteurl" target="_blank"
                                 class="website-link">
                                 {{ selectedAccount?.websiteurl }}
                             </a>
                             <span *ngIf="!selectedAccount?.websiteurl">N/A</span>
                         </div>
+                        <input *ngIf="isEditMode" type="url" class="edit-input" [(ngModel)]="editedAccount!.websiteurl"
+                            placeholder="https://example.com" />
                     </div>
                 </div>
             </div>
@@ -392,12 +427,18 @@
                 <div class="detail-grid">
                     <div class="detail-item">
                         <label class="detail-label">City</label>
-                        <div class="detail-value">{{ selectedAccount?.address1_city || 'N/A' }}</div>
+                        <div class="detail-value" *ngIf="!isEditMode">{{ selectedAccount?.address1_city || 'N/A' }}
+                        </div>
+                        <input *ngIf="isEditMode" type="text" class="edit-input"
+                            [(ngModel)]="editedAccount!.address1_city" placeholder="City name" />
                     </div>
 
                     <div class="detail-item">
                         <label class="detail-label">Country</label>
-                        <div class="detail-value">{{ selectedAccount?.address1_country || 'N/A' }}</div>
+                        <div class="detail-value" *ngIf="!isEditMode">{{ selectedAccount?.address1_country || 'N/A' }}
+                        </div>
+                        <input *ngIf="isEditMode" type="text" class="edit-input"
+                            [(ngModel)]="editedAccount!.address1_country" placeholder="Country name" />
                     </div>
                 </div>
             </div>
@@ -409,14 +450,19 @@
                 <div class="detail-grid">
                     <div class="detail-item">
                         <label class="detail-label">Revenue</label>
-                        <div class="detail-value">
+                        <div class="detail-value" *ngIf="!isEditMode">
                             {{ selectedAccount?.revenue ? '$' + selectedAccount.revenue.toLocaleString() : 'N/A' }}
                         </div>
+                        <input *ngIf="isEditMode" type="number" class="edit-input" [(ngModel)]="editedAccount!.revenue"
+                            placeholder="0" />
                     </div>
 
                     <div class="detail-item">
                         <label class="detail-label">Number of Employees</label>
-                        <div class="detail-value">{{ selectedAccount?.numberofemployees || 'N/A' }}</div>
+                        <div class="detail-value" *ngIf="!isEditMode">{{ selectedAccount?.numberofemployees || 'N/A' }}
+                        </div>
+                        <input *ngIf="isEditMode" type="number" class="edit-input"
+                            [(ngModel)]="editedAccount!.numberofemployees" placeholder="0" />
                     </div>
                 </div>
             </div>

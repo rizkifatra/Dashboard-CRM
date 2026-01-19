@@ -91,6 +91,17 @@ export class AccountService {
   }
 
   /**
+   * Update an existing account
+   * @param account The account object with updated values
+   */
+  updateAccount(account: Account): Observable<ApiResponse<Account>> {
+    return this.http.put<ApiResponse<Account>>(
+      `${this.apiUrl}/${account.accountid}`,
+      account
+    );
+  }
+
+  /**
    * Format revenue as currency
    * @param revenue The revenue amount
    */

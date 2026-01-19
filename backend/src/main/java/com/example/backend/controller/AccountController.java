@@ -172,4 +172,49 @@ public class AccountController {
             return ApiResponse.error("Failed to search accounts", e.getMessage());
         }
     }
+
+    /**
+     * Update an existing account
+     * 
+     * @param id      Account ID (GUID format required)
+     * @param account Account object with updated values
+     * @return Updated account details
+     */
+    @PutMapping("/{id}")
+    public ApiResponse<Account> updateAccount(
+            @PathVariable String id,
+            @RequestBody Account account) {
+        log.info("PUT /api/accounts/{} - Updating account", id);
+
+        try {
+            // Validate GUID format
+            if (id == null || id.isBlank()) {
+                return ApiResponse.error("Account ID is required");
+            }
+            if (!id.matches("^[{]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[}]?$")) {
+                return ApiResponse.error("Invalid account ID format. Expected GUID format.");
+            }
+
+            // Validate account object
+            if (account == null) {
+                return ApiResponse.error("Account data is required");
+            }
+
+            // Set the account ID from path parameter to ensure consistency
+            account.setAccountId(id);
+
+            // Update the account
+            Optional<Account> updatedAccount = accountService.updateAccount(id, account);
+
+            if (updatedAccount.isPresent()) {
+                return ApiResponse.success("Account updated successfully", updatedAccount.get());
+            } else {
+                return ApiResponse.error("Failed to update account. Account not found.");
+            }
+
+        } catch (Exception e) {
+            log.error("Error updating account with ID: {}", id, e);
+            return ApiResponse.error("Failed to update account", e.getMessage());
+        }
+    }
 }

@@ -87,8 +87,10 @@ public class D365AccountService {
                         .append("websiteurl,address1_city,address1_country,revenue,")
                         .append("numberofemployees,createdon,modifiedon,")
                         .append("_ownerid_value,_createdby_value,_modifiedby_value,_primarycontactid_value&");
-                // Expand primary contact to get the formatted name
-                queryParams.append("$expand=primarycontactid($select=fullname)&");
+                // Note: Cannot expand ownerid as it's a polymorphic lookup to principal
+                // (systemuser or team)
+                // The owner name will need to be fetched separately or from the frontend staff
+                // list
             }
 
             // Build filter conditions
@@ -171,10 +173,12 @@ public class D365AccountService {
             String token = authService.getAccessToken();
 
             String response = webClient.get()
-                    .uri("/accounts(" + accountId + ")?$select=accountid,name,accountnumber,emailaddress1,telephone1," +
+                    .uri("/accounts(" + accountId
+                            + ")?$select=accountid,name,accountnumber,emailaddress1,emailaddress2,emailaddress3,telephone1,"
+                            +
                             "websiteurl,address1_city,address1_country,revenue,numberofemployees,createdon,modifiedon,"
                             +
-                            "_ownerid_value,_createdby_value,_modifiedby_value")
+                            "_ownerid_value,_createdby_value,_modifiedby_value,_primarycontactid_value")
                     .header("Authorization", "Bearer " + token)
                     .retrieve()
                     .bodyToMono(String.class)
@@ -275,10 +279,11 @@ public class D365AccountService {
                 uriBuilder.append("$filter=").append(filterBuilder.toString()).append("&");
             }
 
-            uriBuilder.append("$select=accountid,name,accountnumber,emailaddress1,telephone1,")
+            uriBuilder.append(
+                    "$select=accountid,name,accountnumber,emailaddress1,emailaddress2,emailaddress3,telephone1,")
                     .append("websiteurl,address1_city,address1_country,revenue,")
                     .append("numberofemployees,createdon,modifiedon,")
-                    .append("_ownerid_value,_createdby_value,_modifiedby_value&");
+                    .append("_ownerid_value,_createdby_value,_modifiedby_value,_primarycontactid_value&");
 
             if (top != null && top > 0) {
                 uriBuilder.append("$top=").append(top).append("&");
@@ -310,6 +315,119 @@ public class D365AccountService {
             log.error("Error searching accounts", e);
             throw new RuntimeException("Failed to search accounts: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Update an existing account in Dynamics 365
+     * 
+     * @param accountId The account ID (GUID)
+     * @param account   The account object with updated values
+     * @return Updated account
+     */
+    public Optional<Account> updateAccount(String accountId, Account account) {
+        try {
+            log.info("Updating account {} in Dynamics 365", accountId);
+            String token = authService.getAccessToken();
+
+            // Build the update payload - only include fields that should be updated
+            // D365 uses PATCH method for updates
+            StringBuilder payload = new StringBuilder("{");
+            boolean needsComma = false;
+
+            // Only include fields that are not null and can be updated
+            if (account.getEmailAddress() != null) {
+                payload.append("\"emailaddress1\":\"").append(escapeJson(account.getEmailAddress())).append("\"");
+                needsComma = true;
+            }
+            if (account.getEmailAddress2() != null) {
+                if (needsComma)
+                    payload.append(",");
+                payload.append("\"emailaddress2\":\"").append(escapeJson(account.getEmailAddress2())).append("\"");
+                needsComma = true;
+            }
+            if (account.getEmailAddress3() != null) {
+                if (needsComma)
+                    payload.append(",");
+                payload.append("\"emailaddress3\":\"").append(escapeJson(account.getEmailAddress3())).append("\"");
+                needsComma = true;
+            }
+            if (account.getTelephone() != null) {
+                if (needsComma)
+                    payload.append(",");
+                payload.append("\"telephone1\":\"").append(escapeJson(account.getTelephone())).append("\"");
+                needsComma = true;
+            }
+            if (account.getWebsiteUrl() != null) {
+                if (needsComma)
+                    payload.append(",");
+                payload.append("\"websiteurl\":\"").append(escapeJson(account.getWebsiteUrl())).append("\"");
+                needsComma = true;
+            }
+            if (account.getCity() != null) {
+                if (needsComma)
+                    payload.append(",");
+                payload.append("\"address1_city\":\"").append(escapeJson(account.getCity())).append("\"");
+                needsComma = true;
+            }
+            if (account.getCountry() != null) {
+                if (needsComma)
+                    payload.append(",");
+                payload.append("\"address1_country\":\"").append(escapeJson(account.getCountry())).append("\"");
+                needsComma = true;
+            }
+            if (account.getRevenue() != null) {
+                if (needsComma)
+                    payload.append(",");
+                payload.append("\"revenue\":").append(account.getRevenue());
+                needsComma = true;
+            }
+            if (account.getNumberOfEmployees() != null) {
+                if (needsComma)
+                    payload.append(",");
+                payload.append("\"numberofemployees\":").append(account.getNumberOfEmployees());
+            }
+
+            payload.append("}");
+
+            log.info("Update payload: {}", payload.toString());
+
+            // Send PATCH request to D365
+            webClient.patch()
+                    .uri("/accounts(" + accountId + ")")
+                    .header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(payload.toString())
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            log.info("Account {} updated successfully", accountId);
+
+            // Fetch and return the updated account
+            return getAccountById(accountId);
+
+        } catch (WebClientResponseException e) {
+            log.error("Error updating account {}. Status: {}, Response: {}",
+                    accountId, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RuntimeException("Failed to update account: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error updating account {}", accountId, e);
+            throw new RuntimeException("Failed to update account: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Escape special characters in JSON strings
+     */
+    private String escapeJson(String value) {
+        if (value == null)
+            return "";
+        return value.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 
     /**

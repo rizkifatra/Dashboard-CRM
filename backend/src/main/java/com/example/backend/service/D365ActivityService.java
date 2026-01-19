@@ -306,10 +306,9 @@ public class D365ActivityService {
             queryParams.append("$orderby=createdon desc&");
             queryParams.append("$top=").append(top != null ? top : 50);
 
-            // Add skip parameter for pagination
-            if (skip != null && skip > 0) {
-                queryParams.append("&$skip=").append(skip);
-            }
+            // Note: D365 OData API doesn't support $skip parameter with complex $expand
+            // operations
+            // Use batch loading without skip for pagination instead
 
             String uri = "/emails" + queryParams.toString();
             log.info("Querying D365 emails with addresses - URI: {}", uri);
