@@ -115,6 +115,7 @@ public class Activity {
     private String staffName; // Owner's full name
     private String staffEmail; // Owner's email
     private String staffTitle; // Owner's job title
+    private String accountName; // Account/Client name this activity is related to
 
     // OData metadata
     @JsonProperty("@odata.context")

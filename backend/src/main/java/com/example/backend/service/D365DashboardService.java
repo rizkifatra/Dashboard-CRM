@@ -15,7 +15,6 @@ public class D365DashboardService {
 
     private static final Logger log = LoggerFactory.getLogger(D365DashboardService.class);
 
-
     @Autowired
     private D365OpportunityService opportunityService;
 
@@ -173,16 +172,47 @@ public class D365DashboardService {
 
     /**
      * Get monthly opportunity statistics
+     * Supports filtering by month, quarter, and fiscal year
      */
-    public ApiResponse<?> getMonthlyOpportunities(Integer month, Integer year) {
+    public ApiResponse<?> getMonthlyOpportunities(Integer month, Integer quarter, String fiscalYear) {
         try {
-            int currentMonth = month != null ? month : java.time.LocalDate.now().getMonthValue();
-            int currentYear = year != null ? year : java.time.LocalDate.now().getYear();
+            int currentMonth;
+            int currentYear;
+
+            // If quarter and/or fiscal year are specified, calculate month within that
+            // context
+            if (quarter != null || fiscalYear != null) {
+                Map<String, String> quarterRange = getQuarterDateRange(quarter, fiscalYear);
+                String fromDate = quarterRange.get("fromDate");
+
+                // If month is not specified, use current month or first month of quarter
+                if (month == null) {
+                    currentMonth = java.time.LocalDate.now().getMonthValue();
+                    currentYear = java.time.LocalDate.now().getYear();
+                } else {
+                    // Use specified month within the fiscal year context
+                    currentMonth = month;
+                    // Extract year from quarter range
+                    currentYear = Integer.parseInt(fromDate.substring(0, 4));
+
+                    // Adjust year if month suggests it's in the next calendar year
+                    if (month < 6 && quarter != null && quarter >= 3) {
+                        currentYear++;
+                    }
+                }
+            } else {
+                // No quarter/fiscal year context - use current or specified month/year
+                currentMonth = month != null ? month : java.time.LocalDate.now().getMonthValue();
+                currentYear = java.time.LocalDate.now().getYear();
+            }
 
             String fromDate = String.format("%d-%02d-01", currentYear, currentMonth);
             java.time.LocalDate endDate = java.time.LocalDate.of(currentYear, currentMonth, 1)
                     .plusMonths(1).minusDays(1);
             String toDate = endDate.toString();
+
+            log.info("Fetching monthly opportunities for {}/{} (quarter={}, fiscalYear={})",
+                    currentMonth, currentYear, quarter, fiscalYear);
 
             Map<String, Object> stats = opportunityService.getOpportunityStats(fromDate, toDate);
 

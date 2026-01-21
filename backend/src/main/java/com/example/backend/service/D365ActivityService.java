@@ -40,7 +40,7 @@ public class D365ActivityService {
                 .baseUrl(d365Config.getBaseUrl())
                 .codecs(configurer -> configurer
                         .defaultCodecs()
-                        .maxInMemorySize(10 * 1024 * 1024)) // 10MB buffer size
+                        .maxInMemorySize(50 * 1024 * 1024)) // 50MB buffer size for large email responses
                 .build();
     }
 
@@ -67,9 +67,11 @@ public class D365ActivityService {
                     .append("scheduledstart,scheduledend,actualdurationminutes,scheduleddurationminutes,")
                     .append("prioritycode&");
 
-            // Expand to get related object details (account, contact, etc.)
+            // Expand to get related object details (account, contact, opportunity with
+            // account)
             queryParams.append("$expand=regardingobjectid_account($select=name),")
                     .append("regardingobjectid_contact($select=fullname),")
+                    .append("regardingobjectid_opportunity($select=name;$expand=parentaccountid($select=name)),")
                     .append("owninguser($select=fullname,internalemailaddress,title)&");
 
             if (filter != null && !filter.isEmpty()) {
@@ -101,6 +103,39 @@ public class D365ActivityService {
             if (valueArray != null && valueArray.isArray()) {
                 for (JsonNode node : valueArray) {
                     Activity activity = objectMapper.treeToValue(node, Activity.class);
+
+                    String accountName = null;
+
+                    // Try to get account name from direct account expansion
+                    if (node.has("regardingobjectid_account") && !node.get("regardingobjectid_account").isNull()) {
+                        JsonNode accountNode = node.get("regardingobjectid_account");
+                        if (accountNode.has("name")) {
+                            accountName = accountNode.get("name").asText();
+                            log.info("✓ Got account name '{}' from direct account for activity {}", accountName,
+                                    activity.getActivityId());
+                        }
+                    }
+                    // If not found, try to get account name from opportunity's parent account
+                    else if (node.has("regardingobjectid_opportunity")
+                            && !node.get("regardingobjectid_opportunity").isNull()) {
+                        JsonNode oppNode = node.get("regardingobjectid_opportunity");
+                        if (oppNode.has("parentaccountid") && !oppNode.get("parentaccountid").isNull()) {
+                            JsonNode parentAccountNode = oppNode.get("parentaccountid");
+                            if (parentAccountNode.has("name")) {
+                                accountName = parentAccountNode.get("name").asText();
+                                log.info("✓ Got account name '{}' from opportunity's parent account for activity {}",
+                                        accountName, activity.getActivityId());
+                            }
+                        }
+                    }
+
+                    if (accountName != null) {
+                        activity.setAccountName(accountName);
+                    } else if (activity.getRegardingObjectId() != null) {
+                        log.debug("No account found for activity {} with regardingObjectId {}",
+                                activity.getActivityId(), activity.getRegardingObjectId());
+                    }
+
                     activities.add(activity);
                 }
             }
@@ -194,6 +229,7 @@ public class D365ActivityService {
                     "prioritycode&" +
                     "$expand=regardingobjectid_account($select=name)," +
                     "regardingobjectid_contact($select=fullname)," +
+                    "regardingobjectid_opportunity($select=name;$expand=parentaccountid($select=name))," +
                     "owninguser($select=fullname,internalemailaddress,title)";
 
             String response = webClient.get()
@@ -204,7 +240,34 @@ public class D365ActivityService {
                     .timeout(Duration.ofMillis(d365Config.getTimeout()))
                     .block();
 
-            Activity activity = objectMapper.readValue(response, Activity.class);
+            JsonNode activityNode = objectMapper.readTree(response);
+            Activity activity = objectMapper.treeToValue(activityNode, Activity.class);
+
+            // Extract account name from expanded regardingobjectid_account
+            String accountName = null;
+
+            if (activityNode.has("regardingobjectid_account")
+                    && !activityNode.get("regardingobjectid_account").isNull()) {
+                JsonNode accountNode = activityNode.get("regardingobjectid_account");
+                if (accountNode.has("name")) {
+                    accountName = accountNode.get("name").asText();
+                }
+            }
+            // If not found, try to get account name from opportunity's parent account
+            else if (activityNode.has("regardingobjectid_opportunity")
+                    && !activityNode.get("regardingobjectid_opportunity").isNull()) {
+                JsonNode oppNode = activityNode.get("regardingobjectid_opportunity");
+                if (oppNode.has("parentaccountid") && !oppNode.get("parentaccountid").isNull()) {
+                    JsonNode parentAccountNode = oppNode.get("parentaccountid");
+                    if (parentAccountNode.has("name")) {
+                        accountName = parentAccountNode.get("name").asText();
+                    }
+                }
+            }
+
+            if (accountName != null) {
+                activity.setAccountName(accountName);
+            }
 
             // Enrich with staff information
             List<Activity> enriched = enrichActivitiesWithStaffInfo(List.of(activity));

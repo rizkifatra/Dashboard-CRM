@@ -47,15 +47,18 @@ public class DashboardController {
     /**
      * Get monthly opportunity statistics
      * 
-     * @param month Month (1-12)
-     * @param year  Year
+     * @param month      Month (1-12)
+     * @param quarter    Quarter number (1-4) - optional, for filtering within
+     *                   quarter
+     * @param fiscalYear Fiscal year - optional, for filtering within fiscal year
      * @return ApiResponse with monthly opportunity stats
      */
     @GetMapping("/monthly-opportunities")
     public ApiResponse<?> getMonthlyOpportunities(
             @RequestParam(required = false) Integer month,
-            @RequestParam(required = false) Integer year) {
-        return dashboardService.getMonthlyOpportunities(month, year);
+            @RequestParam(required = false) Integer quarter,
+            @RequestParam(required = false) String fiscalYear) {
+        return dashboardService.getMonthlyOpportunities(month, quarter, fiscalYear);
     }
 
     /**

@@ -55,12 +55,12 @@ export class FiscalDashboardComponent implements OnInit {
   fiscalYearMetrics: FiscalYearMetrics | null = null;
   fiscalYearTopStaff: StaffPerformance[] = [];
 
-  // Quarter
+  // Quarter - now linked to fiscal year
   selectedQuarter = 'current';
   quarterMetrics: QuarterMetrics | null = null;
   quarterTopStaff: StaffPerformance[] = [];
 
-  // Monthly Opportunities
+  // Monthly Opportunities - now linked to quarter
   selectedMonth = 'current';
   months = [
     'January',
@@ -78,18 +78,19 @@ export class FiscalDashboardComponent implements OnInit {
   ];
   monthlyOpps: OpportunityStats | null = null;
 
-  // Quarter Opportunities
-  selectedOppQuarter = 'current';
+  // Quarter Opportunities - uses selectedQuarter
   quarterOpps: OpportunityStats | null = null;
 
-  // Fiscal Year Opportunities
-  selectedFiscalYearOpps = 'current';
+  // Fiscal Year Opportunities - uses selectedFiscalYear
   fiscalYearOpps: OpportunityStats | null = null;
 
   // Unreplied Emails
   unrepliedCount = 0;
 
-  constructor(private http: HttpClient, private router: Router) {
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+  ) {
     // Generate fiscal years (current and past 3 years)
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
@@ -105,7 +106,7 @@ export class FiscalDashboardComponent implements OnInit {
   // Helper method to calculate percentage
   calculatePercentage(
     achieved: number | undefined,
-    target: number | undefined
+    target: number | undefined,
   ): number {
     if (!target || target === 0) return 0;
     if (!achieved) return 0;
@@ -115,7 +116,7 @@ export class FiscalDashboardComponent implements OnInit {
   // Helper method to calculate remaining amount to reach target
   getRemainingToTarget(
     target: number | undefined,
-    achieved: number | undefined
+    achieved: number | undefined,
   ): number {
     if (!target) return 0;
     if (!achieved) return target;
@@ -123,17 +124,58 @@ export class FiscalDashboardComponent implements OnInit {
     return remaining > 0 ? remaining : 0;
   }
 
-  // Helper method to get CSS class based on remaining amount
-  getRemainingToTargetClass(
-    target: number | undefined,
-    achieved: number | undefined
-  ): string {
-    const remaining = this.getRemainingToTarget(target, achieved);
-    if (remaining <= 0) return 'green'; // Target achieved
-    const percentage = this.calculatePercentage(achieved, target);
-    if (percentage >= 75) return 'teal'; // Close to target
-    if (percentage >= 50) return 'orange'; // Halfway there
-    return 'red'; // Still far from target
+  // Helper method to get current fiscal year display text
+  getFiscalYearText(): string {
+    if (this.selectedFiscalYear === 'current') {
+      return 'This Year';
+    }
+    const year = Number(this.selectedFiscalYear);
+    return `FY${year}-${year + 1}`;
+  }
+
+  // Helper method to get current quarter display text
+  getQuarterText(): string {
+    if (this.selectedQuarter === 'current') {
+      return 'This Quarter';
+    }
+    return `Q${this.selectedQuarter}`;
+  }
+
+  // Helper method to get current month display text
+  getMonthText(): string {
+    if (this.selectedMonth === 'current') {
+      return 'This Month';
+    }
+    const monthIndex = Number(this.selectedMonth) - 1;
+    return this.months[monthIndex];
+  }
+
+  // Helper method to check if any filters are active
+  hasActiveFilters(): boolean {
+    return (
+      this.selectedFiscalYear !== 'current' ||
+      this.selectedQuarter !== 'current'
+    );
+  }
+
+  // Helper method to get filter description text
+  getFilterDescription(): string {
+    const filters: string[] = [];
+
+    if (this.selectedFiscalYear !== 'current') {
+      const year = Number(this.selectedFiscalYear);
+      filters.push(`FY${year}-${year + 1}`);
+    }
+
+    if (this.selectedQuarter !== 'current') {
+      filters.push(`Q${this.selectedQuarter}`);
+    }
+
+    if (this.selectedMonth !== 'current') {
+      filters.push(this.getMonthText());
+    }
+
+    return filters.length > 0 ? `📊 Filtered by: ${filters.join(' • ')}` : '';
   }
 
   ngOnInit() {
@@ -143,7 +185,6 @@ export class FiscalDashboardComponent implements OnInit {
 
   /**
    * Load all dashboard data in parallel for optimal performance
-   * Loads: Fiscal Year, Quarter, Monthly Opportunities, Quarter Opportunities, and Fiscal Year Opportunities
    */
   loadAllData() {
     this.loading = true;
@@ -174,11 +215,15 @@ export class FiscalDashboardComponent implements OnInit {
 
   /**
    * Load fiscal year metrics and top staff performance
-   * Includes: Target Revenue, Won Revenue, and Top 5 Staff
+   * Also updates quarter and month data to match the selected fiscal year
    */
   loadFiscalYearData(): Promise<void> {
     const fiscalYear =
       this.selectedFiscalYear === 'current' ? null : this.selectedFiscalYear;
+
+    // Reset quarter and month to current when fiscal year changes
+    this.selectedQuarter = 'current';
+    this.selectedMonth = 'current';
 
     // Load metrics
     const metricsUrl = fiscalYear
@@ -199,7 +244,7 @@ export class FiscalDashboardComponent implements OnInit {
         throw error;
       });
 
-    // Load top staff
+    // Load top staff for fiscal year
     const staffUrl = fiscalYear
       ? `${this.apiUrl}/top-staff-performance?period=fiscal-year&fiscalYear=${fiscalYear}`
       : `${this.apiUrl}/top-staff-performance?period=fiscal-year`;
@@ -218,21 +263,36 @@ export class FiscalDashboardComponent implements OnInit {
         throw error;
       });
 
-    return Promise.all([metricsPromise, staffPromise]).then(() => {});
+    return Promise.all([metricsPromise, staffPromise]).then(() => {
+      // After fiscal year loads, also reload dependent data
+      return Promise.all([
+        this.loadQuarterData(),
+        this.loadMonthlyOpportunities(),
+        this.loadQuarterOpportunities(),
+        this.loadFiscalYearOpportunities(),
+      ]).then(() => {});
+    });
   }
 
   /**
    * Load quarterly metrics and top staff performance
-   * Includes: Quarter Target Revenue, Won Revenue, and Top Staff
+   * Uses the selected fiscal year context
    */
   loadQuarterData(): Promise<void> {
     const quarter =
       this.selectedQuarter === 'current' ? null : this.selectedQuarter;
+    const fiscalYear =
+      this.selectedFiscalYear === 'current' ? null : this.selectedFiscalYear;
 
-    // Load metrics
-    const metricsUrl = quarter
-      ? `${this.apiUrl}/quarterly-metrics?quarter=${quarter}`
-      : `${this.apiUrl}/quarterly-metrics`;
+    // Reset month to current when quarter changes
+    this.selectedMonth = 'current';
+
+    // Build URL with fiscal year context
+    let metricsUrl = `${this.apiUrl}/quarterly-metrics`;
+    const params: string[] = [];
+    if (quarter) params.push(`quarter=${quarter}`);
+    if (fiscalYear) params.push(`fiscalYear=${fiscalYear}`);
+    if (params.length > 0) metricsUrl += '?' + params.join('&');
 
     const metricsPromise = this.http
       .get<any>(metricsUrl)
@@ -248,10 +308,12 @@ export class FiscalDashboardComponent implements OnInit {
         throw error;
       });
 
-    // Load top staff
-    const staffUrl = quarter
-      ? `${this.apiUrl}/top-staff-performance?period=quarter&quarter=${quarter}`
-      : `${this.apiUrl}/top-staff-performance?period=quarter`;
+    // Build staff URL with fiscal year context
+    let staffUrl = `${this.apiUrl}/top-staff-performance?period=quarter`;
+    const staffParams: string[] = [];
+    if (quarter) staffParams.push(`quarter=${quarter}`);
+    if (fiscalYear) staffParams.push(`fiscalYear=${fiscalYear}`);
+    if (staffParams.length > 0) staffUrl += '&' + staffParams.join('&');
 
     const staffPromise = this.http
       .get<any>(staffUrl)
@@ -267,18 +329,30 @@ export class FiscalDashboardComponent implements OnInit {
         throw error;
       });
 
-    return Promise.all([metricsPromise, staffPromise]).then(() => {});
+    return Promise.all([metricsPromise, staffPromise]).then(() => {
+      // After quarter loads, also reload month opportunities
+      return this.loadMonthlyOpportunities().then(() => {});
+    });
   }
 
   /**
    * Load monthly opportunity statistics
-   * Includes: Total, Won, Lost, and Open Opportunities for the month
+   * Uses the selected fiscal year and quarter context
    */
   loadMonthlyOpportunities(): Promise<void> {
     const month = this.selectedMonth === 'current' ? null : this.selectedMonth;
-    const url = month
-      ? `${this.apiUrl}/monthly-opportunities?month=${month}`
-      : `${this.apiUrl}/monthly-opportunities`;
+    const quarter =
+      this.selectedQuarter === 'current' ? null : this.selectedQuarter;
+    const fiscalYear =
+      this.selectedFiscalYear === 'current' ? null : this.selectedFiscalYear;
+
+    // Build URL with context
+    let url = `${this.apiUrl}/monthly-opportunities`;
+    const params: string[] = [];
+    if (month) params.push(`month=${month}`);
+    if (quarter) params.push(`quarter=${quarter}`);
+    if (fiscalYear) params.push(`fiscalYear=${fiscalYear}`);
+    if (params.length > 0) url += '?' + params.join('&');
 
     return this.http
       .get<any>(url)
@@ -297,14 +371,20 @@ export class FiscalDashboardComponent implements OnInit {
 
   /**
    * Load quarterly opportunity statistics
-   * Includes: Total, Won, Lost, and Open Opportunities for the quarter
+   * Uses the selected fiscal year context
    */
   loadQuarterOpportunities(): Promise<void> {
     const quarter =
-      this.selectedOppQuarter === 'current' ? null : this.selectedOppQuarter;
-    const url = quarter
-      ? `${this.apiUrl}/quarterly-opportunities?quarter=${quarter}`
-      : `${this.apiUrl}/quarterly-opportunities`;
+      this.selectedQuarter === 'current' ? null : this.selectedQuarter;
+    const fiscalYear =
+      this.selectedFiscalYear === 'current' ? null : this.selectedFiscalYear;
+
+    // Build URL with context
+    let url = `${this.apiUrl}/quarterly-opportunities`;
+    const params: string[] = [];
+    if (quarter) params.push(`quarter=${quarter}`);
+    if (fiscalYear) params.push(`fiscalYear=${fiscalYear}`);
+    if (params.length > 0) url += '?' + params.join('&');
 
     return this.http
       .get<any>(url)
@@ -323,13 +403,12 @@ export class FiscalDashboardComponent implements OnInit {
 
   /**
    * Load fiscal year opportunity statistics
-   * Includes: Total, Won, Lost, and Open Opportunities for the fiscal year
+   * Uses the selected fiscal year context
    */
   loadFiscalYearOpportunities(): Promise<void> {
     const fiscalYear =
-      this.selectedFiscalYearOpps === 'current'
-        ? null
-        : this.selectedFiscalYearOpps;
+      this.selectedFiscalYear === 'current' ? null : this.selectedFiscalYear;
+
     const url = fiscalYear
       ? `${this.apiUrl}/fiscal-year-opportunities?fiscalYear=${fiscalYear}`
       : `${this.apiUrl}/fiscal-year-opportunities`;
@@ -355,7 +434,7 @@ export class FiscalDashboardComponent implements OnInit {
   loadUnrepliedEmails() {
     this.http
       .get<any>(
-        'http://localhost:8080/api/activities/unreplied?maxHoursOld=168'
+        'http://localhost:8080/api/activities/unreplied?maxHoursOld=168',
       )
       .subscribe({
         next: (response) => {

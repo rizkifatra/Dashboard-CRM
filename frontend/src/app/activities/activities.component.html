@@ -6,13 +6,6 @@
                     <h2 class="page-title">Activity Management</h2>
                     <p class="page-subtitle">Track and monitor all CRM activities</p>
                 </div>
-                <div class="auto-refresh-indicator" *ngIf="autoRefreshEnabled">
-                    <span class="refresh-dot"></span>
-                    <span class="refresh-text">Auto-updating every {{ refreshIntervalMinutes }} min</span>
-                    <button class="refresh-now-btn" (click)="refreshAllMetrics()" title="Refresh now">
-                        ↻
-                    </button>
-                </div>
             </div>
         </div>
 
@@ -339,7 +332,9 @@
                         </span>
                         <span class="activity-meta" *ngIf="!activity.subject || activity.subject.trim() === ''">
                             {{ getStatusDescription(activity.stateCode, activity.statusCode) }}
-                            <span class="related-info" *ngIf="activity.regardingObjectName"> • Related to: {{
+                            <span class="related-info" *ngIf="activity.accountName"> • Account: {{
+                                activity.accountName }}</span>
+                            <span class="related-info" *ngIf="!activity.accountName && activity.regardingObjectName"> • Related to: {{
                                 activity.regardingObjectName }}</span>
                         </span>
                     </div>
@@ -396,7 +391,12 @@
                         <div class="info-value">{{ selectedActivity.staffEmail }}</div>
                     </div>
 
-                    <div class="info-item" *ngIf="selectedActivity.regardingObjectName">
+                    <div class="info-item" *ngIf="selectedActivity.accountName">
+                        <label>Account</label>
+                        <div class="info-value">{{ selectedActivity.accountName }}</div>
+                    </div>
+
+                    <div class="info-item" *ngIf="!selectedActivity.accountName && selectedActivity.regardingObjectName">
                         <label>Related To</label>
                         <div class="info-value">{{ selectedActivity.regardingObjectName }}</div>
                     </div>

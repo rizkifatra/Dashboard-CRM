@@ -51,6 +51,7 @@ export interface Activity {
   fromEmail?: string;
   toEmail?: string;
   ccEmail?: string;
+  accountName?: string; // Account/Client name this activity is related to
   regardingObjectName?: string; // Related account or contact name
   regardingObjectId?: string;
   actualStart?: string;

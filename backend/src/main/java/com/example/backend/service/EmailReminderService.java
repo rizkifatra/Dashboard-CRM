@@ -4,6 +4,7 @@ import com.example.backend.model.Activity;
 import com.example.backend.model.EmailReminder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 
 /**
  * Service for managing email follow-up reminders
+ * Optimized with caching to reduce D365 API calls
  */
 @Service
 @Slf4j
@@ -24,14 +26,30 @@ public class EmailReminderService {
 
     private final D365ActivityService activityService;
 
+    // Cache for performance optimization
+    private List<EmailReminder> cachedReminders = null;
+    private LocalDateTime cacheTimestamp = null;
+    private static final int CACHE_DURATION_MINUTES = 2; // Cache for 2 minutes
+
     /**
      * Get all email reminders for emails that need follow-up
+     * Cached for 2 minutes to improve performance
      * 
      * @return List of email reminders sorted by urgency (critical first)
      */
     public List<EmailReminder> getEmailReminders() {
+        // Check cache first
+        if (cachedReminders != null && cacheTimestamp != null) {
+            long minutesSinceCache = ChronoUnit.MINUTES.between(cacheTimestamp, LocalDateTime.now());
+            if (minutesSinceCache < CACHE_DURATION_MINUTES) {
+                log.info("Returning cached email reminders ({} items, cached {} min ago)",
+                        cachedReminders.size(), minutesSinceCache);
+                return cachedReminders;
+            }
+        }
+
         try {
-            log.info("Fetching email follow-up reminders");
+            log.info("Fetching fresh email follow-up reminders from D365");
 
             // Fetch ALL emails in batches to scan entire history
             List<Activity> allEmails = fetchAllEmailsInBatches();
@@ -40,10 +58,16 @@ public class EmailReminderService {
             // Filter outgoing and incoming emails (no date limit - scan all history)
             List<Activity> outgoingEmails = allEmails.stream()
                     .filter(email -> "outgoing".equalsIgnoreCase(email.getDirection()))
-                    .filter(email -> email.getStateCode() == 1) // Completed
+                    // Remove stateCode filter - include all sent emails regardless of completion
+                    // status
                     .collect(Collectors.toList());
 
-            log.info("Found {} outgoing emails", outgoingEmails.size());
+            log.info("Found {} outgoing emails (all states)", outgoingEmails.size());
+
+            // Log state code distribution for debugging
+            Map<Integer, Long> stateCodeCounts = outgoingEmails.stream()
+                    .collect(Collectors.groupingBy(Activity::getStateCode, Collectors.counting()));
+            log.info("Outgoing email state codes: {}", stateCodeCounts);
 
             List<Activity> incomingEmails = allEmails.stream()
                     .filter(email -> "incoming".equalsIgnoreCase(email.getDirection()))
@@ -59,15 +83,31 @@ public class EmailReminderService {
             List<EmailReminder> reminders = new ArrayList<>();
             LocalDateTime now = LocalDateTime.now();
 
+            int skippedNoRecipient = 0;
+            int skippedHasReply = 0;
+            int skippedTooRecent = 0;
+            int skippedCancelled = 0;
+
             for (Activity email : outgoingEmails) {
                 // Skip if no recipient email
                 if (email.getToEmail() == null || email.getToEmail().isEmpty()) {
+                    skippedNoRecipient++;
                     continue;
+                }
+
+                // Skip if email is Cancelled (stateCode = 2) in CRM
+                // Note: stateCode 1 (Completed) is normal for sent emails, so we don't skip
+                // those
+                // Only skip cancelled emails which indicate staff decided not to pursue
+                if (email.getStateCode() != null && email.getStateCode() == 2) {
+                    skippedCancelled++;
+                    continue; // Email cancelled in CRM, no reminder needed
                 }
 
                 // Check if this email has been replied to
                 String emailKey = getEmailKey(email);
                 if (repliedEmailAddresses.contains(emailKey)) {
+                    skippedHasReply++;
                     continue; // Email has reply, no reminder needed
                 }
 
@@ -81,18 +121,30 @@ public class EmailReminderService {
                 }
                 int daysOverdue = calculateDaysOverdue(sentDate, now);
 
-                // Show all unreplied emails (badges: 3 for 0-6 days, 7 for 7-13 days, 14 for
-                // 14+ days)
-                if (daysOverdue >= 0) {
+                // Show only emails that are 3+ days old (badges: 3 for 3-6 days, 7 for 7-13
+                // days, 14 for 14+ days)
+                if (daysOverdue >= 3) {
                     EmailReminder reminder = createReminder(email, daysOverdue, sentDate);
                     reminders.add(reminder);
+                } else {
+                    skippedTooRecent++;
                 }
             }
+
+            log.info(
+                    "Filtering summary: {} skipped (no recipient), {} skipped (cancelled in CRM), {} skipped (has reply), {} skipped (too recent <3 days)",
+                    skippedNoRecipient, skippedCancelled, skippedHasReply, skippedTooRecent);
 
             // Sort by urgency: critical (14+) first, then medium (7-13), then low (3-6)
             reminders.sort((r1, r2) -> Integer.compare(r2.getDaysOverdue(), r1.getDaysOverdue()));
 
             log.info("Created {} email reminders", reminders.size());
+
+            // Cache the results
+            cachedReminders = reminders;
+            cacheTimestamp = LocalDateTime.now();
+            log.info("Cached {} reminders for {} minutes", reminders.size(), CACHE_DURATION_MINUTES);
+
             return reminders;
 
         } catch (Exception e) {
@@ -102,59 +154,57 @@ public class EmailReminderService {
     }
 
     /**
+     * Clear cache manually (useful for forcing refresh)
+     */
+    public void clearCache() {
+        cachedReminders = null;
+        cacheTimestamp = null;
+        log.info("Email reminders cache cleared");
+    }
+
+    /**
      * Fetch all emails in batches to avoid timeout
      * Optimized batch size for reliability and performance
      * 
-     * @return List of all emails
+     * Note: D365 doesn't support $skip with $expand, so we fetch a single large
+     * batch
+     * and deduplicate by activityId to prevent duplicates
+     * 
+     * @return List of all emails (deduplicated)
      */
     private List<Activity> fetchAllEmailsInBatches() {
-        List<Activity> allEmails = new ArrayList<>();
-        int batchSize = 100; // Balanced batch size for reliability
-        int skip = 0;
-        int totalFetched = 0;
-        int maxBatches = 50; // Maximum 50 batches = 5000 emails total
-        int batchCount = 0;
+        try {
+            log.info("Fetching emails with addresses from D365");
 
-        log.info("Starting optimized batch fetch (batch size: {}, max batches: {})", batchSize, maxBatches);
+            // Fetch 600 emails - optimized balance between coverage and performance
+            // Description field needed to extract actual sent date from email body
+            // WebClient buffer is 50MB - 600 prevents buffer overflow
+            // With 2-min cache, we reduce D365 API calls significantly
+            int batchSize = 600;
+            List<Activity> emails = activityService.getEmailsWithAddresses(batchSize, 0);
 
-        while (batchCount < maxBatches) {
-            try {
-                log.info("Fetching batch {} (skip: {})", batchCount + 1, skip);
-
-                // Fetch next batch
-                List<Activity> batch = activityService.getEmailsWithAddresses(batchSize, skip);
-
-                if (batch == null || batch.isEmpty()) {
-                    log.info("No more emails to fetch. Total fetched: {}", totalFetched);
-                    break;
-                }
-
-                allEmails.addAll(batch);
-                totalFetched += batch.size();
-                skip += batchSize;
-                batchCount++;
-
-                log.info("✓ Batch {} complete: {} emails (total: {})", batchCount, batch.size(), totalFetched);
-
-                // If batch returned less than batchSize, we've reached the end
-                if (batch.size() < batchSize) {
-                    log.info("✓ All emails fetched. Total: {} emails in {} batches", totalFetched, batchCount);
-                    break;
-                }
-
-            } catch (Exception e) {
-                log.error("✗ Error fetching batch {} at skip={}: {}", batchCount + 1, skip, e.getMessage(), e);
-                log.warn("Continuing with {} emails already fetched", totalFetched);
-                break;
+            if (emails == null || emails.isEmpty()) {
+                log.info("No emails found");
+                return new ArrayList<>();
             }
-        }
 
-        if (batchCount >= maxBatches) {
-            log.warn("Reached maximum batch limit. Fetched {} emails. Consider increasing maxBatches if needed.",
-                    totalFetched);
-        }
+            // Deduplicate by activityId (just in case)
+            Map<String, Activity> uniqueEmails = new LinkedHashMap<>();
+            for (Activity email : emails) {
+                if (email.getActivityId() != null) {
+                    uniqueEmails.put(email.getActivityId(), email);
+                }
+            }
 
-        return allEmails;
+            List<Activity> deduplicatedEmails = new ArrayList<>(uniqueEmails.values());
+            log.info("✓ Fetched {} emails ({} after deduplication)", emails.size(), deduplicatedEmails.size());
+
+            return deduplicatedEmails;
+
+        } catch (Exception e) {
+            log.error("✗ Error fetching emails: {}", e.getMessage(), e);
+            return new ArrayList<>();
+        }
     }
 
     /**

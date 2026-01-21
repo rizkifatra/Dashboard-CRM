@@ -40,17 +40,27 @@
             <div class="metrics-row">
                 <div class="metric-card purple">
                     <div class="metric-label">TARGET REVENUE</div>
-                    <div class="metric-value">RM {{fiscalYearMetrics?.targetRevenue | number:'1.0-0'}}</div>
-                    <div class="metric-subtitle">{{calculatePercentage(fiscalYearMetrics?.wonRevenue,
-                        fiscalYearMetrics?.targetRevenue)}}% Achievement</div>
-                    <div class="metric-remaining"
-                        *ngIf="getRemainingToTarget(fiscalYearMetrics?.targetRevenue, fiscalYearMetrics?.wonRevenue) > 0">
-                        Remaining: RM {{getRemainingToTarget(fiscalYearMetrics?.targetRevenue,
-                        fiscalYearMetrics?.wonRevenue) | number:'1.0-0'}}
+
+                    <!-- Target Revenue with Percentage on Same Line -->
+                    <div class="metric-value-row">
+                        <div class="metric-value">RM {{fiscalYearMetrics?.targetRevenue | number:'1.0-0'}}</div>
+                        <div class="achievement-percentage">
+                            <span class="percentage-value">{{calculatePercentage(fiscalYearMetrics?.wonRevenue,
+                                fiscalYearMetrics?.targetRevenue)}}%</span>
+                            <span class="percentage-label">ACHIEVED</span>
+                        </div>
                     </div>
-                    <div class="metric-remaining success"
+
+                    <!-- Remaining Amount - Large and Eye-catching -->
+                    <div class="metric-remaining-large"
+                        *ngIf="getRemainingToTarget(fiscalYearMetrics?.targetRevenue, fiscalYearMetrics?.wonRevenue) > 0">
+                        <div class="remaining-label">REMAINING TO TARGET</div>
+                        <div class="remaining-value">RM {{getRemainingToTarget(fiscalYearMetrics?.targetRevenue,
+                            fiscalYearMetrics?.wonRevenue) | number:'1.0-0'}}</div>
+                    </div>
+                    <div class="metric-remaining-large success"
                         *ngIf="getRemainingToTarget(fiscalYearMetrics?.targetRevenue, fiscalYearMetrics?.wonRevenue) <= 0">
-                        🎉 Target Achieved!
+                        <div class="remaining-value-success">🎉 TARGET ACHIEVED!</div>
                     </div>
                 </div>
 
@@ -93,17 +103,28 @@
             <div class="metrics-row">
                 <div class="metric-card green">
                     <div class="metric-label">TARGET REVENUE</div>
-                    <div class="metric-value">RM {{quarterMetrics?.targetRevenue | number:'1.0-0'}}</div>
-                    <div class="metric-subtitle">{{calculatePercentage(quarterMetrics?.wonRevenue,
-                        quarterMetrics?.targetRevenue)}}% Achievement</div>
-                    <div class="metric-remaining"
-                        *ngIf="getRemainingToTarget(quarterMetrics?.targetRevenue, quarterMetrics?.wonRevenue) > 0">
-                        Remaining: RM {{getRemainingToTarget(quarterMetrics?.targetRevenue, quarterMetrics?.wonRevenue)
-                        | number:'1.0-0'}}
+
+                    <!-- Target Revenue with Percentage on Same Line -->
+                    <div class="metric-value-row">
+                        <div class="metric-value">RM {{quarterMetrics?.targetRevenue | number:'1.0-0'}}</div>
+                        <div class="achievement-percentage">
+                            <span class="percentage-value">{{calculatePercentage(quarterMetrics?.wonRevenue,
+                                quarterMetrics?.targetRevenue)}}%</span>
+                            <span class="percentage-label">ACHIEVED</span>
+                        </div>
                     </div>
-                    <div class="metric-remaining success"
+
+                    <!-- Remaining Amount - Large and Eye-catching -->
+                    <div class="metric-remaining-large"
+                        *ngIf="getRemainingToTarget(quarterMetrics?.targetRevenue, quarterMetrics?.wonRevenue) > 0">
+                        <div class="remaining-label">REMAINING TO TARGET</div>
+                        <div class="remaining-value">RM {{getRemainingToTarget(quarterMetrics?.targetRevenue,
+                            quarterMetrics?.wonRevenue)
+                            | number:'1.0-0'}}</div>
+                    </div>
+                    <div class="metric-remaining-large success"
                         *ngIf="getRemainingToTarget(quarterMetrics?.targetRevenue, quarterMetrics?.wonRevenue) <= 0">
-                        🎉 Target Achieved!
+                        <div class="remaining-value-success">🎉 TARGET ACHIEVED!</div>
                     </div>
                 </div>
 
@@ -132,9 +153,12 @@
             <div class="section-header">
                 <h2 style="font-weight: semi-bold;">OPPORTUNITIES MONTHLY</h2>
                 <select [(ngModel)]="selectedMonth" (change)="loadMonthlyOpportunities()" class="period-select">
-                    <option value="current">This Quarter</option>
+                    <option value="current">This Month</option>
                     <option *ngFor="let month of months; let i = index" [value]="i+1">{{month}}</option>
                 </select>
+            </div>
+            <div class="filter-info" *ngIf="hasActiveFilters()">
+                {{ getFilterDescription() }}
             </div>
 
             <div class="opportunities-grid">
@@ -170,13 +194,12 @@
         <div class="fiscal-section">
             <div class="section-header">
                 <h2 style="font-weight: semi-bold;">OPPORTUNITIES QUARTER</h2>
-                <select [(ngModel)]="selectedOppQuarter" (change)="loadQuarterOpportunities()" class="period-select">
-                    <option value="current">This Quarter</option>
-                    <option value="1">Q1 (Jun-Aug)</option>
-                    <option value="2">Q2 (Sep-Nov)</option>
-                    <option value="3">Q3 (Dec-Feb)</option>
-                    <option value="4">Q4 (Mar-May)</option>
-                </select>
+                <div class="linked-filter-label">
+                    {{ getQuarterText() }}
+                    <span class="filter-info-inline" *ngIf="selectedFiscalYear !== 'current'">
+                        • {{ getFiscalYearText() }}
+                    </span>
+                </div>
             </div>
 
             <div class="opportunities-grid">
@@ -212,11 +235,9 @@
         <div class="fiscal-section">
             <div class="section-header">
                 <h2 style="font-weight: semi-bold;">OPPORTUNITIES FISCAL YEAR</h2>
-                <select [(ngModel)]="selectedFiscalYearOpps" (change)="loadFiscalYearOpportunities()"
-                    class="period-select">
-                    <option value="current">This Year</option>
-                    <option *ngFor="let year of fiscalYears" [value]="year">FY{{year}}-{{year+1}}</option>
-                </select>
+                <div class="linked-filter-label">
+                    {{ getFiscalYearText() }}
+                </div>
             </div>
 
             <div class="opportunities-grid">

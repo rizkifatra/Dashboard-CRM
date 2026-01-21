@@ -95,7 +95,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
     private activityService: ActivityService,
     private dateUtils: DateUtilsService,
     private route: ActivatedRoute,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
@@ -128,7 +128,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
 
     const intervalMs = this.refreshIntervalMinutes * 60 * 1000;
     console.log(
-      `🔄 Auto-refresh enabled: updating all metrics every ${this.refreshIntervalMinutes} minute(s)`
+      `🔄 Auto-refresh enabled: updating all metrics every ${this.refreshIntervalMinutes} minute(s)`,
     );
 
     this.refreshInterval = setInterval(() => {
@@ -196,7 +196,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
 
           if (previousCount !== this.emailReminderCount) {
             console.log(
-              `📬 Follow-up count updated: ${previousCount} → ${this.emailReminderCount}`
+              `📬 Follow-up count updated: ${previousCount} → ${this.emailReminderCount}`,
             );
           }
         }
@@ -230,7 +230,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
           // Log if count changed
           if (previousCount !== this.unrepliedCount) {
             console.log(
-              `📧 Unreplied count updated: ${previousCount} → ${this.unrepliedCount}`
+              `📧 Unreplied count updated: ${previousCount} → ${this.unrepliedCount}`,
             );
           }
         }
@@ -403,19 +403,19 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
 
   getEmailCount(): number {
     return this.activities.filter((activity) =>
-      activity.activityType?.toLowerCase().includes('email')
+      activity.activityType?.toLowerCase().includes('email'),
     ).length;
   }
 
   getOutgoingCount(): number {
     return this.activities.filter(
-      (activity) => activity.direction === 'outgoing'
+      (activity) => activity.direction === 'outgoing',
     ).length;
   }
 
   getIncomingCount(): number {
     return this.activities.filter(
-      (activity) => activity.direction === 'incoming'
+      (activity) => activity.direction === 'incoming',
     ).length;
   }
 
@@ -439,7 +439,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
           this.allUnrepliedEmails = response.data;
           this.unrepliedCount = this.allUnrepliedEmails.length;
           console.log(
-            `📧 Total unreplied emails stored: ${this.unrepliedCount}`
+            `📧 Total unreplied emails stored: ${this.unrepliedCount}`,
           );
           console.log(`📧 First email:`, this.allUnrepliedEmails[0]);
 
@@ -471,14 +471,14 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
 
     const isInitialLoad = this.unrepliedPage === 0;
     console.log(
-      `📄 Loading page ${this.unrepliedPage}... (initial: ${isInitialLoad})`
+      `📄 Loading page ${this.unrepliedPage}... (initial: ${isInitialLoad})`,
     );
     this.loadingMoreUnreplied = true;
 
     const skip = this.unrepliedPage * this.unrepliedPageSize;
     const pageEmails = this.allUnrepliedEmails.slice(
       skip,
-      skip + this.unrepliedPageSize
+      skip + this.unrepliedPageSize,
     );
 
     console.log('📊 Pagination details:', {
@@ -490,13 +490,22 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
       currentTotal: this.unrepliedEmails.length,
     });
 
-    this.unrepliedEmails = [...this.unrepliedEmails, ...pageEmails];
+    // Only append if current array length matches expected position
+    // This prevents duplicates when auto-refresh resets the array
+    const expectedLength = skip;
+    if (this.unrepliedEmails.length === expectedLength) {
+      this.unrepliedEmails = [...this.unrepliedEmails, ...pageEmails];
+    } else {
+      // Array was reset, start fresh
+      this.unrepliedEmails = pageEmails;
+    }
+
     this.hasMoreUnreplied =
       skip + this.unrepliedPageSize < this.allUnrepliedEmails.length;
     this.unrepliedPage++;
 
     console.log(
-      `✅ Loaded ${pageEmails.length} emails. Total displayed: ${this.unrepliedEmails.length}/${this.unrepliedCount}`
+      `✅ Loaded ${pageEmails.length} emails. Total displayed: ${this.unrepliedEmails.length}/${this.unrepliedCount}`,
     );
     console.log(`📌 Has more: ${this.hasMoreUnreplied}`);
     console.log(`📌 unrepliedEmails array:`, this.unrepliedEmails);
@@ -913,7 +922,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
     // TODO: Implement reply modal - for now, open in new email client
     const subject = `RE: ${email.subject}`;
     const mailtoLink = `mailto:${email.fromEmail}?subject=${encodeURIComponent(
-      subject
+      subject,
     )}`;
     window.open(mailtoLink, '_blank');
   }
@@ -937,7 +946,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
           console.warn('Failed to load activity details:', response.message);
           alert(
             'Failed to load email details: ' +
-              (response.message || 'Unknown error')
+              (response.message || 'Unknown error'),
           );
         }
       },
@@ -967,7 +976,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
           console.warn('Failed to load activity details:', response.message);
           alert(
             'Failed to load email details: ' +
-              (response.message || 'Unknown error')
+              (response.message || 'Unknown error'),
           );
         }
       },
@@ -993,7 +1002,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
           this.allEmailReminders = response.data;
           this.emailReminderCount = this.allEmailReminders.length;
           this.criticalRemindersCount = this.allEmailReminders.filter(
-            (r) => r.urgencyLevel === 'critical'
+            (r) => r.urgencyLevel === 'critical',
           ).length;
 
           // Reset pagination
@@ -1004,11 +1013,11 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
           // Show first page
           this.emailReminders = this.allEmailReminders.slice(
             0,
-            this.reminderPageSize
+            this.reminderPageSize,
           );
 
           console.log(
-            `Loaded ${this.emailReminderCount} reminders (${this.criticalRemindersCount} critical), showing first ${this.emailReminders.length}`
+            `Loaded ${this.emailReminderCount} reminders (${this.criticalRemindersCount} critical), showing first ${this.emailReminders.length}`,
           );
         }
         this.loadingReminders = false;
@@ -1036,7 +1045,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
       const skip = this.reminderPage * this.reminderPageSize;
       const pageReminders = this.allEmailReminders.slice(
         skip,
-        skip + this.reminderPageSize
+        skip + this.reminderPageSize,
       );
 
       if (pageReminders.length > 0) {
@@ -1044,7 +1053,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
         this.hasMoreReminders =
           skip + pageReminders.length < this.allEmailReminders.length;
         console.log(
-          `✓ Loaded ${pageReminders.length} more reminders. Total displayed: ${this.emailReminders.length}`
+          `✓ Loaded ${pageReminders.length} more reminders. Total displayed: ${this.emailReminders.length}`,
         );
       } else {
         this.hasMoreReminders = false;
