@@ -43,16 +43,16 @@ export class OpportunitiesComponent implements OnInit {
 
   constructor(
     private opportunityService: OpportunityService,
-    private dateUtils: DateUtilsService
+    private dateUtils: DateUtilsService,
   ) {}
 
   ngOnInit() {
     this.loadStats();
     this.loadOpportunities();
 
-    // Setup search debounce - wait 500ms after user stops typing
+    // Setup search debounce - wait 1000ms after user stops typing
     this.searchSubject
-      .pipe(debounceTime(500), distinctUntilChanged())
+      .pipe(debounceTime(1000), distinctUntilChanged())
       .subscribe((searchTerm) => {
         // Reset pagination and reload opportunities
         this.skip = 0;

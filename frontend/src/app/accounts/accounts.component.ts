@@ -77,7 +77,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
     private staffService: StaffService,
     private activityService: ActivityService,
     private dateUtils: DateUtilsService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
@@ -85,9 +85,9 @@ export class AccountsComponent implements OnInit, AfterViewInit {
     this.loadCount();
     this.loadEmailReminders();
 
-    // Setup search debounce - wait 500ms after user stops typing
+    // Setup search debounce - wait 1000ms after user stops typing
     this.searchSubject
-      .pipe(debounceTime(500), distinctUntilChanged())
+      .pipe(debounceTime(1000), distinctUntilChanged())
       .subscribe((searchTerm) => {
         // Reset pagination and reload accounts
         this.currentPage = 0;
@@ -136,7 +136,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
         0,
         this.searchTerm,
         this.selectedStaffId,
-        this.statusFilter
+        this.statusFilter,
       )
       .subscribe({
         next: (response) => {
@@ -192,13 +192,13 @@ export class AccountsComponent implements OnInit, AfterViewInit {
             this.allAccounts = response.data;
             console.log(
               'All accounts loaded for stats:',
-              this.allAccounts.length
+              this.allAccounts.length,
             );
             this.calculateStats();
           } else {
             console.error(
               'Stats API returned success=false:',
-              response.message
+              response.message,
             );
             // Use empty array if request fails
             this.allAccounts = [];
@@ -211,7 +211,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
           this.allAccounts = this.accounts;
           console.log(
             'Using fallback accounts for stats:',
-            this.allAccounts.length
+            this.allAccounts.length,
           );
           this.calculateStats();
         },
@@ -299,7 +299,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
         0, // skip is ignored by backend
         this.searchTerm,
         this.selectedStaffId,
-        this.statusFilter
+        this.statusFilter,
       )
       .subscribe({
         next: (response) => {
@@ -370,7 +370,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
 
           // Update in the accounts list
           const index = this.accounts.findIndex(
-            (a) => a.accountid === this.editedAccount!.accountid
+            (a) => a.accountid === this.editedAccount!.accountid,
           );
           if (index !== -1) {
             this.accounts[index] = { ...response.data };
@@ -378,7 +378,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
 
           // Update in filteredAccounts
           const filteredIndex = this.filteredAccounts.findIndex(
-            (a) => a.accountid === this.editedAccount!.accountid
+            (a) => a.accountid === this.editedAccount!.accountid,
           );
           if (filteredIndex !== -1) {
             this.filteredAccounts[filteredIndex] = { ...response.data };
@@ -386,7 +386,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
 
           // Update in allAccounts for stats
           const allIndex = this.allAccounts.findIndex(
-            (a) => a.accountid === this.editedAccount!.accountid
+            (a) => a.accountid === this.editedAccount!.accountid,
           );
           if (allIndex !== -1) {
             this.allAccounts[allIndex] = { ...response.data };
@@ -468,21 +468,18 @@ export class AccountsComponent implements OnInit, AfterViewInit {
       next: (response) => {
         console.log('Follow-ups response:', response);
         if (response.success) {
-          // Filter to show only phone calls
-          this.accountFollowUps = response.data.filter(
-            (activity) =>
-              activity.activityTypeCode?.toLowerCase() === 'phonecall'
-          );
+          // Show all activities (emails, phone calls, tasks, appointments, etc.)
+          this.accountFollowUps = response.data;
           console.log(
-            'Phone calls loaded:',
+            'Activities loaded:',
             this.accountFollowUps.length,
-            'phone calls'
+            'total activities',
           );
         } else {
           this.followUpError = response.message;
           console.error(
             'Follow-ups API returned success=false:',
-            response.message
+            response.message,
           );
         }
         this.loadingFollowUps = false;
@@ -495,18 +492,6 @@ export class AccountsComponent implements OnInit, AfterViewInit {
     });
   }
 
-  getActivityIcon(activityType: string): string {
-    const types: { [key: string]: string } = {
-      email: '📧',
-      phonecall: '📞',
-      appointment: '📅',
-      task: '✅',
-      fax: '📠',
-      letter: '✉️',
-    };
-    return types[activityType?.toLowerCase()] || '📝';
-  }
-
   getActivityTypeLabel(activityType: string): string {
     const labels: { [key: string]: string } = {
       email: 'Email',
@@ -517,6 +502,27 @@ export class AccountsComponent implements OnInit, AfterViewInit {
       letter: 'Letter',
     };
     return labels[activityType?.toLowerCase()] || activityType || 'Activity';
+  }
+
+  getCleanEmailContent(description: string): string {
+    if (!description) return '';
+
+    // Create a temporary div to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = description;
+
+    // Get text content (strips all HTML tags)
+    let text = tempDiv.textContent || tempDiv.innerText || '';
+
+    // Clean up extra whitespace
+    text = text.replace(/\s+/g, ' ').trim();
+
+    // Limit to first 200 characters for timeline display
+    if (text.length > 200) {
+      text = text.substring(0, 200) + '...';
+    }
+
+    return text;
   }
 
   getActivityStatusLabel(stateCode: number): string {
@@ -577,7 +583,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
     // Use totalCount from API for accurate total, fall back to loaded count
     const total = this.totalCount > 0 ? this.totalCount : loadedCount;
     const incomplete = this.allAccounts.filter((acc) =>
-      this.isAccountIncomplete(acc)
+      this.isAccountIncomplete(acc),
     ).length;
     const active = loadedCount - incomplete;
 
@@ -607,7 +613,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
 
     console.log(
       'Calculating incomplete by staff. All accounts:',
-      this.allAccounts.length
+      this.allAccounts.length,
     );
 
     // Count incomplete accounts per staff
@@ -618,7 +624,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
         if (ownerId) {
           incompleteByStaffMap.set(
             ownerId,
-            (incompleteByStaffMap.get(ownerId) || 0) + 1
+            (incompleteByStaffMap.get(ownerId) || 0) + 1,
           );
         }
       });
@@ -635,7 +641,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
     console.log(
       'Incomplete accounts by staff:',
       this.incompleteAccountsByStaff.length,
-      this.incompleteAccountsByStaff
+      this.incompleteAccountsByStaff,
     );
   }
 
@@ -658,7 +664,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
         if (response.success) {
           // Filter to show only incomplete accounts
           const incompleteAccounts = response.data.filter((acc) =>
-            this.isAccountIncomplete(acc)
+            this.isAccountIncomplete(acc),
           );
           this.accounts = incompleteAccounts;
           this.filteredAccounts = incompleteAccounts;
@@ -701,7 +707,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
     // Fallback to staff list lookup using _ownerid_value
     if (account._ownerid_value) {
       const staff = this.staffList.find(
-        (s) => s.systemUserId === account._ownerid_value
+        (s) => s.systemUserId === account._ownerid_value,
       );
       if (staff) return staff.fullName;
     }
@@ -805,7 +811,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
           this.emailReminders = response.data;
           this.emailReminderCount = this.emailReminders.length;
           this.criticalRemindersCount = this.emailReminders.filter(
-            (r) => r.urgencyLevel === 'critical'
+            (r) => r.urgencyLevel === 'critical',
           ).length;
           console.log('Email reminders loaded:', this.emailReminderCount);
         }

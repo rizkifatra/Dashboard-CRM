@@ -497,7 +497,7 @@
                 <div *ngIf="!loadingFollowUps && !followUpError && accountFollowUps.length > 0"
                     class="followup-timeline">
                     <div *ngFor="let activity of accountFollowUps" class="followup-card">
-                        <div class="followup-icon">{{ getActivityIcon(activity.activityTypeCode) }}</div>
+
                         <div class="followup-content">
                             <div class="followup-header">
                                 <div class="followup-title">
@@ -527,7 +527,7 @@
                                 </span>
                             </div>
                             <div *ngIf="activity.description" class="followup-description">
-                                {{ activity.description }}
+                                {{ getCleanEmailContent(activity.description) }}
                             </div>
                         </div>
                     </div>

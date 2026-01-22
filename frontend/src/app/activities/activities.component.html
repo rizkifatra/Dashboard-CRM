@@ -277,33 +277,6 @@
     <!-- Email Code Filter Section -->
     <div class="email-code-section"
         *ngIf="!loading && !error && filterType !== 'unreplied' && filterType !== 'followup'">
-        <div class="section-title-bar">
-            <div class="filter-header">
-                <h3 class="filter-section-title">Filter by Email Code</h3>
-                <div class="active-filters"
-                    *ngIf="emailCodeFilter !== 'all' || (emailCodeFilter === 'OTHER' && statusTypeFilter !== 'all')">
-                    <span class="filter-label">Filtered by:</span>
-                    <span class="filter-pill" *ngIf="emailCodeFilter !== 'all'">
-                        {{ emailCodeFilter }}
-                        <button class="clear-filter" (click)="emailCodeFilter = 'all'; $event.stopPropagation()"
-                            title="Clear filter">
-                            ×
-                        </button>
-                    </span>
-                    <span class="filter-pill" *ngIf="emailCodeFilter === 'OTHER' && statusTypeFilter !== 'all'">
-                        {{ getStatusTypeLabel(statusTypeFilter) }}
-                        <button class="clear-filter" (click)="statusTypeFilter = 'all'; $event.stopPropagation()"
-                            title="Clear filter">
-                            ×
-                        </button>
-                    </span>
-                    <button class="clear-all-filters" *ngIf="emailCodeFilter !== 'all' || statusTypeFilter !== 'all'"
-                        (click)="emailCodeFilter = 'all'; statusTypeFilter = 'all'">
-                        Clear all
-                    </button>
-                </div>
-            </div>
-        </div>
         <div class="code-tabs">
             <button class="code-tab" [class.active]="emailCodeFilter === 'all'" (click)="emailCodeFilter = 'all'">
                 All ({{ getEmailCodeCount('all') }})
