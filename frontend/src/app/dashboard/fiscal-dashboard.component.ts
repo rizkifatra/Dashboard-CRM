@@ -175,7 +175,7 @@ export class FiscalDashboardComponent implements OnInit {
       filters.push(this.getMonthText());
     }
 
-    return filters.length > 0 ? `📊 Filtered by: ${filters.join(' • ')}` : '';
+    return filters.length > 0 ? `Filtered by: ${filters.join(' • ')}` : '';
   }
 
   ngOnInit() {
@@ -183,7 +183,7 @@ export class FiscalDashboardComponent implements OnInit {
     this.loadUnrepliedEmails();
   }
 
-  /**
+  /**s
    * Load all dashboard data in parallel for optimal performance
    */
   loadAllData() {

@@ -93,7 +93,22 @@
     <!-- Unreplied Emails Section -->
     <div class="email-code-section" *ngIf="filterType === 'unreplied'">
         <div class="section-title-bar">
-            <h3 class="filter-section-title">Unreplied Emails ({{ getFilteredUnrepliedEmails().length }})</h3>
+            <div class="filter-header">
+                <h3 class="filter-section-title">Unreplied Emails ({{ getFilteredUnrepliedEmails().length }})</h3>
+                <div class="active-filters" *ngIf="emailCodeFilter !== 'all'">
+                    <span class="filter-label">Filtered by:</span>
+                    <span class="filter-pill">
+                        {{ emailCodeFilter }}
+                        <button class="clear-filter" (click)="emailCodeFilter = 'all'; $event.stopPropagation()"
+                            title="Clear filter">
+                            ×
+                        </button>
+                    </span>
+                    <button class="clear-all-filters" (click)="emailCodeFilter = 'all'">
+                        Clear all
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Email Code Filter for Unreplied -->
@@ -168,7 +183,22 @@
     <!-- Follow-Up Email Reminders Section -->
     <div class="email-code-section" *ngIf="filterType === 'followup'">
         <div class="section-title-bar">
-            <h3 class="filter-section-title">Email Follow-Up Reminders ({{ emailReminderCount }})</h3>
+            <div class="filter-header">
+                <h3 class="filter-section-title">Email Follow-Up Reminders ({{ emailReminderCount }})</h3>
+                <div class="active-filters" *ngIf="reminderEmailCodeFilter !== 'all'">
+                    <span class="filter-label">Filtered by:</span>
+                    <span class="filter-pill">
+                        {{ reminderEmailCodeFilter }}
+                        <button class="clear-filter" (click)="reminderEmailCodeFilter = 'all'; $event.stopPropagation()"
+                            title="Clear filter">
+                            ×
+                        </button>
+                    </span>
+                    <button class="clear-all-filters" (click)="reminderEmailCodeFilter = 'all'">
+                        Clear all
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Email Code Filter for Follow-Up -->
@@ -248,7 +278,31 @@
     <div class="email-code-section"
         *ngIf="!loading && !error && filterType !== 'unreplied' && filterType !== 'followup'">
         <div class="section-title-bar">
-            <h3 class="filter-section-title">Filter by Email Code</h3>
+            <div class="filter-header">
+                <h3 class="filter-section-title">Filter by Email Code</h3>
+                <div class="active-filters"
+                    *ngIf="emailCodeFilter !== 'all' || (emailCodeFilter === 'OTHER' && statusTypeFilter !== 'all')">
+                    <span class="filter-label">Filtered by:</span>
+                    <span class="filter-pill" *ngIf="emailCodeFilter !== 'all'">
+                        {{ emailCodeFilter }}
+                        <button class="clear-filter" (click)="emailCodeFilter = 'all'; $event.stopPropagation()"
+                            title="Clear filter">
+                            ×
+                        </button>
+                    </span>
+                    <span class="filter-pill" *ngIf="emailCodeFilter === 'OTHER' && statusTypeFilter !== 'all'">
+                        {{ getStatusTypeLabel(statusTypeFilter) }}
+                        <button class="clear-filter" (click)="statusTypeFilter = 'all'; $event.stopPropagation()"
+                            title="Clear filter">
+                            ×
+                        </button>
+                    </span>
+                    <button class="clear-all-filters" *ngIf="emailCodeFilter !== 'all' || statusTypeFilter !== 'all'"
+                        (click)="emailCodeFilter = 'all'; statusTypeFilter = 'all'">
+                        Clear all
+                    </button>
+                </div>
+            </div>
         </div>
         <div class="code-tabs">
             <button class="code-tab" [class.active]="emailCodeFilter === 'all'" (click)="emailCodeFilter = 'all'">
@@ -334,7 +388,8 @@
                             {{ getStatusDescription(activity.stateCode, activity.statusCode) }}
                             <span class="related-info" *ngIf="activity.accountName"> • Account: {{
                                 activity.accountName }}</span>
-                            <span class="related-info" *ngIf="!activity.accountName && activity.regardingObjectName"> • Related to: {{
+                            <span class="related-info" *ngIf="!activity.accountName && activity.regardingObjectName"> •
+                                Related to: {{
                                 activity.regardingObjectName }}</span>
                         </span>
                     </div>
@@ -396,7 +451,8 @@
                         <div class="info-value">{{ selectedActivity.accountName }}</div>
                     </div>
 
-                    <div class="info-item" *ngIf="!selectedActivity.accountName && selectedActivity.regardingObjectName">
+                    <div class="info-item"
+                        *ngIf="!selectedActivity.accountName && selectedActivity.regardingObjectName">
                         <label>Related To</label>
                         <div class="info-value">{{ selectedActivity.regardingObjectName }}</div>
                     </div>
