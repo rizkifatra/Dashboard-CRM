@@ -41,6 +41,10 @@ public class Opportunity {
     @JsonAlias("closeprobability")
     private Integer closeProbability;
 
+    // Priority: 1 = Low, 2 = Normal, 3 = High
+    @JsonAlias("prioritycode")
+    private Integer priorityCode;
+
     @JsonAlias("salesstage")
     private Integer salesStage;
 

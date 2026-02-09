@@ -34,6 +34,7 @@ public class OpportunityController {
      * @param search   Search term for filtering (optional)
      * @param fromDate Start date filter YYYY-MM-DD (optional)
      * @param toDate   End date filter YYYY-MM-DD (optional)
+     * @param priority Priority filter comma-separated (optional: Low,Normal,High)
      * @return List of opportunities
      */
     @GetMapping("/all")
@@ -42,14 +43,15 @@ public class OpportunityController {
             @RequestParam(required = false, defaultValue = "0") Integer skip,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String fromDate,
-            @RequestParam(required = false) String toDate) {
+            @RequestParam(required = false) String toDate,
+            @RequestParam(required = false) String priority) {
         try {
-            log.info("GET /api/opportunities/all - Top: {}, Skip: {}, Search: {}, FromDate: {}, ToDate: {}", top, skip,
-                    search, fromDate,
-                    toDate);
+            log.info(
+                    "GET /api/opportunities/all - Top: {}, Skip: {}, Search: {}, FromDate: {}, ToDate: {}, Priority: {}",
+                    top, skip, search, fromDate, toDate, priority);
 
             List<Opportunity> opportunities = opportunityService.getAllOpportunities(top, skip, search, null, fromDate,
-                    toDate);
+                    toDate, priority);
 
             // Populate accountId from expanded entities (ownerName comes from
             // _ownerid_value formatted value)

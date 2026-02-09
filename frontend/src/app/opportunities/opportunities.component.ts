@@ -7,6 +7,7 @@ import {
   OpportunityStats,
   Opportunity,
 } from '../services/opportunity.service';
+import { StaffService, Staff } from '../services/staff.service';
 import { DateUtilsService } from '../services/date-utils.service';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
@@ -22,6 +23,7 @@ export class OpportunitiesComponent implements OnInit {
   // Data properties
   opportunities: Opportunity[] = [];
   stats: OpportunityStats | null = null;
+  staffList: Staff[] = [];
 
   // Loading states
   loading = false;
@@ -43,10 +45,12 @@ export class OpportunitiesComponent implements OnInit {
 
   constructor(
     private opportunityService: OpportunityService,
+    private staffService: StaffService,
     private dateUtils: DateUtilsService,
   ) {}
 
   ngOnInit() {
+    this.loadStaff();
     this.loadStats();
     this.loadOpportunities();
 
@@ -60,6 +64,23 @@ export class OpportunitiesComponent implements OnInit {
         this.opportunities = [];
         this.loadOpportunities();
       });
+  }
+
+  loadStaff() {
+    this.staffService.getAllStaff(false).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.staffList = response.data;
+          console.log(
+            'Staff loaded for owner resolution:',
+            this.staffList.length,
+          );
+        }
+      },
+      error: (err) => {
+        console.error('Error loading staff:', err);
+      },
+    });
   }
 
   loadStats() {
@@ -87,7 +108,13 @@ export class OpportunitiesComponent implements OnInit {
     this.error = null;
 
     this.opportunityService
-      .getAllOpportunities(this.skip, this.pageSize, this.searchTerm)
+      .getAllOpportunities(
+        this.skip,
+        this.pageSize,
+        this.searchTerm,
+        undefined,
+        undefined,
+      )
       .subscribe({
         next: (response) => {
           if (response.success && response.data) {
@@ -160,13 +187,60 @@ export class OpportunitiesComponent implements OnInit {
     return this.dateUtils.formatDate(dateString);
   }
 
-  getOwnerInitials(ownerName: string): string {
-    if (!ownerName) return '?';
+  getOwnerName(opportunity: Opportunity): string {
+    // First try the ownerName field from API
+    if (opportunity.ownerName) {
+      return opportunity.ownerName;
+    }
+
+    // Fallback to staff list lookup using ownerId
+    if (opportunity.ownerId && this.staffList.length > 0) {
+      const staff = this.staffList.find(
+        (s) => s.systemUserId === opportunity.ownerId,
+      );
+      if (staff) {
+        return staff.fullName;
+      }
+    }
+
+    return 'Unassigned';
+  }
+
+  getOwnerInitials(opportunity: Opportunity): string {
+    const ownerName = this.getOwnerName(opportunity);
+    if (ownerName === 'Unassigned') return '?';
+
     const names = ownerName.trim().split(' ');
     if (names.length >= 2) {
       return (names[0][0] + names[names.length - 1][0]).toUpperCase();
     }
-    return names[0][0].toUpperCase();
+    return names[0].substring(0, 2).toUpperCase();
+  }
+
+  getPriorityLabel(priorityCode: number | undefined): string {
+    switch (priorityCode) {
+      case 1:
+        return 'Low';
+      case 2:
+        return 'Normal';
+      case 3:
+        return 'High';
+      default:
+        return 'Normal';
+    }
+  }
+
+  getPriorityClass(priorityCode: number | undefined): string {
+    switch (priorityCode) {
+      case 1:
+        return 'priority-low';
+      case 2:
+        return 'priority-normal';
+      case 3:
+        return 'priority-high';
+      default:
+        return 'priority-normal';
+    }
   }
 
   getStatusLabel(stateCode: number | undefined): string {

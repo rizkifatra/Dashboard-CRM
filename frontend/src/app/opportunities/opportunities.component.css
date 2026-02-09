@@ -549,6 +549,7 @@
     color: #9CA3AF;
     margin: 0;
 }
+
 /* Search Section */
 .search-section {
     margin-top: 12px;
@@ -619,4 +620,71 @@
 
 .clear-search:hover {
     color: #6B7280;
+}
+
+/* Filter Section */
+.filter-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #E5E7EB;
+}
+
+.filter-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    cursor: pointer;
+    accent-color: #6366F1;
+}
+
+.checkbox-text {
+    font-size: 13px;
+    color: #374151;
+}
+
+/* Priority Badges */
+.priority-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.priority-low {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.priority-normal {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.priority-high {
+    background: #FEE2E2;
+    color: #991B1B;
 }

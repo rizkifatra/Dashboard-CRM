@@ -11,6 +11,7 @@ export interface Opportunity {
   estimatedCloseDate?: string;
   actualCloseDate?: string;
   closeProbability?: number;
+  priorityCode?: number; // 1=Low, 2=Normal, 3=High
   salesStage?: number;
   stepName?: string;
   createdOn: string;
@@ -75,7 +76,7 @@ export class OpportunityService {
     top: number = 50,
     search: string = '',
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<Opportunity[]>> {
     let params = new HttpParams()
       .set('top', top.toString())
@@ -94,7 +95,7 @@ export class OpportunityService {
    */
   getOpportunityStatistics(
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<OpportunityStats>> {
     let params = new HttpParams();
     if (fromDate) params = params.set('fromDate', fromDate);
@@ -102,7 +103,7 @@ export class OpportunityService {
 
     return this.http.get<ApiResponse<OpportunityStats>>(
       `${this.apiUrl}/stats`,
-      { params }
+      { params },
     );
   }
 
@@ -111,7 +112,7 @@ export class OpportunityService {
    */
   getOpportunitiesByStaff(
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<{ [key: string]: StaffOpportunityStats }>> {
     let params = new HttpParams();
     if (fromDate) params = params.set('fromDate', fromDate);
@@ -119,7 +120,7 @@ export class OpportunityService {
 
     return this.http.get<ApiResponse<{ [key: string]: StaffOpportunityStats }>>(
       `${this.apiUrl}/by-staff`,
-      { params }
+      { params },
     );
   }
 
@@ -129,7 +130,7 @@ export class OpportunityService {
   getTopOpportunities(
     top: number = 10,
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<Opportunity[]>> {
     let params = new HttpParams().set('top', top.toString());
     if (fromDate) params = params.set('fromDate', fromDate);
@@ -152,7 +153,7 @@ export class OpportunityService {
    */
   getActiveOpportunityCount(
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<number>> {
     let params = new HttpParams();
     if (fromDate) params = params.set('fromDate', fromDate);

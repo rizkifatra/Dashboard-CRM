@@ -160,7 +160,7 @@
                             </svg>
                         </th>
                         <th class="sortable">
-                            <span class="header-content">Probability</span>
+                            <span class="header-content">Priority</span>
                             <svg class="sort-icon" width="10" height="10" viewBox="0 0 10 10">
                                 <path d="M5 0L0 5h10L5 0z" fill="currentColor" />
                             </svg>
@@ -183,12 +183,16 @@
                         <td class="owner-cell">
                             <div class="owner-wrapper">
                                 <div class="owner-avatar-small">
-                                    {{ getOwnerInitials(opp.ownerName || '') }}
+                                    {{ getOwnerInitials(opp) }}
                                 </div>
-                                <span class="owner-text">{{ opp.ownerName || 'Unassigned' }}</span>
+                                <span class="owner-text">{{ getOwnerName(opp) }}</span>
                             </div>
                         </td>
-                        <td class="probability-cell">{{ opp.closeProbability || 0 }}%</td>
+                        <td class="priority-cell">
+                            <span class="priority-badge" [ngClass]="getPriorityClass(opp.priorityCode)">
+                                {{ getPriorityLabel(opp.priorityCode) }}
+                            </span>
+                        </td>
                         <td class="status-cell">
                             <span class="status-badge" [ngClass]="getStatusClass(opp.stateCode)">
                                 {{ getStatusLabel(opp.stateCode) }}

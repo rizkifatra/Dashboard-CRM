@@ -106,15 +106,15 @@ public class D365OpportunityService {
      * @param select   Comma-separated list of fields to return (optional)
      * @param fromDate Optional start date filter (YYYY-MM-DD)
      * @param toDate   Optional end date filter (YYYY-MM-DD)
+     * @param priority Optional priority filter (comma-separated: Low,Normal,High)
      * @return List of opportunities
      */
     public List<Opportunity> getAllOpportunities(Integer top, Integer skip, String search, String select,
-            String fromDate,
-            String toDate) {
+            String fromDate, String toDate, String priority) {
         try {
             log.info(
-                    "Fetching opportunities from Dynamics 365. Top: {}, Skip: {}, Search: {}, Select: {}, FromDate: {}, ToDate: {}",
-                    top, skip, search, select, fromDate, toDate);
+                    "Fetching opportunities from Dynamics 365. Top: {}, Skip: {}, Search: {}, Select: {}, FromDate: {}, ToDate: {}, Priority: {}",
+                    top, skip, search, select, fromDate, toDate, priority);
 
             String token = authService.getAccessToken();
 
@@ -134,7 +134,7 @@ public class D365OpportunityService {
             } else {
                 // Default fields to select with expanded navigation properties
                 uri.append("$select=opportunityid,name,description,estimatedvalue,estimatedclosedate,")
-                        .append("actualvalue,actualclosedate,closeprobability,salesstage,stepname,budgetamount,")
+                        .append("actualvalue,actualclosedate,closeprobability,prioritycode,salesstage,stepname,budgetamount,")
                         .append("createdon,modifiedon,statecode,statuscode,")
                         .append("_ownerid_value,_createdby_value,_modifiedby_value,_customerid_value,_parentaccountid_value&");
 
@@ -162,6 +162,44 @@ public class D365OpportunityService {
             if (toDate != null && !toDate.isEmpty()) {
                 filter.append(filter.length() > 0 ? " and " : "")
                         .append("createdon le ").append(toDate);
+            }
+
+            // Add priority filter - convert text to priority codes
+            // Low = 1, Normal = 2, High = 3
+            if (priority != null && !priority.isEmpty()) {
+                String[] priorities = priority.split(",");
+                if (priorities.length > 0) {
+                    StringBuilder priorityFilter = new StringBuilder("(");
+                    boolean firstPriority = true;
+
+                    for (String p : priorities) {
+                        String trimmed = p.trim();
+                        Integer priorityCode = null;
+
+                        if ("Low".equalsIgnoreCase(trimmed)) {
+                            priorityCode = 1;
+                        } else if ("Normal".equalsIgnoreCase(trimmed)) {
+                            priorityCode = 2;
+                        } else if ("High".equalsIgnoreCase(trimmed)) {
+                            priorityCode = 3;
+                        }
+
+                        if (priorityCode != null) {
+                            if (!firstPriority) {
+                                priorityFilter.append(" or ");
+                            }
+                            priorityFilter.append("prioritycode eq ").append(priorityCode);
+                            firstPriority = false;
+                        }
+                    }
+
+                    priorityFilter.append(")");
+
+                    if (!firstPriority) { // Only add if we found valid priorities
+                        filter.append(filter.length() > 0 ? " and " : "")
+                                .append(priorityFilter.toString());
+                    }
+                }
             }
 
             if (filter.length() > 0) {
@@ -247,7 +285,186 @@ public class D365OpportunityService {
     }
 
     /**
-     * Get opportunity statistics
+     * Fetch all opportunities in batches to avoid timeout
+     * Uses D365's @odata.nextLink for proper pagination
+     * 
+     * @param batchSize Size of each batch (recommended: 50)
+     * @param fromDate  Optional start date filter
+     * @param toDate    Optional end date filter
+     * @return Complete list of all opportunities
+     */
+    private List<Opportunity> fetchAllOpportunitiesInBatches(int batchSize, String fromDate, String toDate) {
+        List<Opportunity> allOpportunities = new java.util.ArrayList<>();
+        java.util.Set<String> seenIds = new java.util.HashSet<>(); // Track unique IDs
+        int totalFetched = 0;
+        int batchCount = 0;
+        int maxBatches = 500; // Increased limit: 500 batches * 50 = 25,000 max records
+        String nextLink = null;
+
+        try {
+            log.info(
+                    "=== BATCHING V2: Fetching all opportunities in batches of {}. FromDate: {}, ToDate: {}, MaxBatches: {} ===",
+                    batchSize, fromDate, toDate, maxBatches);
+
+            // First batch - build the initial query
+            D365Response<Opportunity> response = fetchOpportunitiesBatch(batchSize, fromDate, toDate, null);
+
+            if (response == null || response.getValue() == null) {
+                log.warn("No opportunities returned from D365");
+                return allOpportunities;
+            }
+
+            // Add unique opportunities only
+            int duplicates = 0;
+            for (Opportunity opp : response.getValue()) {
+                if (opp.getOpportunityId() != null && seenIds.add(opp.getOpportunityId())) {
+                    allOpportunities.add(opp);
+                } else {
+                    duplicates++;
+                }
+            }
+            totalFetched += response.getValue().size();
+            batchCount++;
+            nextLink = response.getNextLink();
+
+            log.info("Batch 1: {} opportunities ({} unique, {} duplicates), nextLink: {}",
+                    response.getValue().size(), allOpportunities.size(), duplicates, nextLink != null ? "YES" : "NO");
+
+            // Continue fetching while nextLink exists
+            while (nextLink != null && batchCount < maxBatches) {
+                response = fetchOpportunitiesBatch(batchSize, fromDate, toDate, nextLink);
+
+                if (response == null || response.getValue() == null || response.getValue().isEmpty()) {
+                    log.info("No more opportunities to fetch. Total fetched: {}, Unique: {}", totalFetched,
+                            allOpportunities.size());
+                    break;
+                }
+
+                // Add unique opportunities only
+                int batchDuplicates = 0;
+                for (Opportunity opp : response.getValue()) {
+                    if (opp.getOpportunityId() != null && seenIds.add(opp.getOpportunityId())) {
+                        allOpportunities.add(opp);
+                    } else {
+                        batchDuplicates++;
+                    }
+                }
+                totalFetched += response.getValue().size();
+                batchCount++;
+                nextLink = response.getNextLink();
+
+                log.info("Batch {}: {} opportunities ({} unique, {} duplicates, total unique: {}), nextLink: {}",
+                        batchCount, response.getValue().size(), response.getValue().size() - batchDuplicates,
+                        batchDuplicates, allOpportunities.size(), nextLink != null ? "YES" : "NO");
+
+                // Small delay to avoid overwhelming the API
+                Thread.sleep(100);
+            }
+
+            log.info("Successfully fetched {} unique opportunities (total fetched: {}) in {} batches",
+                    allOpportunities.size(), totalFetched, batchCount);
+            return allOpportunities;
+
+        } catch (InterruptedException e) {
+            log.error("Batch fetching interrupted", e);
+            Thread.currentThread().interrupt();
+            return allOpportunities;
+        } catch (Exception e) {
+            log.error("Error fetching opportunities in batches", e);
+            return allOpportunities;
+        }
+    }
+
+    /**
+     * Fetch a single batch of opportunities
+     * 
+     * @param batchSize Size of the batch
+     * @param fromDate  Optional start date filter
+     * @param toDate    Optional end date filter
+     * @param nextLink  Optional nextLink for pagination (if null, builds new query)
+     * @return D365Response with opportunities and nextLink
+     */
+    private D365Response<Opportunity> fetchOpportunitiesBatch(int batchSize, String fromDate, String toDate,
+            String nextLink) {
+        try {
+            String token = authService.getAccessToken();
+            String uri;
+
+            if (nextLink != null && !nextLink.isEmpty()) {
+                // Extract the path from the full URL
+                // D365 nextLink format:
+                // https://...crm5.dynamics.com/api/data/v9.2/opportunities?$skiptoken=...
+                int apiIndex = nextLink.indexOf("/api/data/");
+                if (apiIndex != -1) {
+                    uri = nextLink.substring(apiIndex);
+                } else {
+                    // Fallback: try to find just /api/
+                    apiIndex = nextLink.indexOf("/api/");
+                    uri = apiIndex != -1 ? nextLink.substring(apiIndex) : nextLink;
+                }
+                log.info("Using nextLink pagination: {}", uri.length() > 100 ? uri.substring(0, 100) + "..." : uri);
+            } else {
+                // Build initial query
+                StringBuilder uriBuilder = new StringBuilder("/opportunities?");
+                StringBuilder filter = new StringBuilder();
+
+                uriBuilder.append("$top=").append(batchSize).append("&");
+
+                // Default fields to select
+                uriBuilder.append("$select=opportunityid,name,description,estimatedvalue,estimatedclosedate,")
+                        .append("actualvalue,actualclosedate,closeprobability,prioritycode,salesstage,stepname,budgetamount,")
+                        .append("createdon,modifiedon,statecode,statuscode,")
+                        .append("_ownerid_value,_createdby_value,_modifiedby_value,_customerid_value,_parentaccountid_value&");
+
+                // Expand navigation properties
+                uriBuilder.append("$expand=customerid_account($select=name,accountid),")
+                        .append("customerid_contact($select=fullname,contactid),")
+                        .append("parentaccountid($select=name,accountid)&");
+
+                // Date filters
+                if (fromDate != null && !fromDate.isEmpty()) {
+                    filter.append("createdon ge ").append(fromDate);
+                }
+
+                if (toDate != null && !toDate.isEmpty()) {
+                    filter.append(filter.length() > 0 ? " and " : "")
+                            .append("createdon le ").append(toDate);
+                }
+
+                if (filter.length() > 0) {
+                    uriBuilder.append("$filter=").append(filter.toString()).append("&");
+                }
+
+                // Add ordering and count
+                uriBuilder.append("$orderby=createdon desc&");
+                uriBuilder.append("$count=true");
+
+                uri = uriBuilder.toString();
+            }
+
+            String responseBody = webClient.get()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            D365Response<Opportunity> d365Response = objectMapper.readValue(
+                    responseBody,
+                    new TypeReference<D365Response<Opportunity>>() {
+                    });
+
+            return d365Response;
+
+        } catch (Exception e) {
+            log.error("Error fetching opportunity batch: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Get opportunity statistics using D365 $count queries for accuracy
      * 
      * @param fromDate Optional start date filter
      * @param toDate   Optional end date filter
@@ -255,45 +472,34 @@ public class D365OpportunityService {
      */
     public java.util.Map<String, Object> getOpportunityStatistics(String fromDate, String toDate) {
         try {
-            log.info("Calculating opportunity statistics. FromDate: {}, ToDate: {}", fromDate, toDate);
+            log.info("Calculating opportunity statistics using $count queries. FromDate: {}, ToDate: {}", fromDate,
+                    toDate);
 
-            List<Opportunity> allOpportunities = getAllOpportunities(null, null, null, null, fromDate, toDate);
+            String token = authService.getAccessToken();
 
-            int totalOpportunities = allOpportunities.size();
-            int openOpportunities = 0;
-            int wonOpportunities = 0;
-            int lostOpportunities = 0;
-            double totalEstimatedValue = 0.0;
-            double totalActualValue = 0.0;
-            double wonValue = 0.0;
-
-            for (Opportunity opp : allOpportunities) {
-                // Count by state: 0=Open, 1=Won, 2=Lost
-                if (opp.getStateCode() != null) {
-                    switch (opp.getStateCode()) {
-                        case 0:
-                            openOpportunities++;
-                            break;
-                        case 1:
-                            wonOpportunities++;
-                            if (opp.getActualValue() != null) {
-                                wonValue += opp.getActualValue().doubleValue();
-                            }
-                            break;
-                        case 2:
-                            lostOpportunities++;
-                            break;
-                    }
-                }
-
-                // Sum values
-                if (opp.getEstimatedValue() != null) {
-                    totalEstimatedValue += opp.getEstimatedValue().doubleValue();
-                }
-                if (opp.getActualValue() != null) {
-                    totalActualValue += opp.getActualValue().doubleValue();
-                }
+            // Build date filter for all queries
+            StringBuilder dateFilter = new StringBuilder();
+            if (fromDate != null && !fromDate.isEmpty()) {
+                dateFilter.append("createdon ge ").append(fromDate);
             }
+            if (toDate != null && !toDate.isEmpty()) {
+                if (dateFilter.length() > 0) {
+                    dateFilter.append(" and ");
+                }
+                dateFilter.append("createdon le ").append(toDate);
+            }
+            String dateFilterStr = dateFilter.toString();
+
+            // Get counts for each state using $count=true
+            int totalOpportunities = getOpportunityCountByState(token, null, dateFilterStr);
+            int openOpportunities = getOpportunityCountByState(token, 0, dateFilterStr); // State 0 = Open
+            int wonOpportunities = getOpportunityCountByState(token, 1, dateFilterStr); // State 1 = Won
+            int lostOpportunities = getOpportunityCountByState(token, 2, dateFilterStr); // State 2 = Lost
+
+            // For values, we need to fetch limited records (top 100 of each category)
+            double wonValue = calculateTotalValue(token, 1, dateFilterStr, "actualvalue");
+            double totalEstimatedValue = calculateTotalValue(token, 0, dateFilterStr, "estimatedvalue");
+            double totalActualValue = calculateTotalValue(token, 1, dateFilterStr, "actualvalue");
 
             // Calculate win rate
             double winRate = (wonOpportunities + lostOpportunities) > 0
@@ -326,6 +532,114 @@ public class D365OpportunityService {
     }
 
     /**
+     * Get count of opportunities for a specific state using $count
+     */
+    private int getOpportunityCountByState(String token, Integer stateCode, String dateFilter) {
+        try {
+            StringBuilder uri = new StringBuilder("/opportunities?$count=true&$top=1");
+
+            // Build filter
+            StringBuilder filter = new StringBuilder();
+            if (stateCode != null) {
+                filter.append("statecode eq ").append(stateCode);
+            }
+            if (dateFilter != null && !dateFilter.isEmpty()) {
+                if (filter.length() > 0) {
+                    filter.append(" and ");
+                }
+                filter.append(dateFilter);
+            }
+
+            if (filter.length() > 0) {
+                uri.append("&$filter=").append(filter.toString());
+            }
+
+            String response = webClient.get()
+                    .uri(uri.toString())
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            D365Response<Opportunity> d365Response = objectMapper.readValue(
+                    response,
+                    new TypeReference<D365Response<Opportunity>>() {
+                    });
+
+            int count = d365Response.getCount() != null ? d365Response.getCount() : 0;
+            log.info("Count for stateCode={}: {}", stateCode, count);
+            return count;
+
+        } catch (Exception e) {
+            log.error("Error getting count for stateCode={}: {}", stateCode, e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Calculate total value by fetching records and summing
+     * Limited to top 1000 to avoid timeout
+     */
+    private double calculateTotalValue(String token, Integer stateCode, String dateFilter, String valueField) {
+        try {
+            StringBuilder uri = new StringBuilder("/opportunities?");
+            uri.append("$top=1000&");
+            uri.append("$select=").append(valueField).append("&");
+
+            // Build filter
+            StringBuilder filter = new StringBuilder();
+            if (stateCode != null) {
+                filter.append("statecode eq ").append(stateCode);
+            }
+            if (dateFilter != null && !dateFilter.isEmpty()) {
+                if (filter.length() > 0) {
+                    filter.append(" and ");
+                }
+                filter.append(dateFilter);
+            }
+
+            if (filter.length() > 0) {
+                uri.append("$filter=").append(filter.toString()).append("&");
+            }
+
+            uri.append("$orderby=createdon desc");
+
+            String response = webClient.get()
+                    .uri(uri.toString())
+                    .header("Authorization", "Bearer " + token)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                    .block();
+
+            D365Response<Opportunity> d365Response = objectMapper.readValue(
+                    response,
+                    new TypeReference<D365Response<Opportunity>>() {
+                    });
+
+            double total = 0.0;
+            if (d365Response.getValue() != null) {
+                for (Opportunity opp : d365Response.getValue()) {
+                    java.math.BigDecimal value = valueField.equals("actualvalue")
+                            ? opp.getActualValue()
+                            : opp.getEstimatedValue();
+                    if (value != null) {
+                        total += value.doubleValue();
+                    }
+                }
+            }
+
+            log.info("Total {} for stateCode={}: {}", valueField, stateCode, total);
+            return total;
+
+        } catch (Exception e) {
+            log.error("Error calculating total value for stateCode={}: {}", stateCode, e.getMessage());
+            return 0.0;
+        }
+    }
+
+    /**
      * Get opportunities grouped by staff member
      * 
      * @param fromDate Optional start date filter
@@ -337,7 +651,8 @@ public class D365OpportunityService {
         try {
             log.info("Fetching opportunities by staff. FromDate: {}, ToDate: {}", fromDate, toDate);
 
-            List<Opportunity> allOpportunities = getAllOpportunities(null, null, null, null, fromDate, toDate);
+            // Fetch ALL opportunities in batches to avoid timeout
+            List<Opportunity> allOpportunities = fetchAllOpportunitiesInBatches(50, fromDate, toDate);
 
             java.util.Map<String, java.util.Map<String, Object>> staffStats = new java.util.HashMap<>();
 
@@ -446,7 +761,7 @@ public class D365OpportunityService {
         try {
             log.info("Fetching top {} opportunities. FromDate: {}, ToDate: {}", top, fromDate, toDate);
 
-            List<Opportunity> opportunities = getAllOpportunities(null, null, null, null, fromDate, toDate);
+            List<Opportunity> opportunities = getAllOpportunities(null, null, null, null, fromDate, toDate, null);
 
             // Sort by estimated value (descending) and filter open opportunities
             return opportunities.stream()
@@ -486,7 +801,7 @@ public class D365OpportunityService {
                 String toDate = monthEnd.toString();
 
                 // Fetch opportunities for this month
-                List<Opportunity> opportunities = getAllOpportunities(null, null, null, null, fromDate, toDate);
+                List<Opportunity> opportunities = getAllOpportunities(null, null, null, null, fromDate, toDate, null);
 
                 // Calculate statistics
                 long totalCount = opportunities.size();
