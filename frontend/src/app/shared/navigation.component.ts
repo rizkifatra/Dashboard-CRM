@@ -194,10 +194,10 @@ interface NavItem {
 export class NavigationComponent {
   navItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/accounts', label: 'Accounts', icon: '🏢' },
+    { path: '/ranking', label: 'Ranking', icon: '🏆' },
+    { path: '/activities', label: 'Activity Management', icon: '👥' },
+    { path: '/accounts', label: 'Accounts', icon: '👥' },
     { path: '/opportunities', label: 'Opportunities', icon: '💼' },
-    { path: '/activities', label: 'Activities', icon: '📧' },
-    { path: '/staff', label: 'Staff', icon: '👥' },
   ];
 
   constructor(private router: Router) {}

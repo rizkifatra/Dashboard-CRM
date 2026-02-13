@@ -33,9 +33,9 @@ export class ActivityService {
    * @param filter Optional OData filter
    */
   getAllActivities(
-    top: number = 50,
+    top: number = 100,
     skip: number = 0,
-    filter?: string
+    filter?: string,
   ): Observable<ApiResponse<Activity[]>> {
     let params = new HttpParams()
       .set('top', top.toString())
@@ -60,13 +60,13 @@ export class ActivityService {
    */
   getActivitiesByStaff(
     email: string,
-    top: number = 50
+    top: number = 50,
   ): Observable<ApiResponse<Activity[]>> {
     let params = new HttpParams().set('top', top.toString());
 
     return this.http.get<ApiResponse<Activity[]>>(
       `${this.apiUrl}/staff/${email}`,
-      { params }
+      { params },
     );
   }
 
@@ -77,13 +77,13 @@ export class ActivityService {
    */
   getActivitiesByAccount(
     accountId: string,
-    top: number = 50
+    top: number = 50,
   ): Observable<ApiResponse<Activity[]>> {
     let params = new HttpParams().set('top', top.toString());
 
     return this.http.get<ApiResponse<Activity[]>>(
       `${this.apiUrl}/account/${accountId}`,
-      { params }
+      { params },
     );
   }
 
@@ -94,7 +94,7 @@ export class ActivityService {
    */
   getEmailActivities(
     top: number = 50,
-    skip: number = 0
+    skip: number = 0,
   ): Observable<ApiResponse<Activity[]>> {
     let params = new HttpParams()
       .set('top', top.toString())
@@ -112,13 +112,13 @@ export class ActivityService {
    */
   getSentEmailsByStaff(
     email: string,
-    top: number = 50
+    top: number = 50,
   ): Observable<ApiResponse<Activity[]>> {
     let params = new HttpParams().set('top', top.toString());
 
     return this.http.get<ApiResponse<Activity[]>>(
       `${this.apiUrl}/emails/sent/${email}`,
-      { params }
+      { params },
     );
   }
 
@@ -129,13 +129,13 @@ export class ActivityService {
    */
   getReceivedEmailsByStaff(
     email: string,
-    top: number = 50
+    top: number = 50,
   ): Observable<ApiResponse<Activity[]>> {
     let params = new HttpParams().set('top', top.toString());
 
     return this.http.get<ApiResponse<Activity[]>>(
       `${this.apiUrl}/emails/received/${email}`,
-      { params }
+      { params },
     );
   }
 
@@ -145,7 +145,7 @@ export class ActivityService {
    */
   getEmailStatsByStaff(email: string): Observable<ApiResponse<EmailStats>> {
     return this.http.get<ApiResponse<EmailStats>>(
-      `${this.apiUrl}/emails/stats/${email}`
+      `${this.apiUrl}/emails/stats/${email}`,
     );
   }
 
@@ -171,7 +171,7 @@ export class ActivityService {
   getRecentActivities(
     top: number = 50,
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<Activity[]>> {
     let params = new HttpParams().set('top', top.toString());
     if (fromDate) params = params.set('fromDate', fromDate);
@@ -223,7 +223,7 @@ export class ActivityService {
    * @param maxHoursOld Maximum age of emails to check (null = all time, undefined = use default)
    */
   getUnrepliedEmails(
-    maxHoursOld?: number | null
+    maxHoursOld?: number | null,
   ): Observable<ApiResponse<UnrepliedEmail[]>> {
     let params = new HttpParams();
 
@@ -234,7 +234,7 @@ export class ActivityService {
 
     return this.http.get<ApiResponse<UnrepliedEmail[]>>(
       `${this.apiUrl}/unreplied`,
-      { params }
+      { params },
     );
   }
 
@@ -243,7 +243,7 @@ export class ActivityService {
    */
   getEmailReminders(): Observable<ApiResponse<EmailReminder[]>> {
     return this.http.get<ApiResponse<EmailReminder[]>>(
-      'http://localhost:8080/api/email-reminders'
+      'http://localhost:8080/api/email-reminders',
     );
   }
 
@@ -252,7 +252,7 @@ export class ActivityService {
    */
   getEmailReminderCounts(): Observable<ApiResponse<EmailReminderCounts>> {
     return this.http.get<ApiResponse<EmailReminderCounts>>(
-      'http://localhost:8080/api/email-reminders/counts'
+      'http://localhost:8080/api/email-reminders/counts',
     );
   }
 

@@ -372,9 +372,12 @@
 
  .loading-state,
  .error-state {
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     justify-content: center;
+     padding: 48px 24px;
      text-align: center;
-     padding: 100px 20px;
-     padding: 50px 20px;
  }
 
  .spinner {
@@ -398,20 +401,22 @@
  }
 
  .retry-button {
-     background: #8B5CF6;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     padding: 10px 20px;
+     background: #0078D4;
      color: white;
      border: none;
-     padding: 10px 20px;
-     border-radius: 8px;
-     cursor: pointer;
+     border-radius: 6px;
      font-size: 14px;
      font-weight: 500;
-     transition: all 0.2s;
+     cursor: pointer;
+     transition: background 0.2s;
  }
 
  .retry-button:hover {
-     background: #7C3AED;
-     transform: translateY(-1px);
+     background: #106EBE;
  }
 
  /* Activities List */
@@ -1464,8 +1469,7 @@
      overflow-y: auto;
      overflow-x: hidden;
      flex: 1;
-     min-height: 0;
-     max-height: calc(100vh - 320px);
+     position: relative;
  }
 
  .simple-row {
@@ -1726,20 +1730,22 @@
  }
 
  .retry-button {
-     background: #8B5CF6;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     padding: 10px 20px;
+     background: #0078D4;
      color: white;
      border: none;
-     padding: 10px 20px;
-     border-radius: 8px;
-     cursor: pointer;
+     border-radius: 6px;
      font-size: 14px;
      font-weight: 500;
-     margin-top: 10px;
-     transition: all 0.2s;
+     cursor: pointer;
+     transition: background 0.2s;
  }
 
  .retry-button:hover {
-     background: #7C3AED;
+     background: #106EBE;
  }
 
  .error-state p {

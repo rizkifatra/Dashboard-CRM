@@ -50,7 +50,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
 
   // Pagination for infinite scroll
   currentPage = 0;
-  pageSize = 50;
+  pageSize = 100;
   hasMoreActivities = true;
   loadingMore = false;
 
@@ -60,7 +60,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   staffEmail = '';
   accountId = '';
   activityCount = 0;
-  topLimit = 50;
+  topLimit = 100;
 
   // Unreplied emails
   unrepliedEmails: UnrepliedEmail[] = [];

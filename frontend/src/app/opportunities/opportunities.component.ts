@@ -36,7 +36,7 @@ export class OpportunitiesComponent implements OnInit {
 
   // Pagination
   private skip = 0;
-  private readonly pageSize = 50;
+  private readonly pageSize = 100;
   hasMore = true; // Enable infinite scroll like Accounts page
   totalCount = 0;
 
@@ -107,6 +107,12 @@ export class OpportunitiesComponent implements OnInit {
 
     this.error = null;
 
+    console.log('Loading opportunities:', {
+      skip: this.skip,
+      pageSize: this.pageSize,
+      append,
+    });
+
     this.opportunityService
       .getAllOpportunities(
         this.skip,
@@ -125,6 +131,13 @@ export class OpportunitiesComponent implements OnInit {
             this.hasMore = newOpportunities.length === this.pageSize;
             this.skip += newOpportunities.length;
             this.lastUpdated = new Date();
+
+            console.log('Loaded opportunities:', {
+              newCount: newOpportunities.length,
+              totalCount: this.opportunities.length,
+              hasMore: this.hasMore,
+              skip: this.skip,
+            });
           } else {
             this.error = response.message;
           }
@@ -141,17 +154,15 @@ export class OpportunitiesComponent implements OnInit {
       });
   }
 
-  onTableScroll(event: Event) {
-    if (this.loadingMore || !this.hasMore) {
-      return;
-    }
-
+  onTableScroll(event: Event): void {
     const element = event.target as HTMLElement;
     const threshold = 200;
     const position = element.scrollTop + element.clientHeight;
     const height = element.scrollHeight;
 
-    if (position > height - threshold) {
+    const nearBottom = position > height - threshold;
+
+    if (nearBottom && !this.loadingMore && this.hasMore) {
       this.loadOpportunities(true);
     }
   }

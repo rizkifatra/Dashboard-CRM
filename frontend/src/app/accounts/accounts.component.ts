@@ -32,14 +32,12 @@ export class AccountsComponent implements OnInit, AfterViewInit {
   lastUpdated: Date | null = null;
 
   searchTerm = '';
-  statusFilter = 'all';
   currentPage = 0;
   pageSize = 100; // Load 100 accounts initially, then 50 more
   hasMore = true; // Enable infinite scroll
   loadingMore = false;
 
   staffList: Staff[] = [];
-  selectedStaffId = 'all';
   incompleteAccountsByStaff: { staff: Staff; count: number }[] = [];
   showingIncompleteOnly = false;
 
@@ -131,13 +129,7 @@ export class AccountsComponent implements OnInit, AfterViewInit {
     this.filteredAccounts = [];
 
     this.accountService
-      .getAccounts(
-        this.pageSize,
-        0,
-        this.searchTerm,
-        this.selectedStaffId,
-        this.statusFilter,
-      )
+      .getAccounts(this.pageSize, 0, this.searchTerm, 'all', 'all')
       .subscribe({
         next: (response) => {
           if (response.success) {
@@ -242,33 +234,6 @@ export class AccountsComponent implements OnInit, AfterViewInit {
     this.searchSubject.next(this.searchTerm);
   }
 
-  clearSearch() {
-    this.searchTerm = '';
-    this.currentPage = 0;
-    this.hasMore = true;
-    this.accounts = [];
-    this.filteredAccounts = [];
-    this.loadAccounts();
-  }
-
-  onStaffChange() {
-    // Reset pagination when staff filter changes
-    this.currentPage = 0;
-    this.hasMore = true;
-    this.accounts = [];
-    this.filteredAccounts = [];
-    this.loadAccounts();
-  }
-
-  onStatusChange() {
-    // Reset pagination when status filter changes
-    this.currentPage = 0;
-    this.hasMore = true;
-    this.accounts = [];
-    this.filteredAccounts = [];
-    this.loadAccounts();
-  }
-
   onTableScroll(event: Event): void {
     const element = event.target as HTMLElement;
     const threshold = 200; // pixels from bottom to trigger load
@@ -298,8 +263,8 @@ export class AccountsComponent implements OnInit, AfterViewInit {
         newTop,
         0, // skip is ignored by backend
         this.searchTerm,
-        this.selectedStaffId,
-        this.statusFilter,
+        'all',
+        'all',
       )
       .subscribe({
         next: (response) => {
@@ -646,8 +611,6 @@ export class AccountsComponent implements OnInit, AfterViewInit {
   }
 
   filterByIncompleteStaff(staffId: string, staffName: string) {
-    this.selectedStaffId = staffId;
-    this.statusFilter = 'all';
     this.searchTerm = '';
     this.showingIncompleteOnly = true;
 
@@ -682,8 +645,6 @@ export class AccountsComponent implements OnInit, AfterViewInit {
 
   clearIncompleteFilter() {
     this.showingIncompleteOnly = false;
-    this.selectedStaffId = 'all';
-    this.statusFilter = 'all';
     this.searchTerm = '';
     this.currentPage = 0;
     this.hasMore = true;

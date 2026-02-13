@@ -96,25 +96,7 @@
         </button>
     </div>
 
-    <!-- Data Info Bar -->
-    <div class="data-info-bar" *ngIf="!loading && !error">
-        <div class="data-stats">
-            <span class="loaded-count">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;">
-                    <path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
-                        stroke="currentColor" stroke-width="2" />
-                </svg>
-                Loaded {{ filteredAccounts.length }} of {{ totalCount }} accounts
-            </span>
-            <span class="last-updated" *ngIf="lastUpdated">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" />
-                    <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-                Updated {{ getLastUpdatedText() }}
-            </span>
-        </div>
-    </div>
+
 
     <!-- Incomplete Accounts Reminder -->
     <div class="reminder-section" *ngIf="!loading && !error && incompleteAccountsByStaff.length > 0">
@@ -151,7 +133,7 @@
 
     <!-- Search Section -->
     <div class="search-section" *ngIf="!loading && !error">
-        <div class="section-title-bar">
+        <div class="filter-header">
             <h3 class="filter-section-title">Search Accounts</h3>
         </div>
         <div class="search-container">
@@ -163,25 +145,6 @@
                 <input type="text" [(ngModel)]="searchTerm" (input)="onSearchChange()"
                     placeholder="Search by name, account number, email, phone, website, city, or country..."
                     class="search-input" />
-                <button *ngIf="searchTerm" (click)="clearSearch()" class="clear-search">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path
-                            d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zM5.354 4.646a.5.5 0 1 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
-                    </svg>
-                </button>
-            </div>
-            <div class="filter-controls">
-                <select [(ngModel)]="selectedStaffId" (change)="onStaffChange()" class="filter-select">
-                    <option value="all">All Staff</option>
-                    <option *ngFor="let staff of staffList" [value]="staff.systemUserId">
-                        {{ staff.fullName }}
-                    </option>
-                </select>
-                <select [(ngModel)]="statusFilter" (change)="onStatusChange()" class="filter-select">
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="incomplete">Incomplete Data</option>
-                </select>
             </div>
         </div>
     </div>
@@ -479,7 +442,11 @@
 
                 <!-- Error State -->
                 <div *ngIf="followUpError && !loadingFollowUps" class="followup-error">
-                    <p>{{ followUpError }}</p>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="margin-bottom: 8px;">
+                        <circle cx="12" cy="12" r="10" stroke="#EF4444" stroke-width="2" fill="none" />
+                        <path d="M12 8v4M12 16h.01" stroke="#EF4444" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    <p style="margin: 0; color: #DC2626; font-size: 14px; font-weight: 500;">{{ followUpError }}</p>
                 </div>
 
                 <!-- Empty State -->

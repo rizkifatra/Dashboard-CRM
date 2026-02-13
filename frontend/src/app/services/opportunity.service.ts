@@ -66,14 +66,14 @@ export class OpportunityService {
   /**
    * Get all opportunities with pagination support
    * @param skip Number of records to skip (for pagination)
-   * @param top Maximum number of records to return (default: 50)
+   * @param top Maximum number of records to return (default: 100)
    * @param search Search term for filtering opportunities
    * @param fromDate Optional start date filter
    * @param toDate Optional end date filter
    */
   getAllOpportunities(
     skip: number = 0,
-    top: number = 50,
+    top: number = 100,
     search: string = '',
     fromDate?: string,
     toDate?: string,

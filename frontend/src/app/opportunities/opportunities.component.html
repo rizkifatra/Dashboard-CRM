@@ -4,78 +4,101 @@
             <h2 class="page-title">Opportunities Management</h2>
             <p class="page-subtitle">Track and manage all CRM opportunities</p>
         </div>
+
+        <!-- Metric Cards Row -->
+        <div class="metrics-row" *ngIf="!loading && stats">
+            <div class="metric-card purple">
+                <div class="metric-left">
+                    <div class="metric-label">Total Opportunities</div>
+                    <div class="metric-value">{{ stats.totalOpportunities }}</div>
+                </div>
+                <div class="metric-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle" [attr.stroke-dasharray]="'100, 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
+            </div>
+
+            <div class="metric-card green">
+                <div class="metric-left">
+                    <div class="metric-label">Open</div>
+                    <div class="metric-value">{{ stats.openOpportunities }}</div>
+                    <div class="metric-percentage">{{ getPercentage(stats.openOpportunities, stats.totalOpportunities)
+                        }}%
+                    </div>
+                </div>
+                <div class="metric-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(stats.openOpportunities, stats.totalOpportunities) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
+            </div>
+
+            <div class="metric-card orange">
+                <div class="metric-left">
+                    <div class="metric-label">Won</div>
+                    <div class="metric-value">{{ stats.wonOpportunities }}</div>
+                    <div class="metric-percentage">{{ getPercentage(stats.wonOpportunities, stats.totalOpportunities)
+                        }}%
+                    </div>
+                </div>
+                <div class="metric-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(stats.wonOpportunities, stats.totalOpportunities) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
+            </div>
+
+            <div class="metric-card red">
+                <div class="metric-left">
+                    <div class="metric-label">Lost</div>
+                    <div class="metric-value">{{ stats.lostOpportunities }}</div>
+                    <div class="metric-percentage">{{ getPercentage(stats.lostOpportunities, stats.totalOpportunities)
+                        }}%
+                    </div>
+                </div>
+                <div class="metric-circle">
+                    <svg viewBox="0 0 36 36" class="circular-chart">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle"
+                            [attr.stroke-dasharray]="getPercentage(stats.lostOpportunities, stats.totalOpportunities) + ', 100'"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Metric Cards Row -->
-    <div class="metrics-row" *ngIf="!loading && stats">
-        <div class="metric-card purple">
-            <div class="metric-left">
-                <div class="metric-label">Total Opportunities</div>
-                <div class="metric-value">{{ stats.totalOpportunities }}</div>
-            </div>
-            <div class="metric-circle">
-                <svg viewBox="0 0 36 36" class="circular-chart">
-                    <path class="circle-bg"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path class="circle" [attr.stroke-dasharray]="'100, 100'"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-            </div>
-        </div>
+    <!-- Loading State -->
+    <app-opportunities-skeleton *ngIf="loading"></app-opportunities-skeleton>
 
-        <div class="metric-card green">
-            <div class="metric-left">
-                <div class="metric-label">Open</div>
-                <div class="metric-value">{{ stats.openOpportunities }}</div>
-                <div class="metric-percentage">{{ getPercentage(stats.openOpportunities, stats.totalOpportunities) }}%
-                </div>
-            </div>
-            <div class="metric-circle">
-                <svg viewBox="0 0 36 36" class="circular-chart">
-                    <path class="circle-bg"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path class="circle"
-                        [attr.stroke-dasharray]="getPercentage(stats.openOpportunities, stats.totalOpportunities) + ', 100'"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-            </div>
-        </div>
-
-        <div class="metric-card orange">
-            <div class="metric-left">
-                <div class="metric-label">Won</div>
-                <div class="metric-value">{{ stats.wonOpportunities }}</div>
-                <div class="metric-percentage">{{ getPercentage(stats.wonOpportunities, stats.totalOpportunities) }}%
-                </div>
-            </div>
-            <div class="metric-circle">
-                <svg viewBox="0 0 36 36" class="circular-chart">
-                    <path class="circle-bg"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path class="circle"
-                        [attr.stroke-dasharray]="getPercentage(stats.wonOpportunities, stats.totalOpportunities) + ', 100'"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-            </div>
-        </div>
-
-        <div class="metric-card red">
-            <div class="metric-left">
-                <div class="metric-label">Lost</div>
-                <div class="metric-value">{{ stats.lostOpportunities }}</div>
-                <div class="metric-percentage">{{ getPercentage(stats.lostOpportunities, stats.totalOpportunities) }}%
-                </div>
-            </div>
-            <div class="metric-circle">
-                <svg viewBox="0 0 36 36" class="circular-chart">
-                    <path class="circle-bg"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path class="circle"
-                        [attr.stroke-dasharray]="getPercentage(stats.lostOpportunities, stats.totalOpportunities) + ', 100'"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-            </div>
-        </div>
+    <!-- Error State -->
+    <div *ngIf="error && !loading" class="error-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin-bottom: 12px;">
+            <circle cx="12" cy="12" r="10" stroke="#EF4444" stroke-width="2" fill="none" />
+            <path d="M12 8v4M12 16h.01" stroke="#EF4444" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        <h3 style="margin: 0 0 8px 0; color: #DC2626; font-size: 16px;">Unable to Load Opportunities</h3>
+        <p style="margin: 0 0 16px 0; color: #6B7280; font-size: 14px;">{{ error }}</p>
+        <button (click)="loadOpportunities()" class="retry-button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+                <path d="M4 12a8 8 0 0 1 14.93-4M20 12a8 8 0 0 1-14.93 4M4 4v4h4M20 20v-4h-4" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" />
+            </svg>
+            Retry Loading
+        </button>
     </div>
 
     <!-- Search Section -->
@@ -91,41 +114,7 @@
                 </svg>
                 <input type="text" [(ngModel)]="searchTerm" (input)="onSearchChange()"
                     placeholder="Search by opportunity name, description, or sales stage..." class="search-input" />
-                <button *ngIf="searchTerm" (click)="clearSearch()" class="clear-search">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    </svg>
-                </button>
             </div>
-        </div>
-    </div>
-
-    <!-- Loading State -->
-    <app-opportunities-skeleton *ngIf="loading"></app-opportunities-skeleton>
-
-    <!-- Error State -->
-    <div *ngIf="error && !loading" class="error-state">
-        <p>{{ error }}</p>
-        <button (click)="loadOpportunities()" class="retry-button">Retry</button>
-    </div>
-
-    <!-- Data Info Bar -->
-    <div class="data-info-bar" *ngIf="!loading && !error">
-        <div class="data-stats">
-            <span class="loaded-count">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;">
-                    <path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
-                        stroke="currentColor" stroke-width="2" />
-                </svg>
-                Loaded {{ opportunities.length }} {{ hasMore ? 'of ' + totalCount : '' }} opportunities
-            </span>
-            <span class="last-updated" *ngIf="lastUpdated">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 4px;">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" />
-                    <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-                Updated {{ getLastUpdatedText() }}
-            </span>
         </div>
     </div>
 

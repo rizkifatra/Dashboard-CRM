@@ -21,8 +21,19 @@
 
     <!-- Error State -->
     <div *ngIf="error && !loading" class="error-state">
-        <p>{{ error }}</p>
-        <button (click)="loadAllData()" class="retry-button">Retry</button>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin-bottom: 12px;">
+            <circle cx="12" cy="12" r="10" stroke="#EF4444" stroke-width="2" fill="none" />
+            <path d="M12 8v4M12 16h.01" stroke="#EF4444" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        <h3 style="margin: 0 0 8px 0; color: #DC2626; font-size: 16px;">Unable to Load Dashboard</h3>
+        <p style="margin: 0 0 16px 0; color: #6B7280; font-size: 14px;">{{ error }}</p>
+        <button (click)="loadAllData()" class="retry-button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+                <path d="M4 12a8 8 0 0 1 14.93-4M20 12a8 8 0 0 1-14.93 4M4 4v4h4M20 20v-4h-4" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" />
+            </svg>
+            Retry Loading
+        </button>
     </div>
 
     <!-- Dashboard Content -->
