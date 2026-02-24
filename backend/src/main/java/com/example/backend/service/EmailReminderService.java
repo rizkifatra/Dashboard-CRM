@@ -38,8 +38,9 @@ public class EmailReminderService {
      * @return List of email reminders sorted by urgency (critical first)
      */
     public List<EmailReminder> getEmailReminders() {
+        // TEMPORARILY DISABLED CACHE FOR DEBUGGING
         // Check cache first
-        if (cachedReminders != null && cacheTimestamp != null) {
+        if (false && cachedReminders != null && cacheTimestamp != null) {
             long minutesSinceCache = ChronoUnit.MINUTES.between(cacheTimestamp, LocalDateTime.now());
             if (minutesSinceCache < CACHE_DURATION_MINUTES) {
                 log.info("Returning cached email reminders ({} items, cached {} min ago)",
@@ -92,6 +93,7 @@ public class EmailReminderService {
                 // Skip if no recipient email
                 if (email.getToEmail() == null || email.getToEmail().isEmpty()) {
                     skippedNoRecipient++;
+                    log.debug("Skipped (no recipient): '{}'", email.getSubject());
                     continue;
                 }
 
@@ -101,6 +103,7 @@ public class EmailReminderService {
                 // Only skip cancelled emails which indicate staff decided not to pursue
                 if (email.getStateCode() != null && email.getStateCode() == 2) {
                     skippedCancelled++;
+                    log.debug("Skipped (cancelled): '{}' to {}", email.getSubject(), email.getToEmail());
                     continue; // Email cancelled in CRM, no reminder needed
                 }
 
@@ -108,6 +111,7 @@ public class EmailReminderService {
                 String emailKey = getEmailKey(email);
                 if (repliedEmailAddresses.contains(emailKey)) {
                     skippedHasReply++;
+                    log.debug("Skipped (has reply): '{}' to {}", email.getSubject(), email.getToEmail());
                     continue; // Email has reply, no reminder needed
                 }
 
@@ -126,8 +130,12 @@ public class EmailReminderService {
                 if (daysOverdue >= 3) {
                     EmailReminder reminder = createReminder(email, daysOverdue, sentDate);
                     reminders.add(reminder);
+                    log.info("✓ Added reminder: '{}' to {} ({} days overdue)",
+                            email.getSubject(), email.getToEmail(), daysOverdue);
                 } else {
                     skippedTooRecent++;
+                    log.debug("Skipped (too recent - {} days): '{}' to {}", daysOverdue, email.getSubject(),
+                            email.getToEmail());
                 }
             }
 
@@ -181,7 +189,13 @@ public class EmailReminderService {
             // WebClient buffer is 50MB - 600 prevents buffer overflow
             // With 2-min cache, we reduce D365 API calls significantly
             int batchSize = 600;
-            List<Activity> emails = activityService.getEmailsWithAddresses(batchSize, 0);
+
+            // Calculate cutoff date: go back 2 years to capture historical emails
+            java.time.ZonedDateTime cutoffTime = java.time.ZonedDateTime.now().minusYears(2);
+            String cutoffDate = cutoffTime.toString().substring(0, 19) + "Z";
+            log.info("Fetching emails from past 2 years (since: {})", cutoffDate);
+
+            List<Activity> emails = activityService.getEmailsWithAddresses(batchSize, 0, cutoffDate);
 
             if (emails == null || emails.isEmpty()) {
                 log.info("No emails found");

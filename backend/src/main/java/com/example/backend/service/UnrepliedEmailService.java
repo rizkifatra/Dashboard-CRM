@@ -5,6 +5,7 @@ import com.example.backend.model.Activity;
 import com.example.backend.model.D365Response;
 import com.example.backend.model.EmailActivityParty;
 import com.example.backend.model.UnrepliedEmail;
+import com.example.backend.util.EmailUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,7 +44,8 @@ public class UnrepliedEmailService {
      * An email is considered unreplied if:
      * 1. It was received by Bintara staff (incoming from external clients)
      * 2. Sent TO @bintara.com.my addresses
-     * 3. FROM external (non-@bintara.com.my) addresses
+     * 3. FROM external (non-@bintara.com.my) addresses (includes personal and
+     * company emails)
      * 4. No outgoing reply from Bintara staff has been sent
      */
     public List<UnrepliedEmail> getUnrepliedEmails(Integer maxHoursOld) {
@@ -51,11 +53,13 @@ public class UnrepliedEmailService {
             log.info("=== Starting Unreplied Email Detection ===");
             log.info("Time window: {} hours (null = all time)", maxHoursOld);
 
-            // Calculate cutoff time - if null, go back 1 year to get all emails
+            // Calculate cutoff time - if null, go back 2 years to get all emails (capture
+            // historical data)
             ZonedDateTime cutoffTime = maxHoursOld != null
                     ? ZonedDateTime.now().minusHours(maxHoursOld)
-                    : ZonedDateTime.now().minusYears(1); // Go back 1 year for "all time"
-            log.info("Cutoff time: {} ({})", cutoffTime, maxHoursOld == null ? "ALL TIME" : maxHoursOld + " hours");
+                    : ZonedDateTime.now().minusYears(2); // Go back 2 years for "all time"
+            log.info("Cutoff time: {} ({})", cutoffTime,
+                    maxHoursOld == null ? "ALL TIME (2 years)" : maxHoursOld + " hours");
 
             // Get access token
             String token = authService.getAccessToken();
@@ -89,12 +93,30 @@ public class UnrepliedEmailService {
                 return new ArrayList<>();
             }
 
+            // DEBUG: Show sample of emails fetched
+            log.info("=== Sample of fetched emails (first 5) ===");
+            for (int i = 0; i < Math.min(5, allEmails.size()); i++) {
+                Activity email = allEmails.get(i);
+                log.info("  Email {}: '{}' | Created: {} | Has parties: {}",
+                        i + 1,
+                        email.getSubject() != null ? email.getSubject() : "No Subject",
+                        email.getCreatedOn(),
+                        email.getEmailActivityParties() != null && !email.getEmailActivityParties().isEmpty());
+            }
+
             // Separate incoming and outgoing emails
             List<Activity> incomingEmails = new ArrayList<>();
             List<Activity> outgoingEmails = new ArrayList<>();
+            int missingPartiesCount = 0;
 
             for (Activity email : allEmails) {
-                if (isIncomingEmail(email)) {
+                // Track statistics
+                if (email.getEmailActivityParties() == null || email.getEmailActivityParties().isEmpty()) {
+                    missingPartiesCount++;
+                }
+
+                boolean isIncoming = isIncomingEmail(email);
+                if (isIncoming) {
                     incomingEmails.add(email);
                 } else {
                     outgoingEmails.add(email);
@@ -102,11 +124,12 @@ public class UnrepliedEmailService {
             }
 
             log.info("Separated: {} incoming, {} outgoing emails", incomingEmails.size(), outgoingEmails.size());
+            log.info("Statistics: {} emails missing emailActivityParties data", missingPartiesCount);
 
             // Group outgoing emails by normalized subject for quick lookup
             Map<String, List<Activity>> outgoingBySubject = outgoingEmails.stream()
                     .filter(email -> email.getSubject() != null && !email.getSubject().trim().isEmpty())
-                    .collect(Collectors.groupingBy(email -> normalizeSubject(email.getSubject())));
+                    .collect(Collectors.groupingBy(email -> EmailUtils.normalizeSubject(email.getSubject())));
 
             List<UnrepliedEmail> unrepliedEmails = new ArrayList<>();
             int repliedCount = 0;
@@ -121,7 +144,7 @@ public class UnrepliedEmailService {
                     continue;
                 }
 
-                String normalizedSubject = normalizeSubject(subject);
+                String normalizedSubject = EmailUtils.normalizeSubject(subject);
                 ZonedDateTime incomingTime = ZonedDateTime.parse(incomingEmail.getCreatedOn());
 
                 // Check if there's an outgoing reply sent AFTER this incoming email
@@ -193,23 +216,7 @@ public class UnrepliedEmailService {
         }
     }
 
-    /**
-     * Normalize subject for matching
-     * Removes RE:, FW:, FWD: prefixes and normalizes whitespace
-     */
-    private String normalizeSubject(String subject) {
-        if (subject == null)
-            return "";
-
-        // Remove RE:, FW:, FWD: prefixes (case insensitive)
-        String normalized = subject.trim()
-                .replaceAll("(?i)^(re:|fw:|fwd:)\\s*", "")
-                .replaceAll("\\s+", " ")
-                .toLowerCase()
-                .trim();
-
-        return normalized;
-    }
+    // Removed: normalizeSubject() method - now using EmailUtils.normalizeSubject()
 
     /**
      * Calculate hours since the email was created
@@ -266,11 +273,8 @@ public class UnrepliedEmailService {
      * - participationTypeMask = 2: To/Recipient
      * 
      * An email is INCOMING if:
-     * 1. Has external company email in FROM (typeMask=1, NOT @bintara.com.my, NOT
-     * personal email)
+     * 1. Has external email in FROM (typeMask=1, NOT @bintara.com.my)
      * 2. Has @bintara.com.my in TO (typeMask=2)
-     * 
-     * Personal email domains (Gmail, Yahoo, Hotmail, etc.) are excluded.
      * 
      * FALLBACK: If emailActivityParties is missing, check fromEmail/toEmail fields
      */
@@ -286,24 +290,22 @@ public class UnrepliedEmailService {
 
             // If we have fromEmail/toEmail data, use it
             if (fromEmail != null && toEmail != null) {
-                // Incoming: FROM is external company (not Bintara, not personal) AND TO
-                // contains @bintara.com.my
-                boolean hasExternalCompanyFrom = fromEmail != null
-                        && !fromEmail.toLowerCase().contains("@bintara.com.my")
-                        && !isPersonalEmailDomain(fromEmail);
+                // Incoming: FROM is external (not Bintara) AND TO contains @bintara.com.my
+                boolean hasExternalFrom = fromEmail != null
+                        && !fromEmail.toLowerCase().contains("@bintara.com.my");
                 boolean hasBintaraTo = toEmail != null && toEmail.toLowerCase().contains("@bintara.com.my");
 
-                boolean isIncoming = hasExternalCompanyFrom && hasBintaraTo;
+                boolean isIncoming = hasExternalFrom && hasBintaraTo;
 
                 if (isIncoming) {
-                    log.info("✓ FALLBACK INCOMING: '{}' | FROM: {} (external company) | TO: {} (Bintara)",
+                    log.info("✓ FALLBACK INCOMING: '{}' | FROM: {} (external) | TO: {} (Bintara)",
                             email.getSubject() != null ? email.getSubject() : "No Subject",
                             fromEmail, toEmail);
                 } else {
                     log.debug("✗ FALLBACK OUTGOING: '{}' | FROM: {} | TO: {} | Reason: {} {}",
                             email.getSubject() != null ? email.getSubject() : "No Subject",
                             fromEmail, toEmail,
-                            !hasExternalCompanyFrom ? "FROM is Bintara/personal/null" : "",
+                            !hasExternalFrom ? "FROM is Bintara/null" : "",
                             !hasBintaraTo ? "TO is external or null" : "");
                 }
 
@@ -344,20 +346,19 @@ public class UnrepliedEmailService {
             // Check for external company sender (FROM = participationType 1)
             if (participationType == 1) {
                 boolean isExternal = !lowerAddress.contains("@bintara.com.my");
-                boolean isCompany = !isPersonalEmailDomain(address);
 
-                if (isExternal && isCompany) {
+                if (isExternal) {
                     hasExternalCompanyInFROM = true;
                     if (externalSender == null) {
                         externalSender = address;
                     }
-                    log.debug("Found external company in FROM: {} (participationType=1)", address);
+                    log.debug("Found external sender in FROM: {} (participationType=1)", address);
                 }
             }
         }
 
         // Email is INCOMING only if it has BOTH:
-        // 1. External company sender in FROM (participationType=1)
+        // 1. External sender in FROM (participationType=1, not @bintara.com.my)
         // 2. Bintara recipient in TO (participationType=2)
         boolean isIncoming = hasBintaraInTO && hasExternalCompanyInFROM;
 
@@ -374,7 +375,7 @@ public class UnrepliedEmailService {
             if (!hasBintaraInTO) {
                 reason = "No @bintara in TO (participationType=2)";
             } else if (!hasExternalCompanyInFROM) {
-                reason = "No external company in FROM (participationType=1) - may be Bintara sender or personal email";
+                reason = "No external sender in FROM (participationType=1) - may be Bintara sender";
             }
             log.debug("✗ OUTGOING/FILTERED: '{}' | ActivityID: {} | Reason: {}",
                     subject.length() > 50 ? subject.substring(0, 50) + "..." : subject,

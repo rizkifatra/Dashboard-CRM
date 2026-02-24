@@ -138,6 +138,97 @@
     border-radius: 10px;
 }
 
+/* ===== Sidebar Footer (User Info & Logout) ===== */
+.sidebar-footer {
+    padding: 12px 8px 16px 8px;
+    border-top: 1px solid #EBEBEB;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: #F9FAFB;
+    border-radius: 8px;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6D5DFF 0%, #5B4FD8 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.user-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1F2937;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.user-email {
+    font-size: 10px;
+    color: #6B7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.logout-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6B7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.logout-btn:hover {
+    background: #FEF2F2;
+    border-color: #EF4444;
+    color: #DC2626;
+    transform: translateY(-1px);
+}
+
+.logout-btn:active {
+    transform: translateY(0);
+}
+
+.logout-icon {
+    width: 16px;
+    height: 16px;
+}
+
 /* ===== Responsive Design ===== */
 @media (max-width: 768px) {
     .sidebar {
@@ -146,5 +237,18 @@
 
     .main-content {
         padding: 16px 20px;
+    }
+
+    .user-name {
+        font-size: 11px;
+    }
+
+    .user-email {
+        font-size: 9px;
+    }
+
+    .logout-btn {
+        font-size: 11px;
+        padding: 7px;
     }
 }

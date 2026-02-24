@@ -132,4 +132,42 @@ public class HealthController {
 
         return ApiResponse.success("Configuration information", config);
     }
+
+    /**
+     * Debug endpoint to get detailed D365 API error
+     * 
+     * @return Detailed error information
+     */
+    @GetMapping("/d365-debug")
+    public ApiResponse<Map<String, Object>> debugD365() {
+        log.info("D365 debug test requested");
+
+        Map<String, Object> result = new HashMap<>();
+        try {
+            String token = authService.getAccessToken();
+            result.put("tokenObtained", token != null && !token.isEmpty());
+            result.put("tokenPrefix", token != null ? token.substring(0, Math.min(20, token.length())) + "..." : null);
+
+            // Try to make the API call and capture the error
+            try {
+                String response = accountService.testConnectionWithResponse();
+                result.put("success", true);
+                result.put("response", response);
+            } catch (Exception e) {
+                result.put("success", false);
+                result.put("errorClass", e.getClass().getName());
+                result.put("errorMessage", e.getMessage());
+                result.put("errorCause", e.getCause() != null ? e.getCause().getMessage() : null);
+
+                // Log the full stack trace
+                log.error("D365 API call failed with detailed error:", e);
+            }
+
+            return ApiResponse.success("D365 debug information", result);
+        } catch (Exception e) {
+            log.error("Failed to debug D365", e);
+            result.put("error", e.getMessage());
+            return ApiResponse.error("Debug failed", e.getMessage());
+        }
+    }
 }

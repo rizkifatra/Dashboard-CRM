@@ -2,6 +2,7 @@ package com.example.backend.service;
 
 import com.example.backend.model.Activity;
 import com.example.backend.config.D365Config;
+import com.example.backend.util.EmailUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -352,8 +353,23 @@ public class D365ActivityService {
      * @return List of emails with populated email addresses
      */
     public List<Activity> getEmailsWithAddresses(Integer top, Integer skip) {
+        return getEmailsWithAddresses(top, skip, null);
+    }
+
+    /**
+     * Get emails with addresses and optional date filter
+     * 
+     * @param top        Number of emails to fetch
+     * @param skip       Number of emails to skip (may not work with complex
+     *                   expands)
+     * @param cutoffDate Optional cutoff date (ISO format), only fetch emails after
+     *                   this date
+     * @return List of emails with populated email addresses
+     */
+    public List<Activity> getEmailsWithAddresses(Integer top, Integer skip, String cutoffDate) {
         try {
-            log.info("Fetching emails with addresses from Dynamics 365 (top: {}, skip: {})", top, skip);
+            log.info("Fetching emails with addresses from Dynamics 365 (top: {}, skip: {}, cutoff: {})", top, skip,
+                    cutoffDate);
 
             String token = authService.getAccessToken();
 
@@ -366,6 +382,12 @@ public class D365ActivityService {
                     .append("regardingobjectid_account($select=name),")
                     .append("regardingobjectid_contact($select=fullname),")
                     .append("owninguser($select=fullname,internalemailaddress,title)&");
+
+            // Add date filter if provided
+            if (cutoffDate != null && !cutoffDate.isEmpty()) {
+                queryParams.append("$filter=createdon ge ").append(cutoffDate).append("&");
+            }
+
             queryParams.append("$orderby=createdon desc&");
             queryParams.append("$top=").append(top != null ? top : 50);
 
@@ -1748,17 +1770,17 @@ public class D365ActivityService {
 
             // Log first few subjects for debugging
             if (!incomingEmails.isEmpty()) {
-                log.debug("Sample incoming normalized: {}", normalizeSubject(incomingEmails.get(0).subject));
+                log.debug("Sample incoming normalized: {}", EmailUtils.normalizeSubject(incomingEmails.get(0).subject));
             }
             if (!outgoingEmails.isEmpty()) {
-                log.debug("Sample outgoing normalized: {}", normalizeSubject(outgoingEmails.get(0).subject));
+                log.debug("Sample outgoing normalized: {}", EmailUtils.normalizeSubject(outgoingEmails.get(0).subject));
             }
 
             for (EmailWithTime incoming : incomingEmails) {
-                String normalizedIncomingSubject = normalizeSubject(incoming.subject);
+                String normalizedIncomingSubject = EmailUtils.normalizeSubject(incoming.subject);
 
                 for (EmailWithTime outgoing : outgoingEmails) {
-                    String normalizedOutgoingSubject = normalizeSubject(outgoing.subject);
+                    String normalizedOutgoingSubject = EmailUtils.normalizeSubject(outgoing.subject);
 
                     // Match by normalized subject
                     if (normalizedIncomingSubject.equals(normalizedOutgoingSubject)) {
@@ -1791,18 +1813,7 @@ public class D365ActivityService {
         }
     }
 
-    /**
-     * Normalize email subject for matching (remove RE:, FW:, etc.)
-     */
-    private String normalizeSubject(String subject) {
-        if (subject == null || subject.isBlank()) {
-            return "";
-        }
-        return subject.trim()
-                .replaceAll("(?i)^(RE:|FW:|FWD:)\\s*", "")
-                .replaceAll("\\s+", " ")
-                .toLowerCase();
-    }
+    // Removed: normalizeSubject() method - now using EmailUtils.normalizeSubject()
 
     /**
      * Get overall email statistics for all Bintara staff
@@ -2097,7 +2108,7 @@ public class D365ActivityService {
                 String subject = email.has("subject") ? email.get("subject").asText() : "";
 
                 // Normalize subject (remove Re:, Fw:, extra spaces)
-                String normalizedSubject = normalizeSubject(subject);
+                String normalizedSubject = EmailUtils.normalizeSubject(subject);
 
                 if (!normalizedSubject.isBlank()) {
                     uniqueConversations.add(normalizedSubject);

@@ -439,8 +439,9 @@ public class D365AccountService {
         try {
             log.info("Testing connection to Dynamics 365");
             String token = authService.getAccessToken();
+            log.info("Using D365 URL: {}/accounts?$top=1", d365Config.getBaseUrl());
 
-            webClient.get()
+            String response = webClient.get()
                     .uri("/accounts?$top=1")
                     .header("Authorization", "Bearer " + token)
                     .retrieve()
@@ -448,11 +449,30 @@ public class D365AccountService {
                     .timeout(Duration.ofMillis(d365Config.getTimeout()))
                     .block();
 
-            log.info("Connection test successful");
+            log.info("Connection test successful. Response: {}", response);
             return true;
         } catch (Exception e) {
-            log.error("Connection test failed", e);
+            log.error("Connection test failed. Error type: {}, Message: {}",
+                    e.getClass().getName(), e.getMessage());
+            log.error("Full error details:", e);
             return false;
         }
+    }
+
+    /**
+     * Test connection and return response or throw exception with details
+     */
+    public String testConnectionWithResponse() throws Exception {
+        log.info("Testing connection to Dynamics 365 with detailed response");
+        String token = authService.getAccessToken();
+        log.info("Using D365 URL: {}/accounts?$top=1", d365Config.getBaseUrl());
+
+        return webClient.get()
+                .uri("/accounts?$top=1")
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .bodyToMono(String.class)
+                .timeout(Duration.ofMillis(d365Config.getTimeout()))
+                .block();
     }
 }

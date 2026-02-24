@@ -12,10 +12,33 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   template: `
     <div class="accounts-skeleton">
-      <!-- Data Info Bar -->
-      <div class="info-bar">
-        <div class="skeleton info-loaded"></div>
-        <div class="skeleton info-updated"></div>
+      <!-- Metric Cards -->
+      <div class="metrics-row">
+        <div class="metric-card" *ngFor="let i of [1, 2, 3, 4]">
+          <div class="metric-left">
+            <div class="skeleton metric-label"></div>
+            <div class="skeleton metric-value"></div>
+            <div class="skeleton metric-percentage"></div>
+          </div>
+          <div class="skeleton metric-circle"></div>
+        </div>
+      </div>
+
+      <!-- Incomplete Accounts Reminder Skeleton -->
+      <div class="reminder-section">
+        <div class="reminder-header">
+          <div class="skeleton reminder-title"></div>
+          <div class="skeleton reminder-subtitle"></div>
+        </div>
+        <div class="staff-reminder-list">
+          <div class="skeleton staff-item" *ngFor="let i of [1, 2, 3, 4]"></div>
+        </div>
+      </div>
+
+      <!-- Search Section -->
+      <div class="search-section">
+        <div class="skeleton search-title"></div>
+        <div class="skeleton search-box"></div>
       </div>
 
       <!-- Table -->
@@ -48,7 +71,7 @@ import { CommonModule } from '@angular/common';
   styles: [
     `
       .accounts-skeleton {
-        margin-top: 16px;
+        margin-top: 0;
       }
 
       .skeleton {
@@ -72,24 +95,105 @@ import { CommonModule } from '@angular/common';
         }
       }
 
-      .info-bar {
+      .metrics-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin: 12px 0;
+      }
+
+      .metric-card {
+        background: white;
+        border-radius: 8px;
+        padding: 14px 16px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         display: flex;
         justify-content: space-between;
+        align-items: center;
+        min-height: 80px;
+      }
+
+      .metric-left {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+      }
+
+      .metric-label {
+        width: 80px;
+        height: 12px;
+      }
+
+      .metric-value {
+        width: 45px;
+        height: 24px;
+      }
+
+      .metric-percentage {
+        width: 35px;
+        height: 11px;
+      }
+
+      .metric-circle {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+      }
+
+      .reminder-section {
         background: white;
-        border-radius: 10px;
-        padding: 14px 20px;
-        margin-bottom: 16px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       }
 
-      .info-loaded {
-        width: 180px;
-        height: 16px;
+      .reminder-header {
+        margin-bottom: 12px;
       }
 
-      .info-updated {
-        width: 140px;
+      .reminder-title {
+        width: 200px;
+        height: 18px;
+        margin-bottom: 8px;
+      }
+
+      .reminder-subtitle {
+        width: 300px;
+        height: 14px;
+      }
+
+      .staff-reminder-list {
+        display: flex;
+        gap: 8px;
+        overflow-x: hidden;
+      }
+
+      .staff-item {
+        min-width: 140px;
+        height: 60px;
+        border-radius: 8px;
+      }
+
+      .search-section {
+        background: white;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+
+      .search-title {
+        width: 120px;
         height: 16px;
+        margin-bottom: 10px;
+      }
+
+      .search-box {
+        width: 100%;
+        height: 40px;
+        border-radius: 6px;
       }
 
       .table-container {

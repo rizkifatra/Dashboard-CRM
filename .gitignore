@@ -16,6 +16,11 @@ frontend/dist/
 frontend/.angular/
 frontend/node_modules/
 
+# Compiled TypeScript (shouldn't be committed)
+frontend/src/**/*.js
+frontend/src/**/*.js.map
+!frontend/src/**/*.spec.js
+
 # Environment and secrets - IMPORTANT: Keep credentials safe!
 backend/.env
 backend/.env.local

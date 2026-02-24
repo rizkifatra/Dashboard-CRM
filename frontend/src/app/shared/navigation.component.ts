@@ -1,6 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
+import { User } from '../models/auth.model';
 
 interface NavItem {
   path: string;
@@ -34,10 +36,18 @@ interface NavItem {
       </ul>
 
       <div class="nav-footer">
-        <div class="status-indicator">
-          <div class="status-dot active"></div>
-          <span class="status-text">Online</span>
+        <div class="user-info" *ngIf="currentUser">
+          <div class="user-avatar">{{ getUserInitials() }}</div>
+          <div class="user-details">
+            <div class="user-name">{{ currentUser.name }}</div>
+            <div class="user-email">{{ currentUser.email }}</div>
+          </div>
         </div>
+
+        <button class="logout-btn" (click)="logout()">
+          <span class="logout-icon">🚪</span>
+          <span>Logout</span>
+        </button>
       </div>
     </nav>
   `,
@@ -138,39 +148,81 @@ interface NavItem {
       .nav-footer {
         padding-top: 16px;
         border-top: 1px solid #f3f4f6;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
       }
 
-      .status-indicator {
+      .user-info {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        background: #f0fdf4;
-        border-radius: 8px;
+        gap: 12px;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 10px;
       }
 
-      .status-dot {
-        width: 8px;
-        height: 8px;
+      .user-avatar {
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
-        background: #10b981;
-        animation: pulse 2s infinite;
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 14px;
+        flex-shrink: 0;
       }
 
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
+      .user-details {
+        flex: 1;
+        min-width: 0;
       }
 
-      .status-text {
-        font-size: 13px;
+      .user-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1f2937;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .user-email {
+        font-size: 12px;
+        color: #6b7280;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .logout-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
         font-weight: 500;
-        color: #059669;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .logout-btn:hover {
+        background: #fef2f2;
+        border-color: #ef4444;
+        color: #dc2626;
+      }
+
+      .logout-icon {
+        font-size: 16px;
       }
 
       /* Responsive */
@@ -187,11 +239,21 @@ interface NavItem {
           font-size: 14px;
           padding: 10px 12px;
         }
+
+        .user-name {
+          font-size: 13px;
+        }
+
+        .user-email {
+          font-size: 11px;
+        }
       }
     `,
   ],
 })
-export class NavigationComponent {
+export class NavigationComponent implements OnInit {
+  currentUser: User | null = null;
+
   navItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
     { path: '/ranking', label: 'Ranking', icon: '🏆' },
@@ -200,5 +262,27 @@ export class NavigationComponent {
     { path: '/opportunities', label: 'Opportunities', icon: '💼' },
   ];
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private authService: AuthService,
+  ) {}
+
+  ngOnInit(): void {
+    this.authService.currentUser$.subscribe((user) => {
+      this.currentUser = user;
+    });
+  }
+
+  getUserInitials(): string {
+    if (!this.currentUser?.name) return 'U';
+    const names = this.currentUser.name.split(' ');
+    if (names.length >= 2) {
+      return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+    }
+    return this.currentUser.name.substring(0, 2).toUpperCase();
+  }
+
+  logout(): void {
+    this.authService.logout();
+  }
 }
