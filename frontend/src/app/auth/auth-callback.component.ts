@@ -9,8 +9,10 @@ import { AuthService } from '../services/auth.service';
   imports: [CommonModule],
   template: `
     <div class="callback-container">
-      <div class="loading-spinner"></div>
-      <p class="loading-text">{{ message }}</p>
+      <div class="callback-card">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">{{ message }}</p>
+      </div>
     </div>
   `,
   styles: [
@@ -18,19 +20,28 @@ import { AuthService } from '../services/auth.service';
       .callback-container {
         min-height: 100vh;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #f5f5f7;
+        padding: 20px;
+      }
+
+      .callback-card {
+        background: transparent;
+        padding: 48px 40px;
+        text-align: center;
+        max-width: 440px;
+        width: 100%;
       }
 
       .loading-spinner {
-        width: 50px;
-        height: 50px;
-        border: 4px solid rgba(255, 255, 255, 0.3);
-        border-top-color: white;
+        width: 40px;
+        height: 40px;
+        border: 3px solid #e5e7eb;
+        border-top-color: #6d5dff;
         border-radius: 50%;
         animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
       }
 
       @keyframes spin {
@@ -40,10 +51,12 @@ import { AuthService } from '../services/auth.service';
       }
 
       .loading-text {
-        margin-top: 20px;
-        color: white;
-        font-size: 18px;
-        font-weight: 500;
+        margin: 0;
+        color: #1f2937;
+        font-size: 14px;
+        font-weight: 400;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
       }
     `,
   ],

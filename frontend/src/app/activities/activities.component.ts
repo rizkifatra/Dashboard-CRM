@@ -108,6 +108,7 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
 
     this.loadActivities();
     this.loadActivityCount();
+    this.loadEmailActivityCount(); // Load email activities count for the card
     this.loadUnrepliedCount(); // Load unreplied count for the card
     this.loadEmailReminders(); // Load email reminders
     this.startAutoRefresh(); // Start auto-refresh for unreplied emails
@@ -169,19 +170,31 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Refresh email activities count
+   * Load total email activities count for metric card
    */
-  refreshEmailCount() {
-    this.activityService.getEmailActivities(100, 0).subscribe({
+  loadEmailActivityCount() {
+    // Use a reasonable limit to avoid timeout (500 gives good approximation)
+    this.activityService.getEmailActivities(500, 0).subscribe({
       next: (response) => {
         if (response.success) {
           this.emailActivityCount = response.data.length;
+          console.log(
+            `📧 Email activities count loaded: ${this.emailActivityCount}`,
+          );
         }
       },
       error: (err: Error) => {
-        console.error('❌ Email count refresh failed:', err);
+        console.error('❌ Email count load failed:', err);
+        this.emailActivityCount = 0;
       },
     });
+  }
+
+  /**
+   * Refresh email activities count
+   */
+  refreshEmailCount() {
+    this.loadEmailActivityCount();
   }
 
   /**
@@ -401,10 +414,12 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
     return this.activityService.getRelativeTime(timestamp);
   }
 
+  /**
+   * Get total email activities count for metric card
+   * This should return a consistent count regardless of current view
+   */
   getEmailCount(): number {
-    return this.activities.filter((activity) =>
-      activity.activityType?.toLowerCase().includes('email'),
-    ).length;
+    return this.emailActivityCount;
   }
 
   getOutgoingCount(): number {
@@ -629,17 +644,10 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get filtered activities based on email code filter
+   * Get all activities (category filtering removed)
    */
   getFilteredActivities(): Activity[] {
-    if (this.emailCodeFilter === 'all') {
-      return this.activities;
-    }
-
-    return this.activities.filter((activity) => {
-      const emailCode = this.getEmailCode(activity.subject);
-      return emailCode === this.emailCodeFilter;
-    });
+    return this.activities;
   }
 
   /**
@@ -656,17 +664,10 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get filtered unreplied emails based on email code filter
+   * Get all unreplied emails (category filtering removed)
    */
   getFilteredUnrepliedEmails(): UnrepliedEmail[] {
-    if (this.emailCodeFilter === 'all') {
-      return this.unrepliedEmails;
-    }
-
-    return this.unrepliedEmails.filter((email) => {
-      const emailCode = this.getEmailCode(email.subject);
-      return emailCode === this.emailCodeFilter;
-    });
+    return this.unrepliedEmails;
   }
 
   /**
@@ -1107,29 +1108,9 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get filtered email reminders based on email code filter
+   * Get all email reminders (category filtering removed)
    */
   getFilteredReminders(): EmailReminder[] {
-    if (this.reminderEmailCodeFilter === 'all') {
-      return this.emailReminders;
-    }
-
-    return this.emailReminders.filter((reminder) => {
-      const code = this.getEmailCode(reminder.subject);
-      return code === this.reminderEmailCodeFilter;
-    });
-  }
-
-  /**
-   * Get count of reminders for each email code category
-   */
-  getReminderEmailCodeCount(code: string): number {
-    if (code === 'all') {
-      return this.emailReminders.length;
-    }
-
-    return this.emailReminders.filter((reminder) => {
-      return this.getEmailCode(reminder.subject) === code;
-    }).length;
+    return this.emailReminders;
   }
 }

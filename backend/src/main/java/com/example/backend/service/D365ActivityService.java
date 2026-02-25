@@ -41,7 +41,7 @@ public class D365ActivityService {
                 .baseUrl(d365Config.getBaseUrl())
                 .codecs(configurer -> configurer
                         .defaultCodecs()
-                        .maxInMemorySize(50 * 1024 * 1024)) // 50MB buffer size for large email responses
+                        .maxInMemorySize(100 * 1024 * 1024)) // 100MB buffer size for large email responses
                 .build();
     }
 
@@ -367,17 +367,44 @@ public class D365ActivityService {
      * @return List of emails with populated email addresses
      */
     public List<Activity> getEmailsWithAddresses(Integer top, Integer skip, String cutoffDate) {
+        return getEmailsWithAddresses(top, skip, cutoffDate, true);
+    }
+
+    /**
+     * Get emails with addresses - lightweight version for email reminders
+     * Excludes description field to avoid buffer overflow (50MB limit)
+     */
+    public List<Activity> getEmailsWithAddressesLightweight(Integer top, Integer skip, String cutoffDate) {
+        return getEmailsWithAddresses(top, skip, cutoffDate, false);
+    }
+
+    /**
+     * Get emails with addresses from Dynamics 365
+     * 
+     * @param includeDescription - if true, includes description field (can cause
+     *                           buffer overflow for large datasets)
+     */
+    private List<Activity> getEmailsWithAddresses(Integer top, Integer skip, String cutoffDate,
+            boolean includeDescription) {
         try {
-            log.info("Fetching emails with addresses from Dynamics 365 (top: {}, skip: {}, cutoff: {})", top, skip,
-                    cutoffDate);
+            log.info(
+                    "Fetching emails with addresses from Dynamics 365 (top: {}, skip: {}, cutoff: {}, includeDescription: {})",
+                    top, skip, cutoffDate, includeDescription);
 
             String token = authService.getAccessToken();
 
             // Query /emails endpoint with activity parties expansion
             StringBuilder queryParams = new StringBuilder("?");
-            queryParams.append("$select=activityid,subject,description,statecode,statuscode,")
-                    .append("directioncode,_owninguser_value,_regardingobjectid_value,")
-                    .append("createdon,modifiedon,actualend,actualstart,senton&");
+            if (includeDescription) {
+                queryParams.append("$select=activityid,subject,description,statecode,statuscode,")
+                        .append("directioncode,_owninguser_value,_regardingobjectid_value,")
+                        .append("createdon,modifiedon,actualend,actualstart,senton&");
+            } else {
+                // Lightweight version without description - prevents buffer overflow
+                queryParams.append("$select=activityid,subject,statecode,statuscode,")
+                        .append("directioncode,_owninguser_value,_regardingobjectid_value,")
+                        .append("createdon,modifiedon,actualend,actualstart,senton&");
+            }
             queryParams.append("$expand=email_activity_parties($select=participationtypemask,addressused),")
                     .append("regardingobjectid_account($select=name),")
                     .append("regardingobjectid_contact($select=fullname),")

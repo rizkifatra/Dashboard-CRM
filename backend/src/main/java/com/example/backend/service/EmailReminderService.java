@@ -184,18 +184,18 @@ public class EmailReminderService {
         try {
             log.info("Fetching emails with addresses from D365");
 
-            // Fetch 600 emails - optimized balance between coverage and performance
-            // Description field needed to extract actual sent date from email body
-            // WebClient buffer is 50MB - 600 prevents buffer overflow
+            // Fetch 400 emails - reduced from 600 to prevent buffer overflow
+            // Using lightweight API without description field (not needed for reminders)
+            // Description field can be 10MB+ for large emails, causing buffer overflow
             // With 2-min cache, we reduce D365 API calls significantly
-            int batchSize = 600;
+            int batchSize = 400;
 
             // Calculate cutoff date: go back 2 years to capture historical emails
             java.time.ZonedDateTime cutoffTime = java.time.ZonedDateTime.now().minusYears(2);
             String cutoffDate = cutoffTime.toString().substring(0, 19) + "Z";
             log.info("Fetching emails from past 2 years (since: {})", cutoffDate);
 
-            List<Activity> emails = activityService.getEmailsWithAddresses(batchSize, 0, cutoffDate);
+            List<Activity> emails = activityService.getEmailsWithAddressesLightweight(batchSize, 0, cutoffDate);
 
             if (emails == null || emails.isEmpty()) {
                 log.info("No emails found");
