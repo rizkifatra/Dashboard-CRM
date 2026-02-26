@@ -5,8 +5,8 @@ import com.example.backend.service.TokenStorageService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
@@ -24,12 +24,22 @@ import java.io.IOException;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final JwtTokenProvider tokenProvider;
     private final TokenStorageService tokenStorageService;
     private final OAuth2AuthorizedClientService authorizedClientService;
+
+    @Value("${app.frontend-url:http://localhost:4200}")
+    private String frontendUrl;
+
+    public OAuth2AuthenticationSuccessHandler(JwtTokenProvider tokenProvider,
+            TokenStorageService tokenStorageService,
+            OAuth2AuthorizedClientService authorizedClientService) {
+        this.tokenProvider = tokenProvider;
+        this.tokenStorageService = tokenStorageService;
+        this.authorizedClientService = authorizedClientService;
+    }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
@@ -73,7 +83,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             }
 
             // Redirect to frontend with token in URL
-            String targetUrl = UriComponentsBuilder.fromUriString("http://localhost:4200/auth/callback")
+            String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/callback")
                     .queryParam("token", token)
                     .queryParam("email", email)
                     .queryParam("name", name)
@@ -83,7 +93,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         } catch (Exception e) {
             log.error("Error during OAuth2 authentication success handling", e);
-            getRedirectStrategy().sendRedirect(request, response, "http://localhost:4200/login?error=true");
+            getRedirectStrategy().sendRedirect(request, response, frontendUrl + "/login?error=true");
         }
     }
 

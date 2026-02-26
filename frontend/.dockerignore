@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Build output (will be generated in Docker)
+dist/
+build/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# Test files
+coverage/
+.nyc_output/
+e2e/
+
+# Documentation
+*.md
+docs/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Angular cache
+.angular/

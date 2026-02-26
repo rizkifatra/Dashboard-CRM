@@ -3,7 +3,7 @@ package com.example.backend.config;
 import com.example.backend.security.JwtAuthenticationFilter;
 import com.example.backend.security.OAuth2AuthenticationSuccessHandler;
 import com.example.backend.security.RestAuthenticationEntryPoint;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -26,7 +26,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
  */
 @Configuration
 @EnableWebSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -35,6 +34,23 @@ public class SecurityConfig {
         private final CorsConfigurationSource corsConfigurationSource;
         private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
         private final ClientRegistrationRepository clientRegistrationRepository;
+
+        @Value("${app.frontend-url:http://localhost:4200}")
+        private String frontendUrl;
+
+        public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                        OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService,
+                        OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler,
+                        CorsConfigurationSource corsConfigurationSource,
+                        RestAuthenticationEntryPoint restAuthenticationEntryPoint,
+                        ClientRegistrationRepository clientRegistrationRepository) {
+                this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+                this.oidcUserService = oidcUserService;
+                this.oAuth2AuthenticationSuccessHandler = oAuth2AuthenticationSuccessHandler;
+                this.corsConfigurationSource = corsConfigurationSource;
+                this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
+                this.clientRegistrationRepository = clientRegistrationRepository;
+        }
 
         @Bean
         public OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> accessTokenResponseClient() {
@@ -68,7 +84,7 @@ public class SecurityConfig {
                                                 .userInfoEndpoint(userInfo -> userInfo
                                                                 .oidcUserService(oidcUserService))
                                                 .successHandler(oAuth2AuthenticationSuccessHandler)
-                                                .failureUrl("http://localhost:4200/login?error=true"))
+                                                .failureUrl(frontendUrl + "/login?error=true"))
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();
