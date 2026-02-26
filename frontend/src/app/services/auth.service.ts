@@ -3,12 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { map, tap } from 'rxjs/operators';
 import { AuthResponse, User } from '../models/auth.model';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  private readonly API_URL = 'http://localhost:8080/api/auth';
+  private readonly API_URL = `${environment.apiUrl}/auth`;
   private readonly TOKEN_KEY = 'auth_token';
   private readonly USER_KEY = 'auth_user';
 
@@ -28,7 +29,7 @@ export class AuthService {
    * Initiate Microsoft login (redirect to backend OAuth2 endpoint)
    */
   loginWithMicrosoft(): void {
-    window.location.href = 'http://localhost:8080/oauth2/authorization/azure';
+    window.location.href = environment.oauth2AuthorizationUrl;
   }
 
   /**

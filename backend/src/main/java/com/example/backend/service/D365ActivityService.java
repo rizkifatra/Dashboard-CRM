@@ -516,12 +516,18 @@ public class D365ActivityService {
         // Parse email_activity_parties to get from/to addresses
         if (emailNode.has("email_activity_parties")) {
             JsonNode parties = emailNode.get("email_activity_parties");
+            log.debug("Email {} has {} activity parties", email.getActivityId(), parties.size());
             if (parties.isArray()) {
                 for (JsonNode party : parties) {
                     int participationType = party.has("participationtypemask")
                             ? party.get("participationtypemask").asInt()
                             : 0;
                     String address = getStringValue(party, "addressused");
+
+                    // Debug: log raw party data for troubleshooting
+                    log.debug("Party raw data: participationType={}, addressused={}, partyData={}",
+                            participationType, address,
+                            party.toString().substring(0, Math.min(200, party.toString().length())));
 
                     if (address != null && !address.isEmpty()) {
                         // participationtypemask: 1=From, 2=To, 3=CC, 4=BCC
@@ -545,9 +551,59 @@ public class D365ActivityService {
                     }
                 }
             }
+        } else {
+            log.warn("Email {} has NO email_activity_parties!", email.getActivityId());
         }
 
+        // For outgoing emails, use the actual sender (fromEmail) as staff email
+        // This ensures the reminder shows who actually sent the email, not just the
+        // activity owner
+        if (email.getFromEmail() != null && !email.getFromEmail().isEmpty()
+                && email.getDirection() != null && email.getDirection().equals("outgoing")) {
+            String fromEmail = email.getFromEmail().toLowerCase().trim();
+            // Use fromEmail as the staff email for outgoing emails
+            email.setStaffEmail(fromEmail);
+
+            // Derive staff name from email if not already matched
+            // Format: "john.doe@bintara.com.my" -> "John Doe"
+            String localPart = fromEmail.split("@")[0];
+            String derivedName = formatNameFromEmail(localPart);
+            if (derivedName != null && !derivedName.isEmpty()) {
+                email.setStaffName(derivedName);
+            }
+        }
+
+        // Log final extracted addresses
+        log.debug("PARSED EMAIL {}: direction={}, from={}, to={}, cc={}, staffEmail={}",
+                email.getActivityId(), email.getDirection(), email.getFromEmail(), email.getToEmail(),
+                email.getCcEmail(), email.getStaffEmail());
+
         return email;
+    }
+
+    /**
+     * Format a name from email local part
+     * E.g., "nur.amira" -> "Nur Amira", "john_doe" -> "John Doe"
+     */
+    private String formatNameFromEmail(String localPart) {
+        if (localPart == null || localPart.isEmpty()) {
+            return null;
+        }
+        // Replace dots and underscores with spaces, then capitalize each word
+        String[] parts = localPart.replace(".", " ").replace("_", " ").replace("-", " ").split("\\s+");
+        StringBuilder name = new StringBuilder();
+        for (String part : parts) {
+            if (!part.isEmpty()) {
+                if (name.length() > 0) {
+                    name.append(" ");
+                }
+                name.append(Character.toUpperCase(part.charAt(0)));
+                if (part.length() > 1) {
+                    name.append(part.substring(1).toLowerCase());
+                }
+            }
+        }
+        return name.toString();
     }
 
     /**
@@ -2547,16 +2603,24 @@ public class D365ActivityService {
                         endIndex);
 
                 // Build filter for this batch
-                String activityIds = batch.stream()
+                List<String> activityIdList = batch.stream()
                         .map(Activity::getActivityId)
-                        .map(id -> "activityid eq '" + id + "'")
-                        .collect(Collectors.joining(" or "));
+                        .collect(Collectors.toList());
 
+                // Build URI with proper encoding
+                StringBuilder uriBuilder = new StringBuilder("/emails?$filter=");
+                for (int j = 0; j < activityIdList.size(); j++) {
+                    if (j > 0) {
+                        uriBuilder.append(" or ");
+                    }
+                    uriBuilder.append("activityid eq '").append(activityIdList.get(j)).append("'");
+                }
+                // Use $expand for party lists (from/to/cc), select only scalar fields
+                uriBuilder.append("&$select=activityid,sender,description,conversationindex,conversationtrackingid");
+                uriBuilder.append("&$expand=email_activity_parties($select=participationtypemask,addressused)");
+
+                String uri = uriBuilder.toString();
                 log.debug("Built filter for {} emails in batch", batch.size());
-
-                // Query emails with sender and description fields
-                String uri = "/emails?$filter=" + activityIds +
-                        "&$select=activityid,sender,from,to,cc,description,conversationindex,conversationtrackingid";
 
                 log.info("Fetching email details for {} emails", batch.size());
 
@@ -2607,6 +2671,22 @@ public class D365ActivityService {
                                     activity.getFromEmail(),
                                     activity.getToEmail(),
                                     activity.getCcEmail());
+
+                            // For outgoing emails, override staffEmail with the actual sender
+                            String senderEmail = activity.getSender();
+                            if (senderEmail != null && !senderEmail.isEmpty()
+                                    && activity.getDirection() != null && activity.getDirection().equals("outgoing")) {
+                                senderEmail = senderEmail.toLowerCase().trim();
+                                activity.setStaffEmail(senderEmail);
+                                // Derive name from email
+                                String localPart = senderEmail.split("@")[0];
+                                String derivedName = formatNameFromEmail(localPart);
+                                if (derivedName != null && !derivedName.isEmpty()) {
+                                    activity.setStaffName(derivedName);
+                                }
+                                log.debug("Overrode staffEmail/staffName with actual sender: {} / {}",
+                                        activity.getStaffEmail(), activity.getStaffName());
+                            }
                         } else {
                             log.debug("No email data found for activity {}", activity.getActivityId());
                         }

@@ -8,6 +8,7 @@ import {
   EmailReminder,
   EmailReminderCounts,
 } from '../models';
+import { environment } from '../../environments/environment';
 
 export interface EmailStats {
   staffEmail: string;
@@ -22,7 +23,7 @@ export type { Activity, ApiResponse, UnrepliedEmail };
   providedIn: 'root',
 })
 export class ActivityService {
-  private apiUrl = 'http://localhost:8080/api/activities';
+  private apiUrl = `${environment.apiUrl}/activities`;
 
   constructor(private http: HttpClient) {}
 
@@ -243,7 +244,7 @@ export class ActivityService {
    */
   getEmailReminders(): Observable<ApiResponse<EmailReminder[]>> {
     return this.http.get<ApiResponse<EmailReminder[]>>(
-      'http://localhost:8080/api/email-reminders',
+      `${environment.apiUrl}/email-reminders`,
     );
   }
 
@@ -252,7 +253,7 @@ export class ActivityService {
    */
   getEmailReminderCounts(): Observable<ApiResponse<EmailReminderCounts>> {
     return this.http.get<ApiResponse<EmailReminderCounts>>(
-      'http://localhost:8080/api/email-reminders/counts',
+      `${environment.apiUrl}/email-reminders/counts`,
     );
   }
 

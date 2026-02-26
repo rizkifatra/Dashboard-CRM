@@ -106,7 +106,32 @@
         <div class="section-title-bar">
             <div class="filter-header">
                 <h3 class="filter-section-title">Unreplied Emails ({{ getFilteredUnrepliedEmails().length }})</h3>
-
+            </div>
+            <div class="filter-tabs">
+                <button class="filter-tab" [class.active]="unrepliedEmailCodeFilter === 'all'"
+                    (click)="unrepliedEmailCodeFilter = 'all'">
+                    All ({{ getUnrepliedEmailCodeCount('all') }})
+                </button>
+                <button class="filter-tab" [class.active]="unrepliedEmailCodeFilter === 'RE'"
+                    (click)="unrepliedEmailCodeFilter = 'RE'">
+                    RE ({{ getUnrepliedEmailCodeCount('RE') }})
+                </button>
+                <button class="filter-tab" [class.active]="unrepliedEmailCodeFilter === 'FW'"
+                    (click)="unrepliedEmailCodeFilter = 'FW'">
+                    FW ({{ getUnrepliedEmailCodeCount('FW') }})
+                </button>
+                <button class="filter-tab" [class.active]="unrepliedEmailCodeFilter === 'RFQ'"
+                    (click)="unrepliedEmailCodeFilter = 'RFQ'">
+                    RFQ ({{ getUnrepliedEmailCodeCount('RFQ') }})
+                </button>
+                <button class="filter-tab" [class.active]="unrepliedEmailCodeFilter === 'RFP'"
+                    (click)="unrepliedEmailCodeFilter = 'RFP'">
+                    Quote ({{ getUnrepliedEmailCodeCount('RFP') }})
+                </button>
+                <button class="filter-tab" [class.active]="unrepliedEmailCodeFilter === 'OTHER'"
+                    (click)="unrepliedEmailCodeFilter = 'OTHER'">
+                    Other ({{ getUnrepliedEmailCodeCount('OTHER') }})
+                </button>
             </div>
         </div>
 
@@ -161,20 +186,33 @@
     <div class="email-code-section" *ngIf="filterType === 'followup'">
         <div class="section-title-bar">
             <div class="filter-header">
-                <h3 class="filter-section-title">Email Follow-Up Reminders ({{ emailReminderCount }})</h3>
-                <div class="active-filters" *ngIf="reminderEmailCodeFilter !== 'all'">
-                    <span class="filter-label">Filtered by:</span>
-                    <span class="filter-pill">
-                        {{ reminderEmailCodeFilter }}
-                        <button class="clear-filter" (click)="reminderEmailCodeFilter = 'all'; $event.stopPropagation()"
-                            title="Clear filter">
-                            ×
-                        </button>
-                    </span>
-                    <button class="clear-all-filters" (click)="reminderEmailCodeFilter = 'all'">
-                        Clear all
-                    </button>
-                </div>
+                <h3 class="filter-section-title">Email Follow-Up Reminders ({{ getFilteredReminders().length }})</h3>
+            </div>
+            <div class="filter-tabs">
+                <button class="filter-tab" [class.active]="reminderEmailCodeFilter === 'all'"
+                    (click)="reminderEmailCodeFilter = 'all'">
+                    All ({{ getReminderEmailCodeCount('all') }})
+                </button>
+                <button class="filter-tab" [class.active]="reminderEmailCodeFilter === 'RE'"
+                    (click)="reminderEmailCodeFilter = 'RE'">
+                    RE ({{ getReminderEmailCodeCount('RE') }})
+                </button>
+                <button class="filter-tab" [class.active]="reminderEmailCodeFilter === 'FW'"
+                    (click)="reminderEmailCodeFilter = 'FW'">
+                    FW ({{ getReminderEmailCodeCount('FW') }})
+                </button>
+                <button class="filter-tab" [class.active]="reminderEmailCodeFilter === 'RFQ'"
+                    (click)="reminderEmailCodeFilter = 'RFQ'">
+                    RFQ ({{ getReminderEmailCodeCount('RFQ') }})
+                </button>
+                <button class="filter-tab" [class.active]="reminderEmailCodeFilter === 'RFP'"
+                    (click)="reminderEmailCodeFilter = 'RFP'">
+                    Quote ({{ getReminderEmailCodeCount('RFP') }})
+                </button>
+                <button class="filter-tab" [class.active]="reminderEmailCodeFilter === 'OTHER'"
+                    (click)="reminderEmailCodeFilter = 'OTHER'">
+                    Other ({{ getReminderEmailCodeCount('OTHER') }})
+                </button>
             </div>
         </div>
 
@@ -228,6 +266,36 @@
     <!-- Activity List Section -->
     <div class="email-code-section"
         *ngIf="!loading && !error && filterType !== 'unreplied' && filterType !== 'followup'">
+
+        <!-- Email Category Filter Tabs -->
+        <div class="section-title-bar">
+            <div class="filter-tabs">
+                <button class="filter-tab" [class.active]="emailCodeFilter === 'all'"
+                    (click)="emailCodeFilter = 'all'; statusTypeFilter = 'all'">
+                    All ({{ activities.length }})
+                </button>
+                <button class="filter-tab" [class.active]="emailCodeFilter === 'RE'"
+                    (click)="emailCodeFilter = 'RE'; statusTypeFilter = 'all'">
+                    RE ({{ getEmailCodeCount('RE') }})
+                </button>
+                <button class="filter-tab" [class.active]="emailCodeFilter === 'FW'"
+                    (click)="emailCodeFilter = 'FW'; statusTypeFilter = 'all'">
+                    FW ({{ getEmailCodeCount('FW') }})
+                </button>
+                <button class="filter-tab" [class.active]="emailCodeFilter === 'RFQ'"
+                    (click)="emailCodeFilter = 'RFQ'; statusTypeFilter = 'all'">
+                    RFQ ({{ getEmailCodeCount('RFQ') }})
+                </button>
+                <button class="filter-tab" [class.active]="emailCodeFilter === 'RFP'"
+                    (click)="emailCodeFilter = 'RFP'; statusTypeFilter = 'all'">
+                    Quote ({{ getEmailCodeCount('RFP') }})
+                </button>
+                <button class="filter-tab" [class.active]="emailCodeFilter === 'OTHER'"
+                    (click)="emailCodeFilter = 'OTHER'; statusTypeFilter = 'all'">
+                    Other ({{ getEmailCodeCount('OTHER') }})
+                </button>
+            </div>
+        </div>
 
         <!-- Status Type Filter - Only show when "Other" is selected -->
         <div *ngIf="emailCodeFilter === 'OTHER'">

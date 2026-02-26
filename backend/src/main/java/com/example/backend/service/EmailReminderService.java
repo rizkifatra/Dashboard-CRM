@@ -4,6 +4,7 @@ import com.example.backend.model.Activity;
 import com.example.backend.model.EmailReminder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +27,12 @@ public class EmailReminderService {
 
     private final D365ActivityService activityService;
 
+    @Value("${d365.api.internal-domains:@bintara.com.my}")
+    private String internalDomainsConfig;
+
+    @Value("${d365.api.internal-shared-mailboxes:}")
+    private String internalSharedMailboxes;
+
     // Cache for performance optimization
     private List<EmailReminder> cachedReminders = null;
     private LocalDateTime cacheTimestamp = null;
@@ -38,62 +45,104 @@ public class EmailReminderService {
      * @return List of email reminders sorted by urgency (critical first)
      */
     public List<EmailReminder> getEmailReminders() {
-        // TEMPORARILY DISABLED CACHE FOR DEBUGGING
-        // Check cache first
-        if (false && cachedReminders != null && cacheTimestamp != null) {
+        // Check cache first (2-minute cache to reduce D365 API calls)
+        if (cachedReminders != null && cacheTimestamp != null) {
             long minutesSinceCache = ChronoUnit.MINUTES.between(cacheTimestamp, LocalDateTime.now());
             if (minutesSinceCache < CACHE_DURATION_MINUTES) {
-                log.info("Returning cached email reminders ({} items, cached {} min ago)",
+                log.debug("Returning cached email reminders ({} items, cached {} min ago)",
                         cachedReminders.size(), minutesSinceCache);
                 return cachedReminders;
             }
         }
 
         try {
+            log.info("==============================================");
+            log.info("★★★ STARTING EMAIL REMINDER FETCH ★★★");
+            log.info("==============================================");
             log.info("Fetching fresh email follow-up reminders from D365");
 
             // Fetch ALL emails in batches to scan entire history
             List<Activity> allEmails = fetchAllEmailsInBatches();
             log.info("Found {} total emails across all batches", allEmails.size());
 
-            // Filter outgoing and incoming emails (no date limit - scan all history)
+            // FLEXIBLE DETECTION: Use email addresses to detect outgoing/incoming
+            // Outgoing: FROM internal (@bintara.com.my) TO external
+            // Incoming: FROM external TO internal (@bintara.com.my)
+            String[] internalDomains = internalDomainsConfig.split(",");
+            log.info("Internal domains for detection: {}", Arrays.toString(internalDomains));
+
+            // Filter outgoing: FROM Bintara staff TO external clients
             List<Activity> outgoingEmails = allEmails.stream()
-                    .filter(email -> "outgoing".equalsIgnoreCase(email.getDirection()))
-                    // Remove stateCode filter - include all sent emails regardless of completion
-                    // status
+                    .filter(email -> isOutgoingEmail(email, internalDomains))
                     .collect(Collectors.toList());
 
-            log.info("Found {} outgoing emails (all states)", outgoingEmails.size());
+            log.info("Found {} outgoing emails (Bintara → External)", outgoingEmails.size());
 
             // Log state code distribution for debugging
             Map<Integer, Long> stateCodeCounts = outgoingEmails.stream()
                     .collect(Collectors.groupingBy(Activity::getStateCode, Collectors.counting()));
             log.info("Outgoing email state codes: {}", stateCodeCounts);
 
+            // Log sample of outgoing emails for debugging
+            if (!outgoingEmails.isEmpty()) {
+                int sampleSize = Math.min(5, outgoingEmails.size());
+                log.info("Sample outgoing emails (showing first {}):", sampleSize);
+                for (int i = 0; i < sampleSize; i++) {
+                    Activity email = outgoingEmails.get(i);
+                    log.info("  - TO: {} | SUBJECT: '{}' | ACCOUNT: {} | STATE: {}",
+                            email.getToEmail(),
+                            email.getSubject(),
+                            email.getRegardingObjectName() != null ? email.getRegardingObjectName() : "None",
+                            email.getStateCode());
+                }
+            }
+
             List<Activity> incomingEmails = allEmails.stream()
-                    .filter(email -> "incoming".equalsIgnoreCase(email.getDirection()))
+                    .filter(email -> isIncomingEmail(email, internalDomains))
                     .collect(Collectors.toList());
 
-            log.info("Found {} incoming emails", incomingEmails.size());
+            log.info("Found {} incoming emails (External → Bintara)", incomingEmails.size());
 
-            // Build map of replied emails (by email address and account)
-            Set<String> repliedEmailAddresses = buildRepliedEmailSet(incomingEmails);
-            log.info("Found {} unique replied email addresses", repliedEmailAddresses.size());
+            // Log sample of incoming emails for debugging
+            if (!incomingEmails.isEmpty()) {
+                int sampleSize = Math.min(5, incomingEmails.size());
+                log.info("Sample incoming emails (showing first {}):", sampleSize);
+                for (int i = 0; i < sampleSize; i++) {
+                    Activity email = incomingEmails.get(i);
+                    log.info("  - FROM: {} | SUBJECT: '{}' | ACCOUNT: {}",
+                            email.getFromEmail(),
+                            email.getSubject(),
+                            email.getRegardingObjectName() != null ? email.getRegardingObjectName() : "None");
+                }
+            }
 
             // Process each outgoing email to check if it needs follow-up
+            // We'll check dates to ensure replies came AFTER the outgoing email
             List<EmailReminder> reminders = new ArrayList<>();
             LocalDateTime now = LocalDateTime.now();
+            log.info("Processing with {} incoming emails available for reply matching", incomingEmails.size());
 
             int skippedNoRecipient = 0;
             int skippedHasReply = 0;
-            int skippedTooRecent = 0;
             int skippedCancelled = 0;
+            int skippedTooRecent = 0;
+            int skippedOtherType = 0;
+
+            log.info("Processing {} outgoing emails to check for follow-ups needed...", outgoingEmails.size());
 
             for (Activity email : outgoingEmails) {
                 // Skip if no recipient email
                 if (email.getToEmail() == null || email.getToEmail().isEmpty()) {
                     skippedNoRecipient++;
                     log.debug("Skipped (no recipient): '{}'", email.getSubject());
+                    continue;
+                }
+
+                // Skip "OTHER" type emails (not business-related)
+                // Only include: RE:, FW:, RFQ, RFP, Quote emails
+                if (isOtherTypeEmail(email.getSubject())) {
+                    skippedOtherType++;
+                    log.debug("Skipped (OTHER type): '{}'", email.getSubject());
                     continue;
                 }
 
@@ -107,31 +156,45 @@ public class EmailReminderService {
                     continue; // Email cancelled in CRM, no reminder needed
                 }
 
-                // Check if this email has been replied to
-                String emailKey = getEmailKey(email);
-                if (repliedEmailAddresses.contains(emailKey)) {
-                    skippedHasReply++;
-                    log.debug("Skipped (has reply): '{}' to {}", email.getSubject(), email.getToEmail());
-                    continue; // Email has reply, no reminder needed
-                }
-
-                // Calculate days since sent
-                // Try to parse actual sent date from email body first, then fallback to D365
-                // fields
+                // Get sent date for this outgoing email (needed for both date comparison and
+                // reminder)
                 String sentDate = extractSentDateFromDescription(email);
                 if (sentDate == null) {
                     sentDate = email.getSentOn() != null ? email.getSentOn()
                             : (email.getActualEnd() != null ? email.getActualEnd() : email.getCreatedOn());
                 }
+
+                if (sentDate == null) {
+                    log.warn("No sent date available for email: '{}'", email.getSubject());
+                    continue;
+                }
+
+                // Check if this email has been replied to (AFTER it was sent)
+                if (hasReplyAfterDate(email, incomingEmails, sentDate)) {
+                    skippedHasReply++;
+                    log.info("Skipped (has reply): '{}' to {} [Account: {}]",
+                            email.getSubject(),
+                            email.getToEmail(),
+                            email.getRegardingObjectName() != null ? email.getRegardingObjectName() : "None");
+                    continue; // Email has reply, no reminder needed
+                }
+
                 int daysOverdue = calculateDaysOverdue(sentDate, now);
 
-                // Show only emails that are 3+ days old (badges: 3 for 3-6 days, 7 for 7-13
-                // days, 14 for 14+ days)
+                log.debug("Email: '{}' to {} - {} days old (sentDate: {})",
+                        email.getSubject(), email.getToEmail(), daysOverdue, sentDate);
+
+                // Show emails that are 3+ days old to match follow-up thresholds
+                // Urgency badges: Day 3 = "3 Days", Days 4-7 = "7 Days", Days 8+ = "14 Days"
                 if (daysOverdue >= 3) {
                     EmailReminder reminder = createReminder(email, daysOverdue, sentDate);
                     reminders.add(reminder);
-                    log.info("✓ Added reminder: '{}' to {} ({} days overdue)",
-                            email.getSubject(), email.getToEmail(), daysOverdue);
+                    log.info("✓ Added reminder: '{}' to {} ({} days since sent) [Account: {}] - BADGE: {}",
+                            email.getSubject(),
+                            email.getToEmail(),
+                            daysOverdue,
+                            email.getRegardingObjectName() != null ? email.getRegardingObjectName() : "None",
+                            reminder.getUrgencyBadge());
                 } else {
                     skippedTooRecent++;
                     log.debug("Skipped (too recent - {} days): '{}' to {}", daysOverdue, email.getSubject(),
@@ -139,9 +202,16 @@ public class EmailReminderService {
                 }
             }
 
-            log.info(
-                    "Filtering summary: {} skipped (no recipient), {} skipped (cancelled in CRM), {} skipped (has reply), {} skipped (too recent <3 days)",
-                    skippedNoRecipient, skippedCancelled, skippedHasReply, skippedTooRecent);
+            log.info("========================================");
+            log.info("FILTERING SUMMARY:");
+            log.info("  Total outgoing emails: {}", outgoingEmails.size());
+            log.info("  Skipped (no recipient): {}", skippedNoRecipient);
+            log.info("  Skipped (OTHER type - not business): {}", skippedOtherType);
+            log.info("  Skipped (cancelled in CRM): {}", skippedCancelled);
+            log.info("  Skipped (has reply): {}", skippedHasReply);
+            log.info("  Skipped (too recent <3 days): {}", skippedTooRecent);
+            log.info("  REMINDERS CREATED: {}", reminders.size());
+            log.info("========================================");
 
             // Sort by urgency: critical (14+) first, then medium (7-13), then low (3-6)
             reminders.sort((r1, r2) -> Integer.compare(r2.getDaysOverdue(), r1.getDaysOverdue()));
@@ -171,6 +241,130 @@ public class EmailReminderService {
     }
 
     /**
+     * Check if email is outgoing (FROM internal TO external)
+     * Flexible detection using multiple strategies:
+     * 1. Check direction field if available AND verify sender is internal
+     * 2. Check if sender is internal and recipient is external
+     * STRICT: Requires FROM to be Bintara staff - no assumptions based on recipient
+     * only
+     */
+    private boolean isOutgoingEmail(Activity email, String[] internalDomains) {
+        String fromEmail = email.getFromEmail();
+        String toEmail = email.getToEmail();
+
+        // STRICT: Must have both sender and recipient to verify direction
+        if (fromEmail == null || fromEmail.isBlank() || toEmail == null || toEmail.isBlank()) {
+            log.debug("Skipped (missing from/to): from={}, to={}", fromEmail, toEmail);
+            return false;
+        }
+
+        boolean fromIsInternal = isInternalEmail(fromEmail, internalDomains);
+        boolean toIsExternal = !isInternalEmail(toEmail, internalDomains);
+
+        // STRICT: Only outgoing if FROM Bintara staff AND TO external client
+        if (fromIsInternal && toIsExternal) {
+            log.debug("Detected outgoing: {} -> {} (Bintara → External)", fromEmail, toEmail);
+            return true;
+        }
+
+        // Also accept if direction is explicitly "outgoing" AND sender is internal
+        if ("outgoing".equalsIgnoreCase(email.getDirection()) && fromIsInternal && toIsExternal) {
+            log.debug("Detected outgoing by direction: {} -> {}", fromEmail, toEmail);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if email is incoming (FROM external TO internal)
+     */
+    private boolean isIncomingEmail(Activity email, String[] internalDomains) {
+        // Strategy 1: Use direction field if available
+        if ("incoming".equalsIgnoreCase(email.getDirection())) {
+            return true;
+        }
+
+        // Strategy 2: Check sender and recipient
+        // Incoming means: FROM external (client) TO internal (Bintara)
+        String fromEmail = email.getFromEmail();
+        String toEmail = email.getToEmail();
+
+        if (fromEmail != null && toEmail != null) {
+            boolean fromIsExternal = !isInternalEmail(fromEmail, internalDomains);
+            boolean toIsInternal = isInternalEmail(toEmail, internalDomains);
+
+            if (fromIsExternal && toIsInternal) {
+                log.debug("Detected incoming: {} -> {}", fromEmail, toEmail);
+                return true;
+            }
+        }
+
+        // Strategy 3: If fromEmail is external, assume it's incoming
+        if (fromEmail != null && !isInternalEmail(fromEmail, internalDomains)) {
+            log.debug("Assuming incoming (from external): from={}", fromEmail);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if email is "OTHER" type (not business-related)
+     * Business emails start with RE:, FW: or contain RFQ, RFP, Quote
+     * OTHER emails (webinars, marketing, etc.) should be excluded from follow-ups
+     */
+    private boolean isOtherTypeEmail(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return true; // No subject = OTHER
+        }
+
+        String upperSubject = subject.toUpperCase().trim();
+
+        // Check for standard email prefixes (RE:, FW:)
+        if (upperSubject.startsWith("RE:") || upperSubject.startsWith("RE ")) {
+            return false; // This is a reply email - include it
+        }
+        if (upperSubject.startsWith("FW:") || upperSubject.startsWith("FWD:") || upperSubject.startsWith("FW ")) {
+            return false; // This is a forwarded email - include it
+        }
+
+        // Check for business request types (can be anywhere in subject)
+        if (upperSubject.contains("RFQ") || upperSubject.contains("REQUEST FOR QUOTE")) {
+            return false; // Request for Quote - include it
+        }
+        if (upperSubject.contains("RFP") || upperSubject.contains("REQUEST FOR PROPOSAL")) {
+            return false; // Request for Proposal - include it
+        }
+        if (upperSubject.contains("QUOTE") || upperSubject.contains("QUOTATION")) {
+            return false; // Quote related - include it
+        }
+
+        // Everything else is "OTHER" type - exclude from follow-ups
+        return true;
+    }
+
+    /**
+     * Check if email address is from internal domain
+     */
+    private boolean isInternalEmail(String email, String[] internalDomains) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+
+        String lowerEmail = email.toLowerCase().trim();
+
+        for (String domain : internalDomains) {
+            String cleanDomain = domain.trim().toLowerCase();
+            if (lowerEmail.endsWith(cleanDomain) || lowerEmail.contains(cleanDomain)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Fetch all emails in batches to avoid timeout
      * Optimized batch size for reliability and performance
      * 
@@ -181,21 +375,25 @@ public class EmailReminderService {
      * @return List of all emails (deduplicated)
      */
     private List<Activity> fetchAllEmailsInBatches() {
+        log.info("▶▶▶ ENTERING fetchAllEmailsInBatches ◀◀◀");
         try {
             log.info("Fetching emails with addresses from D365");
 
-            // Fetch 400 emails - reduced from 600 to prevent buffer overflow
+            // Fetch 3000 emails to capture more historical data for follow-up detection
+            // Increased to ensure we capture emails >= 7 days and >= 14 days old
             // Using lightweight API without description field (not needed for reminders)
-            // Description field can be 10MB+ for large emails, causing buffer overflow
             // With 2-min cache, we reduce D365 API calls significantly
-            int batchSize = 400;
+            int batchSize = 3000;
 
             // Calculate cutoff date: go back 2 years to capture historical emails
             java.time.ZonedDateTime cutoffTime = java.time.ZonedDateTime.now().minusYears(2);
             String cutoffDate = cutoffTime.toString().substring(0, 19) + "Z";
-            log.info("Fetching emails from past 2 years (since: {})", cutoffDate);
+            log.info("★ CALLING getEmailsWithAddressesLightweight: batchSize={}, cutoffDate={}", batchSize, cutoffDate);
 
             List<Activity> emails = activityService.getEmailsWithAddressesLightweight(batchSize, 0, cutoffDate);
+
+            log.info("★ RETURNED: {} emails",
+                    emails != null ? emails.size() : "NULL");
 
             if (emails == null || emails.isEmpty()) {
                 log.info("No emails found");
@@ -216,39 +414,142 @@ public class EmailReminderService {
             return deduplicatedEmails;
 
         } catch (Exception e) {
-            log.error("✗ Error fetching emails: {}", e.getMessage(), e);
+            log.error("✗✗✗ ERROR in fetchAllEmailsInBatches: {} ✗✗✗", e.getMessage());
+            log.error("Full stack trace:", e);
             return new ArrayList<>();
         }
     }
 
     /**
-     * Build set of email addresses that have replied
+     * Check if an outgoing email has been replied to AFTER it was sent
+     * Uses multiple matching strategies with date checking:
+     * 1. Email only (primary matching - catches replies even if account differs)
+     * 2. Email + Account ID (secondary matching for more precision)
+     * 3. Email + Subject (tertiary matching for thread detection)
+     * 
+     * CRITICAL: Only counts as a reply if the incoming email was received AFTER the
+     * outgoing email was sent
      */
-    private Set<String> buildRepliedEmailSet(List<Activity> incomingEmails) {
-        Set<String> repliedEmails = new HashSet<>();
+    private boolean hasReplyAfterDate(Activity outgoingEmail, List<Activity> incomingEmails, String outgoingSentDate) {
+        List<String> outgoingKeys = getEmailKeys(outgoingEmail);
+        LocalDateTime outgoingDate = parseDate(outgoingSentDate);
 
-        for (Activity email : incomingEmails) {
-            if (email.getFromEmail() != null && !email.getFromEmail().isEmpty()) {
-                String key = email.getFromEmail().toLowerCase().trim();
-                if (email.getRegardingObjectId() != null) {
-                    key = key + "|" + email.getRegardingObjectId();
+        log.debug("Checking reply for email '{}' to {} (sent: {}) with keys: {}",
+                outgoingEmail.getSubject(), outgoingEmail.getToEmail(), outgoingSentDate, outgoingKeys);
+
+        // Check each incoming email to see if it's a reply to this outgoing email
+        for (Activity incomingEmail : incomingEmails) {
+            if (incomingEmail.getFromEmail() == null || incomingEmail.getFromEmail().isEmpty()) {
+                continue;
+            }
+
+            String emailAddr = incomingEmail.getFromEmail().toLowerCase().trim();
+
+            // Build keys for this incoming email
+            List<String> incomingKeys = new ArrayList<>();
+
+            // Strategy 1: Email address only (most lenient)
+            incomingKeys.add(emailAddr);
+
+            // Strategy 2: Email + Account ID (if set)
+            if (incomingEmail.getRegardingObjectId() != null) {
+                incomingKeys.add(emailAddr + "|" + incomingEmail.getRegardingObjectId());
+            }
+
+            // Strategy 3: Email + Normalized Subject (for thread matching)
+            if (incomingEmail.getSubject() != null && !incomingEmail.getSubject().isEmpty()) {
+                String normalizedSubject = normalizeSubject(incomingEmail.getSubject());
+                if (!normalizedSubject.isEmpty()) {
+                    incomingKeys.add(emailAddr + "|subj:" + normalizedSubject);
                 }
-                repliedEmails.add(key);
+            }
+
+            // Check if any incoming key matches any outgoing key
+            boolean keysMatch = false;
+            String matchedKey = null;
+            for (String inKey : incomingKeys) {
+                if (outgoingKeys.contains(inKey)) {
+                    keysMatch = true;
+                    matchedKey = inKey;
+                    break;
+                }
+            }
+
+            if (!keysMatch) {
+                continue; // No key match, not a reply
+            }
+
+            // Keys match! Now check if the incoming email was received AFTER the outgoing
+            // email was sent
+            String incomingDateStr = incomingEmail.getSentOn() != null ? incomingEmail.getSentOn()
+                    : (incomingEmail.getActualEnd() != null ? incomingEmail.getActualEnd()
+                            : incomingEmail.getCreatedOn());
+
+            if (incomingDateStr == null) {
+                log.debug("Incoming email '{}' has no date, skipping", incomingEmail.getSubject());
+                continue;
+            }
+
+            LocalDateTime incomingDate = parseDate(incomingDateStr);
+
+            // Reply must be AFTER the outgoing email
+            if (incomingDate.isAfter(outgoingDate)) {
+                log.info("✓ Found reply match for '{}' using key: {} (outgoing: {}, incoming: {})",
+                        outgoingEmail.getSubject(), matchedKey, outgoingSentDate, incomingDateStr);
+                return true;
+            } else {
+                log.debug("✗ Key matched but date is before/equal: incoming '{}' ({}) is not after outgoing ({})",
+                        incomingEmail.getSubject(), incomingDateStr, outgoingSentDate);
             }
         }
 
-        return repliedEmails;
+        log.debug("✗ No reply found for '{}' to {} (tried {} keys, checked {} incoming emails)",
+                outgoingEmail.getSubject(), outgoingEmail.getToEmail(), outgoingKeys.size(), incomingEmails.size());
+        return false;
     }
 
     /**
-     * Get unique key for email (recipient email + account ID)
+     * Get unique keys for email matching using multiple strategies
+     * Checks email alone, email+account, and email+subject
+     * Returns multiple keys to try for maximum match accuracy
      */
-    private String getEmailKey(Activity email) {
-        String key = email.getToEmail().toLowerCase().trim();
+    private List<String> getEmailKeys(Activity email) {
+        List<String> keys = new ArrayList<>();
+        String emailAddr = email.getToEmail().toLowerCase().trim();
+
+        // Strategy 1: Email address only (most lenient)
+        keys.add(emailAddr);
+
+        // Strategy 2: Email + Account ID (if set)
         if (email.getRegardingObjectId() != null) {
-            key = key + "|" + email.getRegardingObjectId();
+            keys.add(emailAddr + "|" + email.getRegardingObjectId());
         }
-        return key;
+
+        // Strategy 3: Email + Normalized Subject (for thread matching)
+        if (email.getSubject() != null && !email.getSubject().isEmpty()) {
+            String normalizedSubject = normalizeSubject(email.getSubject());
+            if (!normalizedSubject.isEmpty()) {
+                keys.add(emailAddr + "|subj:" + normalizedSubject);
+            }
+        }
+
+        return keys;
+    }
+
+    /**
+     * Normalize email subject for thread matching
+     * Removes RE:, FW:, FWD: prefixes and extra whitespace
+     */
+    private String normalizeSubject(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return "";
+        }
+
+        return subject.trim()
+                .replaceAll("(?i)^(RE:|FW:|FWD:)\\s*", "")
+                .replaceAll("\\s+", " ")
+                .toLowerCase()
+                .trim();
     }
 
     /**
@@ -292,15 +593,21 @@ public class EmailReminderService {
         reminder.setSentDate(sentDate);
         reminder.setDaysOverdue(daysOverdue);
 
-        // Set urgency level based on days overdue
-        // Critical: 14+ days, Medium: 7-13 days, Low: 3-6 days
+        // Set urgency level based on days since sent
+        // Follow-up milestones: 3, 7, and 14 days
+        // 14+ days: critical (red) - needs immediate attention
+        // 7-13 days: medium (orange) - overdue for follow-up
+        // 3-6 days: low (yellow) - time to follow up
         if (daysOverdue >= 14) {
+            // 14+ days without reply - critical urgency
             reminder.setUrgencyLevel("critical");
-            reminder.setUrgencyBadge("14+ Days");
+            reminder.setUrgencyBadge("14 Days");
         } else if (daysOverdue >= 7) {
+            // 7-13 days without reply - medium urgency
             reminder.setUrgencyLevel("medium");
             reminder.setUrgencyBadge("7 Days");
         } else {
+            // 3-6 days without reply - low urgency
             reminder.setUrgencyLevel("low");
             reminder.setUrgencyBadge("3 Days");
         }

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface Account {
   accountid: string;
@@ -39,7 +40,7 @@ export interface ApiResponse<T> {
   providedIn: 'root',
 })
 export class AccountService {
-  private apiUrl = 'http://localhost:8080/api/accounts';
+  private apiUrl = `${environment.apiUrl}/accounts`;
 
   constructor(private http: HttpClient) {}
 
@@ -60,7 +61,7 @@ export class AccountService {
     ownerId?: string,
     status?: string,
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<Account[]>> {
     let params = new HttpParams()
       .set('top', top.toString())
@@ -97,7 +98,7 @@ export class AccountService {
   updateAccount(account: Account): Observable<ApiResponse<Account>> {
     return this.http.put<ApiResponse<Account>>(
       `${this.apiUrl}/${account.accountid}`,
-      account
+      account,
     );
   }
 
@@ -136,7 +137,7 @@ export class AccountService {
    */
   searchAccounts(
     searchTerm: string,
-    top: number = 50
+    top: number = 50,
   ): Observable<ApiResponse<Account[]>> {
     let params = new HttpParams()
       .set('searchTerm', searchTerm)

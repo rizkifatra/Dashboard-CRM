@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { DashboardSkeletonComponent } from '../shared/dashboard-skeleton.component';
+import { environment } from '../../environments/environment';
 
 interface FiscalYearMetrics {
   fiscalYear: string;
@@ -43,7 +44,7 @@ interface StaffPerformance {
   styleUrls: ['./fiscal-dashboard.component.css'],
 })
 export class FiscalDashboardComponent implements OnInit {
-  private apiUrl = 'http://localhost:8080/api/dashboard';
+  private apiUrl = `${environment.apiUrl}/dashboard`;
 
   loading = true;
   error: string | null = null;
@@ -433,9 +434,7 @@ export class FiscalDashboardComponent implements OnInit {
    */
   loadUnrepliedEmails() {
     this.http
-      .get<any>(
-        'http://localhost:8080/api/activities/unreplied?maxHoursOld=168',
-      )
+      .get<any>(`${environment.apiUrl}/activities/unreplied?maxHoursOld=168`)
       .subscribe({
         next: (response) => {
           this.unrepliedCount = response.data?.length || 0;

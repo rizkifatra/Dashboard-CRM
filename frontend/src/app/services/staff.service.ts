@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface Staff {
   systemUserId: string;
@@ -27,7 +28,7 @@ export interface ApiResponse<T> {
   providedIn: 'root',
 })
 export class StaffService {
-  private apiUrl = 'http://localhost:8080/api/staff';
+  private apiUrl = `${environment.apiUrl}/staff`;
 
   constructor(private http: HttpClient) {}
 
@@ -41,11 +42,11 @@ export class StaffService {
   getAllStaff(
     includeEmailStats: boolean = true,
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<Staff[]>> {
     let params = new HttpParams().set(
       'includeEmailStats',
-      includeEmailStats.toString()
+      includeEmailStats.toString(),
     );
     if (fromDate) params = params.set('fromDate', fromDate);
     if (toDate) params = params.set('toDate', toDate);
@@ -65,11 +66,11 @@ export class StaffService {
   getStaff(
     includeEmailStats: boolean = true,
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<Staff[]>> {
     let params = new HttpParams().set(
       'includeEmailStats',
-      includeEmailStats.toString()
+      includeEmailStats.toString(),
     );
     if (fromDate) params = params.set('fromDate', fromDate);
     if (toDate) params = params.set('toDate', toDate);
@@ -88,11 +89,11 @@ export class StaffService {
     staffId: string,
     includeEmailStats: boolean = true,
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<Staff>> {
     let params = new HttpParams().set(
       'includeEmailStats',
-      includeEmailStats.toString()
+      includeEmailStats.toString(),
     );
     if (fromDate) params = params.set('fromDate', fromDate);
     if (toDate) params = params.set('toDate', toDate);
@@ -110,7 +111,7 @@ export class StaffService {
    */
   searchStaff(
     searchTerm: string,
-    top: number = 50
+    top: number = 50,
   ): Observable<ApiResponse<Staff[]>> {
     let params = new HttpParams()
       .set('searchTerm', searchTerm)

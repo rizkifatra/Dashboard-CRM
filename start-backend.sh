@@ -23,6 +23,7 @@ fi
 # Start the backend server in background
 echo "Starting backend server..."
 cd backend
+mvn clean package -DskipTests
 mvn spring-boot:run 
 
 

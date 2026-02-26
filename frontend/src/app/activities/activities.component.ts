@@ -71,6 +71,8 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   unrepliedPageSize = 50; // Load 50 emails per scroll
   hasMoreUnreplied = true;
   loadingMoreUnreplied = false;
+  unrepliedEmailCodeFilter: 'all' | 'RE' | 'FW' | 'RFQ' | 'RFP' | 'OTHER' =
+    'all';
 
   // Auto-refresh settings
   private refreshInterval: any = null;
@@ -664,10 +666,16 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get all unreplied emails (category filtering removed)
+   * Get filtered unreplied emails by category
    */
   getFilteredUnrepliedEmails(): UnrepliedEmail[] {
-    return this.unrepliedEmails;
+    if (this.unrepliedEmailCodeFilter === 'all') {
+      return this.unrepliedEmails;
+    }
+    return this.unrepliedEmails.filter((email) => {
+      const emailCode = this.getEmailCode(email.subject);
+      return emailCode === this.unrepliedEmailCodeFilter;
+    });
   }
 
   /**
@@ -1108,9 +1116,28 @@ export class ActivitiesComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get all email reminders (category filtering removed)
+   * Get filtered email reminders by category
    */
   getFilteredReminders(): EmailReminder[] {
-    return this.emailReminders;
+    if (this.reminderEmailCodeFilter === 'all') {
+      return this.emailReminders;
+    }
+    return this.emailReminders.filter((reminder) => {
+      const emailCode = this.getEmailCode(reminder.subject);
+      return emailCode === this.reminderEmailCodeFilter;
+    });
+  }
+
+  /**
+   * Get count of email reminders for each email code
+   */
+  getReminderEmailCodeCount(code: string): number {
+    if (code === 'all') {
+      return this.emailReminders.length;
+    }
+    return this.emailReminders.filter((reminder) => {
+      const emailCode = this.getEmailCode(reminder.subject);
+      return emailCode === code;
+    }).length;
   }
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface DashboardMetrics {
   totalActivities: number;
@@ -71,7 +72,7 @@ export interface ApiResponse<T> {
   providedIn: 'root',
 })
 export class DashboardService {
-  private apiUrl = 'http://localhost:8080/api';
+  private apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
 
@@ -80,7 +81,7 @@ export class DashboardService {
    */
   getMetrics(
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<DashboardMetrics>> {
     let params = new HttpParams();
     if (fromDate) params = params.set('fromDate', fromDate);
@@ -88,7 +89,7 @@ export class DashboardService {
 
     return this.http.get<ApiResponse<DashboardMetrics>>(
       `${this.apiUrl}/dashboard/metrics`,
-      { params }
+      { params },
     );
   }
 
@@ -98,7 +99,7 @@ export class DashboardService {
   getTopPerformers(
     top: number = 10,
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<TopPerformer[]>> {
     let params = new HttpParams().set('top', top.toString());
     if (fromDate) params = params.set('fromDate', fromDate);
@@ -106,7 +107,7 @@ export class DashboardService {
 
     return this.http.get<ApiResponse<TopPerformer[]>>(
       `${this.apiUrl}/dashboard/top-performers`,
-      { params }
+      { params },
     );
   }
 
@@ -115,7 +116,7 @@ export class DashboardService {
    */
   getEmailPerformance(
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<EmailPerformance[]>> {
     let params = new HttpParams();
     if (fromDate) params = params.set('fromDate', fromDate);
@@ -123,7 +124,7 @@ export class DashboardService {
 
     return this.http.get<ApiResponse<EmailPerformance[]>>(
       `${this.apiUrl}/dashboard/email-performance`,
-      { params }
+      { params },
     );
   }
 
@@ -132,7 +133,7 @@ export class DashboardService {
    */
   getRevenueMetrics(
     fromDate?: string,
-    toDate?: string
+    toDate?: string,
   ): Observable<ApiResponse<RevenueMetrics>> {
     let params = new HttpParams();
     if (fromDate) params = params.set('fromDate', fromDate);
@@ -140,7 +141,7 @@ export class DashboardService {
 
     return this.http.get<ApiResponse<RevenueMetrics>>(
       `${this.apiUrl}/dashboard/revenue-metrics`,
-      { params }
+      { params },
     );
   }
 
@@ -149,7 +150,7 @@ export class DashboardService {
    */
   getRevenueByMonth(): Observable<ApiResponse<MonthlyRevenue[]>> {
     return this.http.get<ApiResponse<MonthlyRevenue[]>>(
-      `${this.apiUrl}/dashboard/revenue-by-month`
+      `${this.apiUrl}/dashboard/revenue-by-month`,
     );
   }
 }

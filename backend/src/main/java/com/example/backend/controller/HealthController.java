@@ -3,14 +3,17 @@ package com.example.backend.controller;
 import com.example.backend.config.AzureAdConfig;
 import com.example.backend.config.D365Config;
 import com.example.backend.model.ApiResponse;
+import com.example.backend.model.EmailReminder;
 import com.example.backend.service.D365AccountService;
 import com.example.backend.service.D365AuthService;
+import com.example.backend.service.EmailReminderService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,15 +28,18 @@ public class HealthController {
     private final D365AccountService accountService;
     private final D365Config d365Config;
     private final AzureAdConfig azureAdConfig;
+    private final EmailReminderService emailReminderService;
 
     public HealthController(D365AuthService authService,
             D365AccountService accountService,
             D365Config d365Config,
-            AzureAdConfig azureAdConfig) {
+            AzureAdConfig azureAdConfig,
+            EmailReminderService emailReminderService) {
         this.authService = authService;
         this.accountService = accountService;
         this.d365Config = d365Config;
         this.azureAdConfig = azureAdConfig;
+        this.emailReminderService = emailReminderService;
     }
 
     /**
@@ -168,6 +174,34 @@ public class HealthController {
             log.error("Failed to debug D365", e);
             result.put("error", e.getMessage());
             return ApiResponse.error("Debug failed", e.getMessage());
+        }
+    }
+
+    /**
+     * TEST ENDPOINT: Debug email reminders (bypasses auth)
+     * TEMPORARY - Remove in production!
+     */
+    @GetMapping("/email-reminder-test")
+    public ApiResponse<Map<String, Object>> testEmailReminders() {
+        log.info("★★★ TEST: Email reminder debug endpoint called ★★★");
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("timestamp", System.currentTimeMillis());
+
+        try {
+            List<EmailReminder> reminders = emailReminderService.getEmailReminders();
+            result.put("status", "SUCCESS");
+            result.put("reminderCount", reminders.size());
+            result.put("reminders", reminders);
+
+            log.info("★★★ TEST: Found {} reminders ★★★", reminders.size());
+            return ApiResponse.success("Email reminder test completed", result);
+        } catch (Exception e) {
+            log.error("★★★ TEST: Email reminder test failed ★★★", e);
+            result.put("status", "ERROR");
+            result.put("error", e.getMessage());
+            result.put("errorClass", e.getClass().getName());
+            return ApiResponse.success("Email reminder test failed: " + e.getMessage(), result);
         }
     }
 }

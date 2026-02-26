@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface HealthStatus {
   status: string;
@@ -40,7 +41,7 @@ export interface ApiResponse<T> {
   providedIn: 'root',
 })
 export class HealthService {
-  private apiUrl = 'http://localhost:8080/api/health';
+  private apiUrl = `${environment.apiUrl}/health`;
 
   constructor(private http: HttpClient) {}
 
@@ -56,7 +57,7 @@ export class HealthService {
    */
   testD365Connection(): Observable<ApiResponse<D365ConnectionStatus>> {
     return this.http.get<ApiResponse<D365ConnectionStatus>>(
-      `${this.apiUrl}/d365-connection`
+      `${this.apiUrl}/d365-connection`,
     );
   }
 
