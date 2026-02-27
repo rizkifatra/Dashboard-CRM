@@ -24,8 +24,17 @@ RUN rm -rf ./*
 # Copy built Angular app from build stage
 COPY --from=build /app/dist/frontend/browser .
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom nginx configuration as template
+COPY nginx.conf /tmp/nginx.conf.template
+
+# Set default backend URL (can be overridden at runtime)
+ENV BACKEND_URL=backend:8080
+# Backend host for Host header (without port)
+ENV BACKEND_HOST=backend
+# DNS resolver: 127.0.0.11 for Docker, 168.63.129.16 for Azure
+ENV DNS_RESOLVER=127.0.0.11
+# Forwarded protocol: http for local, https for Azure (SSL termination)
+ENV FORWARDED_PROTO=http
 
 # Expose port 80
 EXPOSE 80
@@ -34,5 +43,5 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Use sed to replace placeholders, then start nginx
+CMD sed -e "s|\${BACKEND_URL}|${BACKEND_URL}|g" -e "s|\${BACKEND_HOST}|${BACKEND_HOST}|g" -e "s|\${DNS_RESOLVER}|${DNS_RESOLVER}|g" -e "s|\${FORWARDED_PROTO}|${FORWARDED_PROTO}|g" /tmp/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g "daemon off;"

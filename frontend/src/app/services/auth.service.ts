@@ -130,8 +130,8 @@ export class AuthService {
     this.currentUserSubject.next(null);
     this.isAuthenticatedSubject.next(false);
 
-    // Redirect to login page
-    window.location.href = '/login';
+    // Redirect to login page with logout flag to show success message
+    window.location.href = '/login?logout=true';
   }
 
   /**

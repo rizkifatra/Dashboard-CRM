@@ -49,6 +49,9 @@ services:
     container_name: crm-frontend
     ports:
       - "80:80"
+    environment:
+      - BACKEND_URL=backend:8080
+      - BACKEND_HOST=backend
     depends_on:
       backend:
         condition: service_healthy

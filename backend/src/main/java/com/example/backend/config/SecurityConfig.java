@@ -63,8 +63,10 @@ public class SecurityConfig {
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource)) // Enable CORS with
                                                                                                  // configuration source
                                 .csrf(csrf -> csrf.disable())
+                                // Use IF_REQUIRED to allow sessions for OAuth2 state validation
+                                // JWT is still used for API authentication after OAuth2 flow completes
                                 .sessionManagement(session -> session
-                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                                 .exceptionHandling(exception -> exception
                                                 .authenticationEntryPoint(restAuthenticationEntryPoint))
                                 .authorizeHttpRequests(auth -> auth

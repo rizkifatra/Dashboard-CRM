@@ -36,16 +36,16 @@ export class AppComponent implements OnInit {
     this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
       .subscribe((event: any) => {
-        this.showSidebar = !(
-          event.url === '/login' || event.url.startsWith('/auth/callback')
-        );
+        this.showSidebar = !this.isAuthRoute(event.url);
       });
 
     // Check initial route
-    this.showSidebar = !(
-      this.router.url === '/login' ||
-      this.router.url.startsWith('/auth/callback')
-    );
+    this.showSidebar = !this.isAuthRoute(this.router.url);
+  }
+
+  private isAuthRoute(url: string): boolean {
+    const path = url.split('?')[0]; // Remove query params
+    return path === '/login' || path.startsWith('/auth/callback');
   }
 
   getUserInitials(): string {
